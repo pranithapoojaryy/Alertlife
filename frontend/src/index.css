@@ -53,109 +53,109 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 999px;
 }
 
-/* Core Dashboard Layout */
+/* Core PWA Mobile Layout */
 .app-container {
   display: flex;
-  min-height: 100vh;
-}
-
-.sidebar {
-  width: 280px;
-  background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border);
-  padding: 2rem 1.5rem;
-  display: flex;
   flex-direction: column;
-  gap: 2rem;
+  min-height: 100vh;
+  position: relative;
 }
 
-.logo {
+.mobile-header {
+  height: 60px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 1.5rem;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 99;
+}
+
+.mobile-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
   font-weight: 800;
   font-family: 'Outfit', sans-serif;
-  background: linear-gradient(to right, var(--red), var(--blue));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.sidebar-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  cursor: pointer;
-  background: none;
-  text-align: left;
-}
-
-.menu-item:hover, .menu-item.active {
   color: var(--text-primary);
-  background-color: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.mobile-logo span {
+  font-size: 1.5rem;
 }
 
 .main-content {
   flex: 1;
-  padding: 2.5rem;
+  padding: 1.25rem;
+  padding-bottom: 84px; /* Space for fixed bottom navigation */
   overflow-y: auto;
   background-image: 
-    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 0% 100%, rgba(244, 63, 94, 0.06) 0%, transparent 40%);
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(244, 63, 94, 0.04) 0%, transparent 40%);
 }
 
-/* Role Switcher */
-.role-tabs {
-  display: flex;
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
   background-color: var(--bg-secondary);
-  border: 1px solid var(--border);
-  padding: 0.35rem;
-  border-radius: 16px;
-  gap: 0.25rem;
-  margin-bottom: 2rem;
-  overflow-x: auto;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 100;
+  padding: 0 0.5rem;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
 }
 
-.role-tab {
-  flex: 1;
+.nav-tab {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
+  gap: 0.2rem;
   background: none;
   border: none;
   color: var(--text-secondary);
+  font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
+  flex: 1;
 }
 
-.role-tab:hover {
-  color: var(--text-primary);
-  background-color: rgba(0, 0, 0, 0.02);
+.nav-tab.active {
+  color: var(--blue);
 }
 
-.role-tab.active {
-  color: #fff;
-  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+.nav-tab-icon {
+  font-size: 1.35rem;
+}
+
+/* Mobile Auth Styling */
+.mobile-auth-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.25rem;
+  background-color: var(--bg-primary);
+}
+
+.mobile-auth-card {
+  width: 100%;
+  max-width: 400px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
 }
 
 /* Cards & Grid Layouts */
@@ -425,3 +425,11 @@ h1, h2, h3, h4, h5, h6 {
 .cpr-card:hover {
   background-color: rgba(255, 255, 255, 0.08);
 }
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+

@@ -1,0 +1,18 @@
+{
+  "short_name": "Alert Life",
+  "name": "Alert Life - Emergency SOS App",
+  "description": "Instant health emergency assistance, SOS requests, and first-aid education app for citizens.",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#f3f4f6",
+  "theme_color": "#6366f1",
+  "display": "standalone",
+  "orientation": "portrait"
+}
