@@ -2,20 +2,28 @@ import React, { useState } from 'react';
 import Dashboard from './pages/Dashboard';
 
 function App() {
-  const [user, setUser] = useState(localStorage.getItem('citizen_session') || null);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user_session');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
-  const [regForm, setRegForm] = useState({ name: '', email: '', phone: '', bloodGroup: 'O+', password: '' });
+  const [loginRole, setLoginRole] = useState('citizen');
+  const [regForm, setRegForm] = useState({ name: '', email: '', phone: '', bloodGroup: 'O+', role: 'citizen', password: '' });
   const [error, setError] = useState('');
 
   const handleLogin = (e) => {
     e.preventDefault();
     if (!loginEmail) return;
     
-    // Simple validation
     if (loginEmail.toLowerCase().includes('@')) {
-      localStorage.setItem('citizen_session', loginEmail);
-      setUser(loginEmail);
+      const userData = {
+        email: loginEmail,
+        name: loginEmail.split('@')[0],
+        role: loginRole
+      };
+      localStorage.setItem('user_session', JSON.stringify(userData));
+      setUser(userData);
       setError('');
     } else {
       setError('Please enter a valid email address.');
@@ -29,7 +37,13 @@ function App() {
       return;
     }
     
-    localStorage.setItem('citizen_session', regForm.email);
+    const userData = {
+      email: regForm.email,
+      name: regForm.name,
+      role: regForm.role
+    };
+    localStorage.setItem('user_session', JSON.stringify(userData));
+
     // Sync mock profile name
     import('./services/api').then(({ api }) => {
       api.updateProfile({
@@ -39,12 +53,12 @@ function App() {
         bloodGroup: regForm.bloodGroup
       });
     });
-    setUser(regForm.email);
+    setUser(userData);
     setError('');
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('citizen_session');
+    localStorage.removeItem('user_session');
     setUser(null);
   };
 
@@ -55,7 +69,7 @@ function App() {
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <span style={{ fontSize: '3rem' }}>🚨</span>
             <h2 style={{ fontSize: '1.75rem', marginTop: '0.5rem' }}>Alert Life</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Citizen Emergency SOS App</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Emergency dispatch response network</p>
           </div>
 
           {error && (
@@ -73,6 +87,16 @@ function App() {
               <div className="form-group">
                 <label className="form-label">Password</label>
                 <input type="password" className="form-input" placeholder="••••••••" required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Account Role</label>
+                <select className="form-select" value={loginRole} onChange={e => setLoginRole(e.target.value)}>
+                  <option value="citizen">👤 Citizen (Mobile PWA)</option>
+                  <option value="volunteer">🙋 Volunteer (Mobile PWA)</option>
+                  <option value="admin">👑 System Administrator (Desktop)</option>
+                  <option value="hospital">🏥 Hospital Desk (Desktop)</option>
+                  <option value="doctor">🥼 Doctor Panel (Desktop)</option>
+                </select>
               </div>
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
                 Sign In
@@ -99,11 +123,23 @@ function App() {
                 <input type="tel" className="form-input" placeholder="+1 (555) 000-0000" value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Blood Group</label>
-                <select className="form-select" value={regForm.bloodGroup} onChange={e => setRegForm({...regForm, bloodGroup: e.target.value})}>
-                  {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                <label className="form-label">Account Role</label>
+                <select className="form-select" value={regForm.role} onChange={e => setRegForm({...regForm, role: e.target.value})}>
+                  <option value="citizen">👤 Citizen (Mobile PWA)</option>
+                  <option value="volunteer">🙋 Volunteer (Mobile PWA)</option>
+                  <option value="admin">👑 System Administrator (Desktop)</option>
+                  <option value="hospital">🏥 Hospital Desk (Desktop)</option>
+                  <option value="doctor">🥼 Doctor Panel (Desktop)</option>
                 </select>
               </div>
+              {regForm.role === 'citizen' && (
+                <div className="form-group">
+                  <label className="form-label">Blood Group</label>
+                  <select className="form-select" value={regForm.bloodGroup} onChange={e => setRegForm({...regForm, bloodGroup: e.target.value})}>
+                    {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                  </select>
+                </div>
+              )}
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
                 Create Account
               </button>
@@ -121,7 +157,7 @@ function App() {
   }
 
   return (
-    <Dashboard onLogout={handleLogout} />
+    <Dashboard user={user} onLogout={handleLogout} />
   );
 }
 

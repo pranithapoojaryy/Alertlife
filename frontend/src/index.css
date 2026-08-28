@@ -53,12 +53,75 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 999px;
 }
 
-/* Core PWA Mobile Layout */
-.app-container {
+/* Layout Systems */
+.mobile-layout {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   position: relative;
+}
+
+.mobile-layout .main-content {
+  flex: 1;
+  padding: 1.25rem;
+  padding-bottom: 84px; /* Space for fixed bottom navigation */
+  overflow-y: auto;
+  background-image: 
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(244, 63, 94, 0.04) 0%, transparent 40%);
+}
+
+.desktop-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+}
+
+.desktop-layout .sidebar {
+  width: 280px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.desktop-layout .main-content {
+  flex: 1;
+  padding: 2.5rem;
+  overflow-y: auto;
+  background-image: 
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(244, 63, 94, 0.06) 0%, transparent 40%);
+}
+
+.desktop-layout .sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.desktop-layout .menu-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: none;
+  text-align: left;
+}
+
+.desktop-layout .menu-item:hover, .desktop-layout .menu-item.active {
+  color: var(--text-primary);
+  background-color: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
 .mobile-header {
@@ -88,14 +151,14 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.5rem;
 }
 
-.main-content {
-  flex: 1;
-  padding: 1.25rem;
-  padding-bottom: 84px; /* Space for fixed bottom navigation */
-  overflow-y: auto;
-  background-image: 
-    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 40%),
-    radial-gradient(circle at 0% 100%, rgba(244, 63, 94, 0.04) 0%, transparent 40%);
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text-primary);
 }
 
 .bottom-nav {
