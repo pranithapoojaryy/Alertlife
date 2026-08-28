@@ -445,14 +445,7 @@ export default function Dashboard({ user, onLogout }) {
           )}
           <button className={`nav-tab ${activeTab === 'education' ? 'active' : ''}`} onClick={() => setActiveTab('education')}>
             <span className="nav-tab-icon">📚</span>
-            Education
-          </button>
-        </nav>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------
+           // -------------------------------------------------------------
   // DESKTOP ADMIN / STAFF LAYOUT
   // -------------------------------------------------------------
   return (
@@ -469,8 +462,14 @@ export default function Dashboard({ user, onLogout }) {
           <button className={`menu-item ${activeTab === 'ambulance' ? 'active' : ''}`} onClick={() => setActiveTab('ambulance')}>
             🚑 Ambulance Desk
           </button>
+          <button className={`menu-item ${activeTab === 'telehealth' ? 'active' : ''}`} onClick={() => setActiveTab('telehealth')}>
+            🥼 Doctor Consults
+          </button>
           <button className={`menu-item ${activeTab === 'content' ? 'active' : ''}`} onClick={() => setActiveTab('content')}>
             📅 Content & Events
+          </button>
+          <button className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+            ⚙️ System Config
           </button>
         </div>
         <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -536,6 +535,36 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         )}
 
+        {activeTab === 'telehealth' && (
+          <div className="card">
+            <h3 className="card-title">🥼 Telehealth Doctor Console</h3>
+            {sosState && sosState.consultationActive ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem', marginTop: '1rem' }}>
+                <div className="call-simulator" style={{ height: '350px' }}>
+                  <div className="video-feed" style={{ height: '100%', position: 'relative' }}>
+                    <span style={{ fontSize: '1rem', color: 'white', position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(0,0,0,0.6)', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
+                      🟢 Live Telehealth Call: {sosState.patientName}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="card" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)' }}>
+                    <h4>📊 Live Vitals Stream</h4>
+                    <p style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>Heart Rate: <strong>88 bpm</strong></p>
+                    <p style={{ fontSize: '0.85rem' }}>Blood Oxygen: <strong>97%</strong></p>
+                    <p style={{ fontSize: '0.85rem' }}>Blood Group: <strong>{sosState.patientBlood}</strong></p>
+                  </div>
+                  <button className="btn btn-danger" style={{ width: '100%' }} onClick={endDoctorConsult}>
+                    End Telehealth Call
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>No active telehealth consultations requested.</p>
+            )}
+          </div>
+        )}
+
         {activeTab === 'content' && (
           <div className="grid-2">
             <div className="card">
@@ -570,6 +599,36 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Publish Article</button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="card" style={{ maxWidth: '500px' }}>
+            <h3 className="card-title">⚙️ Global System Configuration</h3>
+            <div className="form-group" style={{ marginTop: '1.25rem' }}>
+              <label className="form-label">Default Emergency Search Radius: <strong>{radius} km</strong></label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="0.5"
+                value={radius}
+                onChange={e => {
+                  const val = parseFloat(e.target.value);
+                  setRadius(val);
+                  import('../services/api').then(({ api: apiObj }) => {
+                    apiObj.updateRadius?.(val);
+                  });
+                }}
+                style={{ width: '100%', marginTop: '0.5rem' }}
+              />
+            </div>
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <h4>🔐 Access Keys</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                MongoDB Connection status: <span className="badge badge-emerald">Connected</span>
+              </p>
             </div>
           </div>
         )}

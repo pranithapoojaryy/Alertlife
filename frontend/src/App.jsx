@@ -93,9 +93,7 @@ function App() {
                 <select className="form-select" value={loginRole} onChange={e => setLoginRole(e.target.value)}>
                   <option value="citizen">👤 Citizen (Mobile PWA)</option>
                   <option value="volunteer">🙋 Volunteer (Mobile PWA)</option>
-                  <option value="admin">👑 System Administrator (Desktop)</option>
-                  <option value="hospital">🏥 Hospital Desk (Desktop)</option>
-                  <option value="doctor">🥼 Doctor Panel (Desktop)</option>
+                  <option value="admin">👑 Admin Management Console (Desktop)</option>
                 </select>
               </div>
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
@@ -127,9 +125,7 @@ function App() {
                 <select className="form-select" value={regForm.role} onChange={e => setRegForm({...regForm, role: e.target.value})}>
                   <option value="citizen">👤 Citizen (Mobile PWA)</option>
                   <option value="volunteer">🙋 Volunteer (Mobile PWA)</option>
-                  <option value="admin">👑 System Administrator (Desktop)</option>
-                  <option value="hospital">🏥 Hospital Desk (Desktop)</option>
-                  <option value="doctor">🥼 Doctor Panel (Desktop)</option>
+                  <option value="admin">👑 Admin Management Console (Desktop)</option>
                 </select>
               </div>
               {regForm.role === 'citizen' && (

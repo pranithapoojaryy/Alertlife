@@ -279,7 +279,13 @@ export const api = {
     return mockMembers;
   },
 
-  getRadius: () => getLocalDB().radius
+  getRadius: () => getLocalDB().radius,
+
+  updateRadius: (val) => {
+    const db = getLocalDB();
+    db.radius = val;
+    saveLocalDB(db);
+  }
 };
 
 // Internal helper for local updates
