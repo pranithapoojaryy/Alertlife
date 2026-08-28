@@ -162,7 +162,7 @@ export const api = {
     const db = getLocalDB();
     if (db.activeSOS) {
       db.activeSOS = { ...db.activeSOS, ...updates };
-      saveDBLocal(db);
+      saveLocalDB(db);
     }
     return db.activeSOS;
   },
@@ -285,10 +285,30 @@ export const api = {
     const db = getLocalDB();
     db.radius = val;
     saveLocalDB(db);
+  },
+
+  addWebinar: async (webinarData) => {
+    try {
+      await client.post('/events', { ...webinarData, type: 'webinar' });
+    } catch (err) {
+      console.warn('Failed to add webinar to backend, saving locally.', err);
+    }
+    const db = getLocalDB();
+    db.webinars = [...(db.webinars || []), { id: 'web-' + Date.now(), ...webinarData, attendees: 0 }];
+    saveLocalDB(db);
+    return db.webinars;
+  },
+
+  addArticle: async (articleData) => {
+    try {
+      await client.post('/education', articleData);
+    } catch (err) {
+      console.warn('Failed to add article to backend, saving locally.', err);
+    }
+    const db = getLocalDB();
+    db.articles = [...(db.articles || []), { id: 'art-' + Date.now(), ...articleData }];
+    saveLocalDB(db);
+    return db.articles;
   }
 };
 
-// Internal helper for local updates
-const saveDBLocal = (state) => {
-  localStorage.setItem('alertlife_db_v1', JSON.stringify(state));
-};

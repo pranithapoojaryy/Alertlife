@@ -8,14 +8,13 @@ export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState(isMobile ? 'sos' : 'monitor');
   const [sosDescription, setSosDescription] = useState('');
   const [sosState, setSosState] = useState(api.getActiveSOS());
-  const [profile, setProfile] = useState(api.getProfile());
+  const [profile, setProfile] = useState({ name: '', email: '', phone: '', bloodGroup: 'O+', allergies: 'None', medicalHistory: 'None' });
   const [radius, setRadius] = useState(api.getRadius());
 
   // Directory & Lists
   const [webinars, setWebinars] = useState([]);
   const [articles, setArticles] = useState([]);
   const [members, setMembers] = useState([]);
-  const [casesHistory, setCasesHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Simulated GPS route tracking
@@ -32,12 +31,14 @@ export default function Dashboard({ user, onLogout }) {
 
   // Sync state on intervals
   useEffect(() => {
+    // Fetch initial profile async
+    api.getProfile().then(p => { if (p) setProfile(p); });
+
     const fetchData = () => {
       setSosState(api.getActiveSOS());
-      api.getWebinars().then(data => setWebinars(data));
-      api.getArticles().then(data => setArticles(data));
-      api.getMembers().then(data => setMembers(data));
-      setCasesHistory(api.getCasesHistory());
+      api.getWebinars().then(data => setWebinars(data || []));
+      api.getArticles().then(data => setArticles(data || []));
+      api.getMembers().then(data => setMembers(data || []));
     };
     fetchData();
     const interval = setInterval(fetchData, 1500);
@@ -152,6 +153,16 @@ export default function Dashboard({ user, onLogout }) {
     api.addArticle(newArticle);
     setNewArticle({ title: '', category: 'Guides', readTime: '5 min read', content: '' });
     alert('First Aid Guide Published!');
+  };
+
+  // Citizen Handlers
+  const handleUpdateProfile = (e) => {
+    e.preventDefault();
+    api.updateProfile(profile).then(() => alert('Profile saved!'));
+  };
+
+  const handleRegisterWebinar = (webId) => {
+    api.registerForWebinar(webId).then(data => setWebinars(data || []));
   };
 
   // -------------------------------------------------------------
