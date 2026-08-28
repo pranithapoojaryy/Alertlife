@@ -285,6 +285,7 @@ export default function Dashboard({ onLogout }) {
               </div>
             </div>
           </div>
+        )}
         {/* Tab 4: Members Directory */}
         {activeTab === 'members' && (
           <div className="card">
