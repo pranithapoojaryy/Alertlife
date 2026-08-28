@@ -2,14 +2,30 @@ import React, { useState } from 'react';
 import Dashboard from './pages/Dashboard';
 
 function App() {
+  // Helper to read the current role from query params (?portal=volunteer or ?portal=admin)
+  const getPortalRole = () => {
+    const params = new URLSearchParams(window.location.search);
+    const portal = params.get('portal') || '';
+    if (portal.toLowerCase() === 'volunteer') return 'volunteer';
+    if (portal.toLowerCase() === 'admin') return 'admin';
+    return 'citizen'; // Default portal
+  };
+
+  const currentRole = getPortalRole();
+
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user_session');
     return saved ? JSON.parse(saved) : null;
   });
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
-  const [loginRole, setLoginRole] = useState('citizen');
-  const [regForm, setRegForm] = useState({ name: '', email: '', phone: '', bloodGroup: 'O+', role: 'citizen', password: '' });
+  const [regForm, setRegForm] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    bloodGroup: 'O+', 
+    password: '' 
+  });
   const [error, setError] = useState('');
 
   const handleLogin = (e) => {
@@ -20,7 +36,7 @@ function App() {
       const userData = {
         email: loginEmail,
         name: loginEmail.split('@')[0],
-        role: loginRole
+        role: currentRole
       };
       localStorage.setItem('user_session', JSON.stringify(userData));
       setUser(userData);
@@ -40,7 +56,7 @@ function App() {
     const userData = {
       email: regForm.email,
       name: regForm.name,
-      role: regForm.role
+      role: currentRole
     };
     localStorage.setItem('user_session', JSON.stringify(userData));
 
@@ -62,14 +78,27 @@ function App() {
     setUser(null);
   };
 
+  // Helper for text headers based on the active portal URL
+  const getPortalInfo = () => {
+    if (currentRole === 'volunteer') {
+      return { title: 'Volunteer Network', subtitle: 'First Responder Dispatch App' };
+    }
+    if (currentRole === 'admin') {
+      return { title: 'Admin Console', subtitle: 'Emergency Response Management Site' };
+    }
+    return { title: 'Alert Life', subtitle: 'Citizen Emergency SOS PWA' };
+  };
+
+  const portalInfo = getPortalInfo();
+
   if (!user) {
     return (
       <div className="mobile-auth-container">
         <div className="mobile-auth-card">
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <span style={{ fontSize: '3rem' }}>🚨</span>
-            <h2 style={{ fontSize: '1.75rem', marginTop: '0.5rem' }}>Alert Life</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Emergency dispatch response network</p>
+            <h2 style={{ fontSize: '1.75rem', marginTop: '0.5rem' }}>{portalInfo.title}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{portalInfo.subtitle}</p>
           </div>
 
           {error && (
@@ -88,16 +117,8 @@ function App() {
                 <label className="form-label">Password</label>
                 <input type="password" className="form-input" placeholder="••••••••" required />
               </div>
-              <div className="form-group">
-                <label className="form-label">Account Role</label>
-                <select className="form-select" value={loginRole} onChange={e => setLoginRole(e.target.value)}>
-                  <option value="citizen">👤 Citizen (Mobile PWA)</option>
-                  <option value="volunteer">🙋 Volunteer (Mobile PWA)</option>
-                  <option value="admin">👑 Admin Management Console (Desktop)</option>
-                </select>
-              </div>
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
-                Sign In
+                Sign In to {currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} Portal
               </button>
               <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Don't have an account?{' '}
@@ -120,15 +141,7 @@ function App() {
                 <label className="form-label">Phone Number</label>
                 <input type="tel" className="form-input" placeholder="+1 (555) 000-0000" value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} required />
               </div>
-              <div className="form-group">
-                <label className="form-label">Account Role</label>
-                <select className="form-select" value={regForm.role} onChange={e => setRegForm({...regForm, role: e.target.value})}>
-                  <option value="citizen">👤 Citizen (Mobile PWA)</option>
-                  <option value="volunteer">🙋 Volunteer (Mobile PWA)</option>
-                  <option value="admin">👑 Admin Management Console (Desktop)</option>
-                </select>
-              </div>
-              {regForm.role === 'citizen' && (
+              {currentRole === 'citizen' && (
                 <div className="form-group">
                   <label className="form-label">Blood Group</label>
                   <select className="form-select" value={regForm.bloodGroup} onChange={e => setRegForm({...regForm, bloodGroup: e.target.value})}>
@@ -137,7 +150,7 @@ function App() {
                 </div>
               )}
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
-                Create Account
+                Register as {currentRole.charAt(0).toUpperCase() + currentRole.slice(1)}
               </button>
               <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Already have an account?{' '}
