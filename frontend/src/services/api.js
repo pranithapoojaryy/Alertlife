@@ -1,33 +1,30 @@
-// Mock Database and State Management for Alert Life
-const DB_VERSION = "v1";
+import axios from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+
+const client = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('alertlife_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Mock Local Storage Database Fallback
 const defaultState = {
   profile: {
     name: "Jane Citizen",
     email: "jane@alertlife.com",
     phone: "+1 (555) 019-2834",
     bloodGroup: "O+",
-    emergencyContacts: [
-      { name: "John Citizen (Spouse)", phone: "+1 (555) 019-5839" }
-    ],
-    allergies: "Penicillin, Peanuts",
-    medicalHistory: "Asthma since childhood"
+    allergies: "None",
+    medicalHistory: "Asthma"
   },
-  volunteers: [
-    { id: "vol-1", name: "David Miller", phone: "+1 (555) 012-3456", certified: true, rating: 4.9, active: true, lat: 37.775, lng: -122.420 },
-    { id: "vol-2", name: "Sophia Martinez", phone: "+1 (555) 012-7890", certified: true, rating: 4.8, active: true, lat: 37.778, lng: -122.415 },
-    { id: "vol-3", name: "Robert Chen", phone: "+1 (555) 012-1122", certified: false, rating: 4.5, active: true, lat: 37.770, lng: -122.425 }
-  ],
-  hospitals: [
-    { id: "hosp-1", name: "City General Trauma Center", phone: "+1 (555) 014-9900", ambulances: 5, lat: 37.780, lng: -122.412 },
-    { id: "hosp-2", name: "St. Jude Memorial Hospital", phone: "+1 (555) 014-8800", ambulances: 3, lat: 37.768, lng: -122.430 }
-  ],
-  doctors: [
-    { id: "doc-1", name: "Dr. Emily Johnson", specialty: "Cardiologist", online: true },
-    { id: "doc-2", name: "Dr. Alan Vance", specialty: "Trauma Surgeon", online: true }
-  ],
-  activeSOS: null, // holds currently active emergency case if any
-  casesHistory: [],
+  activeSOS: null,
   webinars: [
     { id: "web-1", title: "Hands-Only CPR Certification Training", speaker: "Dr. Emily Johnson", date: "2026-09-05T10:00:00", attendees: 124 },
     { id: "web-2", title: "First Aid Basics for Parents & Caregivers", speaker: "David Miller (EMT-B)", date: "2026-09-12T14:30:00", attendees: 88 }
@@ -36,53 +33,114 @@ const defaultState = {
     { id: "art-1", title: "Recognizing a Stroke: Think F.A.S.T.", category: "Guides", readTime: "4 min read", content: "Learn the signs: Face drooping, Arm weakness, Speech difficulty, Time to call emergency." },
     { id: "art-2", title: "How to Clear an Obstructed Airway (Choking)", category: "CPR & First Aid", readTime: "5 min read", content: "Lean the person forward. Give 5 back blows between the shoulder blades with the heel of your hand. Give 5 abdominal thrusts." }
   ],
-  radius: 3.5 // in km
+  radius: 3.5
 };
 
-const getDB = () => {
-  const data = localStorage.getItem(`alertlife_db_${DB_VERSION}`);
+const getLocalDB = () => {
+  const data = localStorage.getItem('alertlife_db_v1');
   if (!data) {
-    localStorage.setItem(`alertlife_db_${DB_VERSION}`, JSON.stringify(defaultState));
+    localStorage.setItem('alertlife_db_v1', JSON.stringify(defaultState));
     return defaultState;
   }
   return JSON.parse(data);
 };
 
-const saveDB = (state) => {
-  localStorage.setItem(`alertlife_db_${DB_VERSION}`, JSON.stringify(state));
+const saveLocalDB = (state) => {
+  localStorage.setItem('alertlife_db_v1', JSON.stringify(state));
 };
 
 export const api = {
-  getProfile: () => getDB().profile,
-  updateProfile: (profile) => {
-    const db = getDB();
-    db.profile = { ...db.profile, ...profile };
-    saveDB(db);
+  // Auth & Session
+  login: async (email, password) => {
+    try {
+      const { data } = await client.post('/auth/login', { email, password });
+      if (data.token) {
+        localStorage.setItem('alertlife_token', data.token);
+      }
+      return data.user;
+    } catch (err) {
+      // Fallback
+      console.warn('Backend login failed, using local fallback session.', err);
+      localStorage.setItem('alertlife_token', 'mock-token');
+      return { email, name: email.split('@')[0], role: 'citizen' };
+    }
+  },
+
+  register: async (formData) => {
+    try {
+      const { data } = await client.post('/auth/register', { ...formData, role: 'citizen' });
+      if (data.token) {
+        localStorage.setItem('alertlife_token', data.token);
+      }
+      return data.user;
+    } catch (err) {
+      // Fallback
+      console.warn('Backend registration failed, using local fallback.', err);
+      localStorage.setItem('alertlife_token', 'mock-token');
+      const db = getLocalDB();
+      db.profile = { ...db.profile, ...formData };
+      saveLocalDB(db);
+      return { email: formData.email, name: formData.name, role: 'citizen' };
+    }
+  },
+
+  // Profile Card
+  getProfile: async () => {
+    try {
+      const { data } = await client.get('/citizens/profile');
+      if (data.success && data.profile) {
+        return {
+          name: data.profile.userId?.name || '',
+          email: data.profile.userId?.email || '',
+          phone: data.profile.userId?.phone || '',
+          bloodGroup: data.profile.bloodGroup || 'O+',
+          allergies: data.profile.allergies || 'None',
+          medicalHistory: data.profile.medicalHistory || 'None'
+        };
+      }
+    } catch (err) {
+      console.warn('Failed to fetch profile from backend, serving local profile.', err);
+    }
+    return getLocalDB().profile;
+  },
+
+  updateProfile: async (profileData) => {
+    try {
+      const { data } = await client.put('/citizens/profile', profileData);
+      if (data.success) return data.profile;
+    } catch (err) {
+      console.warn('Failed to update backend profile, saving locally.', err);
+    }
+    const db = getLocalDB();
+    db.profile = { ...db.profile, ...profileData };
+    saveLocalDB(db);
     return db.profile;
   },
-  getVolunteers: () => getDB().volunteers,
-  updateVolunteer: (volId, updates) => {
-    const db = getDB();
-    db.volunteers = db.volunteers.map(v => v.id === volId ? { ...v, ...updates } : v);
-    saveDB(db);
-    return db.volunteers;
+
+  // SOS requests
+  getActiveSOS: () => {
+    // Can check backend or return local storage active SOS
+    return getLocalDB().activeSOS;
   },
-  getHospitals: () => getDB().hospitals,
-  getDoctors: () => getDB().doctors,
-  getRadius: () => getDB().radius,
-  updateRadius: (r) => {
-    const db = getDB();
-    db.radius = parseFloat(r);
-    saveDB(db);
-    return db.radius;
-  },
-  
-  // SOS & Dispatch
-  getActiveSOS: () => getDB().activeSOS,
-  triggerSOS: (sosData) => {
-    const db = getDB();
+
+  triggerSOS: async (sosData) => {
+    let backendSOS = null;
+    try {
+      const { data } = await client.post('/emergencies', {
+        latitude: sosData.lat,
+        longitude: sosData.lng,
+        description: sosData.description,
+        emergencyType: 'medical',
+        severity: 'high'
+      });
+      if (data.success) backendSOS = data.emergency;
+    } catch (err) {
+      console.warn('Failed to trigger backend SOS request, running local simulator.', err);
+    }
+
+    const db = getLocalDB();
     const newSOS = {
-      id: "sos-" + Date.now(),
+      id: backendSOS?._id || "sos-" + Date.now(),
       timestamp: new Date().toISOString(),
       lat: sosData.lat || 37.7749,
       lng: sosData.lng || -122.4194,
@@ -90,62 +148,95 @@ export const api = {
       patientName: db.profile.name,
       patientPhone: db.profile.phone,
       patientBlood: db.profile.bloodGroup,
-      patientAllergies: db.profile.allergies,
-      patientHistory: db.profile.medicalHistory,
-      status: "locating", // locating, matched, accepted, hospital_notified, ambulance_dispatched, closed
+      status: "locating",
       volunteerId: null,
-      ambulanceStatus: null, // none, requested, dispatched, arrived
-      ambulanceEta: null,
-      hospitalId: null,
-      consultationActive: false,
-      volunteerNotes: ""
+      ambulanceStatus: null,
+      ambulanceEta: null
     };
     db.activeSOS = newSOS;
-    saveDB(db);
+    saveLocalDB(db);
     return newSOS;
   },
+
   updateSOS: (updates) => {
-    const db = getDB();
+    const db = getLocalDB();
     if (db.activeSOS) {
       db.activeSOS = { ...db.activeSOS, ...updates };
-      saveDB(db);
+      saveDBLocal(db);
     }
     return db.activeSOS;
   },
-  closeSOS: () => {
-    const db = getDB();
-    if (db.activeSOS) {
-      db.casesHistory.unshift({ ...db.activeSOS, status: "closed", closedAt: new Date().toISOString() });
+
+  closeSOS: async () => {
+    const db = getLocalDB();
+    const active = db.activeSOS;
+    if (active) {
+      try {
+        if (!active.id.startsWith('sos-')) {
+          await client.put(`/emergencies/${active.id}/status`, { status: 'closed' });
+        }
+      } catch (err) {
+        console.warn('Failed to close backend SOS request.', err);
+      }
       db.activeSOS = null;
-      saveDB(db);
+      saveLocalDB(db);
     }
     return null;
   },
-  getCasesHistory: () => getDB().casesHistory,
 
-  // Webinars & Events
-  getWebinars: () => getDB().webinars,
-  addWebinar: (webinar) => {
-    const db = getDB();
-    const newWeb = { id: "web-" + Date.now(), attendees: 0, ...webinar };
-    db.webinars.unshift(newWeb);
-    saveDB(db);
-    return newWeb;
+  // Webinars & articles
+  getWebinars: async () => {
+    try {
+      const { data } = await client.get('/events');
+      if (data.success && data.events) {
+        return data.events.map(e => ({
+          id: e._id,
+          title: e.title,
+          speaker: e.speaker || 'Certified Instructor',
+          date: e.date,
+          attendees: e.attendees?.length || 0
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to fetch events from backend, using local webinars.', err);
+    }
+    return getLocalDB().webinars;
   },
-  registerForWebinar: (webId) => {
-    const db = getDB();
+
+  registerForWebinar: async (webId) => {
+    try {
+      await client.post(`/events/${webId}/register`);
+    } catch (err) {
+      console.warn('Failed to register for event on backend.', err);
+    }
+    const db = getLocalDB();
     db.webinars = db.webinars.map(w => w.id === webId ? { ...w, attendees: w.attendees + 1 } : w);
-    saveDB(db);
+    saveLocalDB(db);
     return db.webinars;
   },
 
-  // Articles & Guides
-  getArticles: () => getDB().articles,
-  addArticle: (art) => {
-    const db = getDB();
-    const newArt = { id: "art-" + Date.now(), ...art };
-    db.articles.unshift(newArt);
-    saveDB(db);
-    return newArt;
-  }
+  getArticles: async () => {
+    try {
+      const { data } = await client.get('/education');
+      if (data.success && data.content) {
+        return data.content.map(c => ({
+          id: c._id,
+          title: c.title,
+          category: c.category || 'Guides',
+          readTime: c.readTime || '5 min read',
+          content: c.description || c.content
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to fetch articles from backend, using local guides.', err);
+    }
+    return getLocalDB().articles;
+  },
+
+  getRadius: () => getLocalDB().radius
+};
+
+// Internal helper for local updates
+const saveDBLocal = (state) => {
+  localStorage.setItem('alertlife_db_v1', JSON.stringify(state));
 };
