@@ -2,8 +2,16 @@ import React, { useState } from 'react';
 import Dashboard from './pages/Dashboard';
 
 function App() {
-  // Helper to read the current role from query params (?portal=volunteer or ?portal=admin)
+  // Helper to read the current role from environment variables or query params (?portal=volunteer or ?portal=admin)
   const getPortalRole = () => {
+    // 1. Check Vite Environment Variable (for separate Vercel project deployments)
+    if (import.meta.env.VITE_PORTAL) {
+      const envRole = import.meta.env.VITE_PORTAL.toLowerCase();
+      if (envRole === 'volunteer' || envRole === 'admin' || envRole === 'citizen') {
+        return envRole;
+      }
+    }
+    // 2. Fallback to URL search query (for local dev testing on a single port)
     const params = new URLSearchParams(window.location.search);
     const portal = params.get('portal') || '';
     if (portal.toLowerCase() === 'volunteer') return 'volunteer';
