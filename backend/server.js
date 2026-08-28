@@ -8,9 +8,22 @@ connectDB();
 
 const app = express();
 
-// Middleware
+const allowedOrigins = process.env.CLIENT_URL 
+  ? process.env.CLIENT_URL.split(',').map(url => url.trim()) 
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.some(allowed => origin.startsWith(allowed)) || origin.includes('localhost');
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Access blocked by CORS policy'));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
