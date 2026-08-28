@@ -233,6 +233,52 @@ export const api = {
     return getLocalDB().articles;
   },
 
+  getMembers: async () => {
+    try {
+      const { data: citData } = await client.get('/citizens');
+      const { data: volData } = await client.get('/volunteers');
+      const combined = [];
+      if (citData.success && citData.citizens) {
+        citData.citizens.forEach(c => {
+          combined.push({
+            id: c._id,
+            name: c.userId?.name || 'Citizen',
+            email: c.userId?.email || '',
+            phone: c.userId?.phone || '',
+            bloodGroup: c.bloodGroup || 'O+',
+            role: 'Citizen',
+            active: c.userId?.isActive !== false
+          });
+        });
+      }
+      if (volData.success && volData.volunteers) {
+        volData.volunteers.forEach(v => {
+          combined.push({
+            id: v._id,
+            name: v.userId?.name || 'Volunteer',
+            email: v.userId?.email || '',
+            phone: v.userId?.phone || '',
+            bloodGroup: 'O+',
+            role: 'Volunteer',
+            active: v.isActive
+          });
+        });
+      }
+      if (combined.length > 0) return combined;
+    } catch (err) {
+      console.warn('Failed to fetch members list from backend, using local fallback.', err);
+    }
+    
+    const db = getLocalDB();
+    const mockMembers = [
+      { id: 'curr-cit', name: db.profile.name, email: db.profile.email, phone: db.profile.phone, bloodGroup: db.profile.bloodGroup, role: 'Citizen', active: true },
+      { id: 'vol-1', name: 'David Miller', email: 'david@alertlife.com', phone: '+1 (555) 012-3456', bloodGroup: 'A+', role: 'Volunteer', active: true },
+      { id: 'vol-2', name: 'Sophia Martinez', email: 'sophia@alertlife.com', phone: '+1 (555) 012-7890', bloodGroup: 'B-', role: 'Volunteer', active: true },
+      { id: 'vol-3', name: 'Robert Chen', email: 'robert@alertlife.com', phone: '+1 (555) 012-1122', bloodGroup: 'AB+', role: 'Volunteer', active: false }
+    ];
+    return mockMembers;
+  },
+
   getRadius: () => getLocalDB().radius
 };
 

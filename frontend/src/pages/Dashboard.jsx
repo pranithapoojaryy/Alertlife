@@ -9,21 +9,27 @@ export default function Dashboard({ onLogout }) {
   const [radius, setRadius] = useState(api.getRadius());
 
   // Webinars & Articles
-  const [webinars, setWebinars] = useState(api.getWebinars());
-  const [articles, setArticles] = useState(api.getArticles());
+  const [webinars, setWebinars] = useState([]);
+  const [articles, setArticles] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Simulated GPS route tracking
   const [navProgress, setNavProgress] = useState(0);
 
   // Sync state on intervals
   useEffect(() => {
+    api.getWebinars().then(data => setWebinars(data));
+    api.getArticles().then(data => setArticles(data));
+    api.getMembers().then(data => setMembers(data));
+
     const interval = setInterval(() => {
       const active = api.getActiveSOS();
       setSosState(active);
-      setWebinars(api.getWebinars());
-      setArticles(api.getArticles());
-      setProfile(api.getProfile());
-    }, 1000);
+      api.getWebinars().then(data => setWebinars(data));
+      api.getArticles().then(data => setArticles(data));
+      api.getMembers().then(data => setMembers(data));
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
@@ -279,6 +285,46 @@ export default function Dashboard({ onLogout }) {
               </div>
             </div>
           </div>
+        {/* Tab 4: Members Directory */}
+        {activeTab === 'members' && (
+          <div className="card">
+            <h3 className="card-title">👥 Emergency Responders & Members</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+              List of verified citizens, volunteers, and doctors in your local Alert Life network.
+            </p>
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="🔍 Search members by name or role..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto' }}>
+              {members
+                .filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.role.toLowerCase().includes(searchTerm.toLowerCase()))
+                .map(m => (
+                  <div key={m.id} style={{ background: 'rgba(0,0,0,0.02)', padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h4 style={{ fontSize: '0.9rem', marginBottom: '0.15rem' }}>{m.name}</h4>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        📞 {m.phone || 'N/A'} | 📧 {m.email || 'N/A'}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className={`badge ${m.role === 'Volunteer' ? 'badge-blue' : 'badge-emerald'}`} style={{ fontSize: '0.65rem' }}>
+                        {m.role}
+                      </span>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Blood: <strong>{m.bloodGroup}</strong>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              {members.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No members found.</p>}
+            </div>
+          </div>
         )}
       </main>
 
@@ -291,6 +337,10 @@ export default function Dashboard({ onLogout }) {
         <button className={`nav-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <span className="nav-tab-icon">📋</span>
           Medical Card
+        </button>
+        <button className={`nav-tab ${activeTab === 'members' ? 'active' : ''}`} onClick={() => setActiveTab('members')}>
+          <span className="nav-tab-icon">👥</span>
+          Members
         </button>
         <button className={`nav-tab ${activeTab === 'education' ? 'active' : ''}`} onClick={() => setActiveTab('education')}>
           <span className="nav-tab-icon">📚</span>
