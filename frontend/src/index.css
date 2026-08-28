@@ -1,23 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800;900&display=swap');
 
 :root {
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-card: #1f2937;
-  --bg-glass: rgba(31, 41, 55, 0.65);
+  --bg-primary: #f3f4f6;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
   
   --red: #f43f5e;
   --red-dark: #be123c;
-  --red-pulse: rgba(244, 63, 94, 0.4);
+  --red-pulse: rgba(244, 63, 94, 0.2);
   --blue: #6366f1;
   --blue-dark: #4f46e5;
   --emerald: #10b981;
   --amber: #f59e0b;
   
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-  --border: rgba(255, 255, 255, 0.08);
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --border: rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -149,7 +149,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .role-tab:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
 .role-tab.active {
@@ -298,7 +298,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.75rem 1rem;
@@ -310,7 +310,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--blue);
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .btn {
