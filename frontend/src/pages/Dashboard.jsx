@@ -445,7 +445,14 @@ export default function Dashboard({ user, onLogout }) {
           )}
           <button className={`nav-tab ${activeTab === 'education' ? 'active' : ''}`} onClick={() => setActiveTab('education')}>
             <span className="nav-tab-icon">📚</span>
-           // -------------------------------------------------------------
+            Education
+          </button>
+        </nav>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
   // DESKTOP ADMIN / STAFF LAYOUT
   // -------------------------------------------------------------
   return (
