@@ -188,14 +188,12 @@ export default function Dashboard({ user, onLogout }) {
 
   const simulateDispatches = () => {
     setTimeout(() => {
-      api.updateSOS({ 
-        status: 'accepted',
-        volunteerId: 'vol-1',
-        volunteerName: 'David Miller',
-        volunteerPhone: '+1 (555) 012-3456',
-        volunteerCert: 'AHA Certified First Responder'
-      });
-    }, 2000);
+      // Mark as matched so incoming emergency card appears on Volunteer's screen
+      const current = api.getActiveSOS();
+      if (current && (current.status === 'locating' || !current.status)) {
+        api.updateSOS({ status: 'matched' });
+      }
+    }, 1000);
   };
 
   // Volunteer Operations
@@ -999,42 +997,60 @@ export default function Dashboard({ user, onLogout }) {
                   {sosState && (sosState.status === 'matched' || sosState.status === 'locating') && (
                     <div className="card" style={{ border: '2px solid var(--red)', background: 'rgba(244, 63, 94, 0.05)', animation: 'pulse-border 1.5s infinite' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>🚨 URGENT DISPATCH REQUEST</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--red)', fontWeight: 700 }}>HIGH PRIORITY</span>
+                        <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>🚨 INCOMING CITIZEN EMERGENCY DISPATCH</span>
+                        <span className={`badge ${sosState.severity === 'high' ? 'badge-red' : 'badge-amber'}`}>
+                          {sosState.severity === 'high' ? 'HIGH PRIORITY' : 'MODERATE TRIAGE'}
+                        </span>
                       </div>
 
                       <h3 style={{ fontSize: '1.25rem', color: 'var(--red-dark)', marginBottom: '0.5rem' }}>
-                        {sosState.description || 'Cardiac Emergency Reported'}
+                        {sosState.description || 'Emergency Assistance Requested'}
                       </h3>
 
-                      <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '12px', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.82rem', marginBottom: '1rem', border: '1px solid var(--border)' }}>
+                      <div style={{ background: 'rgba(255,255,255,0.85)', borderRadius: '12px', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.82rem', marginBottom: '1rem', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Patient Name:</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>👤 Citizen Name:</span>
                           <strong>{sosState.patientName || 'Jane Citizen'}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Blood Group:</span>
-                          <span className="badge badge-red">{sosState.patientBlood || 'O+'}</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>📞 Citizen Phone:</span>
+                          <a href={`tel:${sosState.patientPhone || '+1 (555) 019-2834'}`} style={{ color: 'var(--blue)', fontWeight: 700, textDecoration: 'none' }}>
+                            {sosState.patientPhone || '+1 (555) 019-2834'}
+                          </a>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Contact Phone:</span>
-                          <strong>{sosState.patientPhone || '+1 (555) 019-2834'}</strong>
+                          <span style={{ color: 'var(--text-secondary)' }}>🩸 Blood Group / Allergies:</span>
+                          <span><strong>{sosState.patientBlood || 'O+'}</strong> (Allergies: {sosState.allergies || 'None'})</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Distance:</span>
-                          <strong style={{ color: 'var(--blue)' }}>0.8 km (approx 2 mins)</strong>
+                          <span style={{ color: 'var(--text-secondary)' }}>📋 Medical History:</span>
+                          <strong>{sosState.medicalHistory || 'None'}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>GPS Target:</span>
-                          <span>{sosState.lat?.toFixed(4)}, {sosState.lng?.toFixed(4)}</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>📍 Exact GPS Target:</span>
+                          <strong>{sosState.lat?.toFixed(4)}, {sosState.lng?.toFixed(4)}</strong>
                         </div>
+                        {sosState.ambulanceStatus && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>🚑 Ambulance Backup:</span>
+                            <span className="badge badge-emerald">Dispatched ({sosState.ambulanceEta || '6 mins'})</span>
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button className="btn btn-danger" style={{ flex: 2, padding: '0.85rem' }} onClick={acceptSOS}>
+                        <button 
+                          className="btn btn-danger" 
+                          style={{ flex: 2, padding: '0.85rem', fontSize: '0.85rem', fontWeight: 800 }} 
+                          onClick={acceptSOS}
+                        >
                           ⚡ Accept & Respond Immediately
                         </button>
-                        <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => api.updateSOS({ status: 'declined' })}>
+                        <button 
+                          className="btn btn-outline" 
+                          style={{ flex: 1, padding: '0.85rem' }} 
+                          onClick={() => api.updateSOS({ status: 'declined' })}
+                        >
                           Pass
                         </button>
                       </div>
