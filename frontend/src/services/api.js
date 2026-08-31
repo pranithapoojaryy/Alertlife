@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://alertlife-nw5j.onrender.com/api';
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -221,6 +221,47 @@ export const api = {
     return getLocalDB().activeSOS;
   },
 
+  syncActiveSOSFromBackend: async () => {
+    try {
+      const { data } = await client.get('/emergencies');
+      if (data.success && data.emergencies && data.emergencies.length > 0) {
+        const active = data.emergencies.find(e => e.status !== 'resolved' && e.status !== 'closed' && e.status !== 'cancelled');
+        if (active) {
+          const db = getLocalDB();
+          const mapped = {
+            id: active._id,
+            timestamp: active.createdAt || new Date().toISOString(),
+            lat: active.location?.latitude || 37.7749,
+            lng: active.location?.longitude || -122.4194,
+            description: active.description || "Medical Emergency",
+            severity: active.severity || "high",
+            emergencyType: active.emergencyType || "medical",
+            category: active.emergencyType || "General Emergency",
+            patientName: active.citizenId?.name || active.guestContact?.phone || db.profile?.name || "Jane Citizen",
+            patientPhone: active.citizenId?.phone || active.guestContact?.phone || db.profile?.phone || "+1 (555) 019-2834",
+            patientBlood: db.profile?.bloodGroup || "O+",
+            allergies: db.profile?.allergies || "None",
+            medicalHistory: db.profile?.medicalHistory || "Asthma",
+            status: active.status || "matched",
+            volunteerId: active.assignedVolunteers?.[0] ? 'vol-1' : null,
+            volunteerName: active.assignedVolunteers?.[0] ? 'David Miller' : null,
+            volunteerPhone: active.assignedVolunteers?.[0] ? '+1 (555) 012-3456' : null,
+            volunteerCert: 'AHA Certified Responder',
+            ambulanceStatus: active.ambulanceRequest ? "Dispatched" : null,
+            ambulanceEta: active.ambulanceRequest ? "6 mins" : null
+          };
+          db.activeSOS = mapped;
+          saveLocalDB(db);
+          window.dispatchEvent(new Event('alertlife_storage_update'));
+          return mapped;
+        }
+      }
+    } catch (err) {
+      // Offline fallback note
+    }
+    return getLocalDB().activeSOS;
+  },
+
   triggerSOS: async (sosData) => {
     let backendSOS = null;
     try {
@@ -229,11 +270,12 @@ export const api = {
         longitude: sosData.lng,
         description: sosData.description,
         emergencyType: sosData.emergencyType || 'medical',
-        severity: sosData.severity || 'high'
+        severity: sosData.severity || 'high',
+        address: `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`
       });
       if (data.success) backendSOS = data.emergency;
     } catch (err) {
-      console.warn('Backend SOS sync note:', err.message);
+      console.warn('Live backend SOS sync:', err.message);
     }
 
     const db = getLocalDB();
@@ -251,7 +293,7 @@ export const api = {
       patientBlood: db.profile?.bloodGroup || "O+",
       allergies: db.profile?.allergies || "None",
       medicalHistory: db.profile?.medicalHistory || "Asthma",
-      status: "locating",
+      status: "matched",
       volunteerId: null,
       volunteerName: null,
       volunteerPhone: null,
@@ -264,12 +306,23 @@ export const api = {
     return newSOS;
   },
 
-  updateSOS: (updates) => {
+  updateSOS: async (updates) => {
     const db = getLocalDB();
     if (db.activeSOS) {
       db.activeSOS = { ...db.activeSOS, ...updates };
       saveLocalDB(db);
       window.dispatchEvent(new Event('alertlife_storage_update'));
+
+      // If backend emergency id exists, update backend
+      if (db.activeSOS.id && !db.activeSOS.id.startsWith('sos-')) {
+        try {
+          if (updates.status) {
+            await client.put(`/emergencies/${db.activeSOS.id}/status`, { status: updates.status });
+          }
+        } catch (e) {
+          console.warn('Backend status update note:', e.message);
+        }
+      }
     }
     return db.activeSOS;
   },

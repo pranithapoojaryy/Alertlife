@@ -119,8 +119,13 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
       });
     }
 
-    const fetchData = () => {
-      setSosState(api.getActiveSOS());
+    const fetchData = async () => {
+      if (api.syncActiveSOSFromBackend) {
+        const liveSos = await api.syncActiveSOSFromBackend();
+        setSosState(liveSos);
+      } else {
+        setSosState(api.getActiveSOS());
+      }
       api.getWebinars().then(data => setWebinars(data || []));
       api.getArticles().then(data => setArticles(data || []));
       api.getMembers().then(data => setMembers(data || []));
@@ -133,8 +138,8 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
     };
     fetchData();
 
-    // High frequency sync interval
-    const interval = setInterval(fetchData, 800);
+    // High frequency sync interval (polls live Render cloud backend)
+    const interval = setInterval(fetchData, 1500);
 
     // Instant cross-tab and in-tab event listeners
     window.addEventListener('storage', fetchData);
