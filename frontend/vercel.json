@@ -1,1 +1,13 @@
-{"buildCommand":"npm run build","outputDirectory":"dist","installCommand":"npm install","framework":"vite","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/volunteer/(.*)", "destination": "/index.html" },
+    { "source": "/volunteer", "destination": "/index.html" },
+    { "source": "/admin/(.*)", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

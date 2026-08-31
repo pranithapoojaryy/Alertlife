@@ -145,11 +145,15 @@ export const api = {
       lat: sosData.lat || 37.7749,
       lng: sosData.lng || -122.4194,
       description: sosData.description || "Medical Emergency",
-      patientName: db.profile.name,
-      patientPhone: db.profile.phone,
-      patientBlood: db.profile.bloodGroup,
+      patientName: db.profile?.name || "Jane Citizen",
+      patientPhone: db.profile?.phone || "+1 (555) 019-2834",
+      patientBlood: db.profile?.bloodGroup || "O+",
+      allergies: db.profile?.allergies || "None",
+      medicalHistory: db.profile?.medicalHistory || "Asthma",
       status: "locating",
       volunteerId: null,
+      volunteerName: null,
+      volunteerPhone: null,
       ambulanceStatus: null,
       ambulanceEta: null
     };
@@ -279,7 +283,128 @@ export const api = {
     return mockMembers;
   },
 
-  getRadius: () => getLocalDB().radius,
+  // Volunteer Profile & Location
+  getVolunteerProfile: async () => {
+    try {
+      const { data } = await client.get('/volunteers/profile');
+      if (data.success && data.profile) {
+        return {
+          name: data.profile.userId?.name || '',
+          email: data.profile.userId?.email || '',
+          phone: data.profile.userId?.phone || '',
+          certification: data.profile.certification || 'CPR / First-Aid Certified',
+          certificationNumber: data.profile.certificationNumber || 'FA-99214',
+          skills: data.profile.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
+          availabilityStatus: data.profile.availabilityStatus || 'available',
+          serviceRadius: data.profile.serviceRadius || 5,
+          isVerified: data.profile.isVerified ?? true,
+          totalEmergenciesHandled: data.profile.totalEmergenciesHandled || 14,
+          rating: data.profile.rating || 4.9,
+          experience: data.profile.experience || 3
+        };
+      }
+    } catch (err) {
+      console.warn('Failed to fetch volunteer profile from backend, using local state.', err);
+    }
+    const db = getLocalDB();
+    if (!db.volunteerProfile) {
+      db.volunteerProfile = {
+        name: "David Miller",
+        email: "david.miller@alertlife.org",
+        phone: "+1 (555) 012-3456",
+        certification: "AHA Certified First Responder",
+        certificationNumber: "EMT-99410-X",
+        skills: ["CPR (Adult/Child)", "Automated External Defibrillator (AED)", "Severe Bleeding / Tourniquet", "EpiPen Administration", "Triage Assessment"],
+        availabilityStatus: "available",
+        serviceRadius: 5,
+        isVerified: true,
+        totalEmergenciesHandled: 18,
+        rating: 4.9,
+        experience: 3,
+        currentLocation: { latitude: 37.7749, longitude: -122.4194 }
+      };
+      saveLocalDB(db);
+    }
+    return db.volunteerProfile;
+  },
+
+  updateVolunteerProfile: async (volData) => {
+    try {
+      const { data } = await client.put('/volunteers/profile', volData);
+      if (data.success) return data.profile;
+    } catch (err) {
+      console.warn('Failed to update backend volunteer profile, updating local.', err);
+    }
+    const db = getLocalDB();
+    db.volunteerProfile = { ...(db.volunteerProfile || {}), ...volData };
+    saveLocalDB(db);
+    return db.volunteerProfile;
+  },
+
+  updateVolunteerAvailability: async (status, latitude, longitude) => {
+    try {
+      await client.put('/volunteers/availability', { availabilityStatus: status, latitude, longitude });
+    } catch (err) {
+      console.warn('Failed to update availability on backend, updating local state.', err);
+    }
+    const db = getLocalDB();
+    if (db.volunteerProfile) {
+      db.volunteerProfile.availabilityStatus = status;
+      if (latitude && longitude) {
+        db.volunteerProfile.currentLocation = { latitude, longitude, lastUpdated: new Date().toISOString() };
+      }
+      saveLocalDB(db);
+    }
+    return db.volunteerProfile;
+  },
+
+  submitIncidentReport: async (emergencyId, reportData) => {
+    try {
+      if (emergencyId && !emergencyId.startsWith('sos-')) {
+        await client.post(`/emergencies/${emergencyId}/report`, reportData);
+      }
+    } catch (err) {
+      console.warn('Failed to post report to backend, handling locally.', err);
+    }
+    const db = getLocalDB();
+    if (db.volunteerProfile) {
+      db.volunteerProfile.totalEmergenciesHandled = (db.volunteerProfile.totalEmergenciesHandled || 0) + 1;
+      db.volunteerProfile.availabilityStatus = 'available';
+    }
+    if (!db.incidentHistory) db.incidentHistory = [];
+    db.incidentHistory.unshift({
+      id: 'rep-' + Date.now(),
+      date: new Date().toLocaleString(),
+      ...reportData
+    });
+    db.activeSOS = null;
+    saveLocalDB(db);
+    return true;
+  },
+
+  getIncidentHistory: () => {
+    const db = getLocalDB();
+    return db.incidentHistory || [
+      {
+        id: 'rep-init-1',
+        date: 'Yesterday, 14:20',
+        patientCondition: 'Stabilized',
+        firstAidProvided: 'Chest Compressions & AED Shock',
+        description: 'Citizen had collapsed near market square. Heartbeat recovered before ambulance arrival.',
+        vitals: 'BP 120/80 | HR 76'
+      },
+      {
+        id: 'rep-init-2',
+        date: 'Aug 24, 2026, 09:15',
+        patientCondition: 'Transferred to Hospital',
+        firstAidProvided: 'Tourniquet & Pressure Dressing',
+        description: 'Laceration from road accident. Bleeding controlled.',
+        vitals: 'BP 115/75 | HR 82'
+      }
+    ];
+  },
+
+  getRadius: () => getLocalDB().radius || 5,
 
   updateRadius: (val) => {
     const db = getLocalDB();

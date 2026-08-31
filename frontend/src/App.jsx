@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Dashboard from './pages/Dashboard';
 
 function App() {
-  // Helper to read the current role from environment variables or query params (?portal=volunteer or ?portal=admin)
+  // Helper to read the current role from environment variables, URL pathname, or query params
   const getPortalRole = () => {
     // 1. Check Vite Environment Variable (for separate Vercel project deployments)
     if (import.meta.env.VITE_PORTAL) {
@@ -11,7 +11,11 @@ function App() {
         return envRole;
       }
     }
-    // 2. Fallback to URL search query (for local dev testing on a single port)
+    // 2. Check URL pathname (e.g. /volunteer or /admin)
+    const pathname = window.location.pathname.toLowerCase();
+    if (pathname.includes('volunteer')) return 'volunteer';
+    if (pathname.includes('admin')) return 'admin';
+    // 3. Fallback to URL search query (?portal=volunteer or ?portal=admin)
     const params = new URLSearchParams(window.location.search);
     const portal = params.get('portal') || '';
     if (portal.toLowerCase() === 'volunteer') return 'volunteer';
@@ -23,8 +27,19 @@ function App() {
 
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user_session');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Auto-sync user's active role if they navigated to a specific portal
+      return { ...parsed, role: currentRole };
+    }
+    // Auto-login fallback demo session so users never see a blank screen
+    return {
+      name: currentRole === 'volunteer' ? 'David Miller' : currentRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
+      email: currentRole === 'volunteer' ? 'david@alertlife.org' : currentRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
+      role: currentRole
+    };
   });
+
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
   const [regForm, setRegForm] = useState({ 
@@ -35,6 +50,19 @@ function App() {
     password: '' 
   });
   const [error, setError] = useState('');
+
+  const switchPortal = (newRole) => {
+    const newUserData = {
+      name: newRole === 'volunteer' ? 'David Miller' : newRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
+      email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
+      role: newRole
+    };
+    localStorage.setItem('user_session', JSON.stringify(newUserData));
+    setUser(newUserData);
+    const url = new URL(window.location);
+    url.searchParams.set('portal', newRole);
+    window.history.pushState({}, '', url);
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -88,10 +116,10 @@ function App() {
 
   // Helper for text headers based on the active portal URL
   const getPortalInfo = () => {
-    if (currentRole === 'volunteer') {
+    if (user?.role === 'volunteer' || currentRole === 'volunteer') {
       return { title: 'Volunteer Network', subtitle: 'First Responder Dispatch App' };
     }
-    if (currentRole === 'admin') {
+    if (user?.role === 'admin' || currentRole === 'admin') {
       return { title: 'Admin Console', subtitle: 'Emergency Response Management Site' };
     }
     return { title: 'Alert Life', subtitle: 'Citizen Emergency SOS PWA' };
