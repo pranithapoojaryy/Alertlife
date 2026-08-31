@@ -1856,8 +1856,28 @@ export default function Dashboard({ user, onLogout }) {
           </button>
         </div>
         <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <label className="form-label" style={{ fontSize: '0.72rem', marginBottom: '0.35rem' }}>Switch Active Portal:</label>
+          <select
+            className="form-select"
+            style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', fontWeight: 600, width: '100%', marginBottom: '0.75rem' }}
+            value={user.role}
+            onChange={(e) => {
+              const newRole = e.target.value;
+              const newUserData = {
+                name: newRole === 'volunteer' ? 'David Miller' : newRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
+                email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
+                role: newRole
+              };
+              localStorage.setItem('user_session', JSON.stringify(newUserData));
+              window.location.search = `?portal=${newRole}`;
+            }}
+          >
+            <option value="citizen">👤 Citizen App</option>
+            <option value="volunteer">🛡️ Volunteer Portal</option>
+            <option value="admin">🏢 Admin Desk</option>
+          </select>
           <p>Logged in: <strong>{user.name}</strong> ({user.role})</p>
-          <button className="btn btn-outline" style={{ width: '100%', marginTop: '0.75rem', padding: '0.35rem' }} onClick={onLogout}>
+          <button className="btn btn-outline" style={{ width: '100%', marginTop: '0.5rem', padding: '0.35rem' }} onClick={onLogout}>
             Logout
           </button>
         </div>

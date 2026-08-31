@@ -29,16 +29,28 @@ function App() {
     const saved = localStorage.getItem('user_session');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Auto-sync user's active role if they navigated to a specific portal
       return { ...parsed, role: currentRole };
     }
-    // Auto-login fallback demo session so users never see a blank screen
     return {
       name: currentRole === 'volunteer' ? 'David Miller' : currentRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
       email: currentRole === 'volunteer' ? 'david@alertlife.org' : currentRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
       role: currentRole
     };
   });
+
+  // Listen to browser navigation and popstate to instantly sync portal
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const activeRole = getPortalRole();
+      setUser(prev => ({
+        name: activeRole === 'volunteer' ? 'David Miller' : activeRole === 'admin' ? 'Dr. Sarah Desk' : (prev?.name || 'Jane Citizen'),
+        email: activeRole === 'volunteer' ? 'david@alertlife.org' : activeRole === 'admin' ? 'admin@alertlife.org' : (prev?.email || 'jane@alertlife.com'),
+        role: activeRole
+      }));
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
 
   // Dynamically update Tab Icon, Apple Touch Icon, and Title in React DOM
   useEffect(() => {
