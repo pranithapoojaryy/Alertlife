@@ -1,47 +1,51 @@
-const CACHE_NAME = 'alertlife-v5';
+const CACHE_NAME = 'alertlife-v6';
 const ASSETS = [
+  '/',
+  '/index.html',
   '/manifest.json',
   '/manifest-volunteer.json',
   '/favicon.svg',
   '/volunteer-icon.svg'
 ];
 
-// Install: cache only static assets (NOT index.html — let network serve it fresh)
+// Install: cache essential PWA shell and index.html
 self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    })
+  );
   self.skipWaiting();
 });
 
-// Activate: delete all old caches
+// Activate: clean old version caches
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.map((key) => caches.delete(key))
+        keys.filter(k => k !== CACHE_NAME).map((key) => caches.delete(key))
       )
     )
   );
-  // Take control of all open clients immediately
   self.clients.claim();
 });
 
-// Fetch: Network-first for HTML, cache-first for static assets
+// Fetch: Network-first for navigation, falling back to cached index.html
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // Always fetch HTML from network (never serve stale index.html)
+  // Handle SPA navigation requests
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/index.html'))
+      fetch(e.request).catch(() => caches.match('/index.html') || caches.match('/'))
     );
     return;
   }
 
-  // Cache-first for other static assets
+  // Handle other assets
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request).then((networkResponse) => {
-        return networkResponse;
-      });
+    caches.match(e.request).then((cached) => {
+      return cached || fetch(e.request);
     })
   );
 });
