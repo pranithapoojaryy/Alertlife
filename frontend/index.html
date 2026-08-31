@@ -31,8 +31,19 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('PWA ServiceWorker registered successfully:', reg.scope))
+            .then(reg => {
+              reg.update();
+              console.log('PWA ServiceWorker registered & updated:', reg.scope);
+            })
             .catch(err => console.log('PWA ServiceWorker registration failed:', err));
+        });
+
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
         });
       }
     </script>

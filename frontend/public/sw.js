@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alertlife-v3';
+const CACHE_NAME = 'alertlife-v5';
 const ASSETS = [
   '/manifest.json',
   '/manifest-volunteer.json',
@@ -8,12 +8,6 @@ const ASSETS = [
 
 // Install: cache only static assets (NOT index.html — let network serve it fresh)
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
-  // Immediately activate the new service worker
   self.skipWaiting();
 });
 
@@ -22,7 +16,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.map((key) => caches.delete(key))
       )
     )
   );
