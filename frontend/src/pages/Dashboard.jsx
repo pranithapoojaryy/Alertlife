@@ -1931,28 +1931,99 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
             </div>
 
             <div className="card" style={{ marginBottom: '1.5rem' }}>
-              <h3 className="card-title">🚨 Live SOS & Volunteer Dispatch Monitor</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 className="card-title" style={{ margin: 0 }}>🚨 Real-Time Citizen SOS & Dispatch Controller</h3>
+                {sosState && (
+                  <span className={`badge ${sosState.status === 'accepted' ? 'badge-blue' : sosState.status === 'arrived' ? 'badge-emerald' : 'badge-red'}`}>
+                    {sosState.status?.toUpperCase()}
+                  </span>
+                )}
+              </div>
+
               {sosState ? (
                 <div style={{ background: 'rgba(244,63,94,0.04)', border: '1px solid var(--border)', padding: '1.25rem', borderRadius: '12px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem' }}>
                     <div>
                       <p><strong>Patient Name:</strong> {sosState.patientName}</p>
                       <p><strong>Patient Phone:</strong> {sosState.patientPhone}</p>
-                      <p><strong>Condition / Incident:</strong> {sosState.description}</p>
-                      <p><strong>Live Location:</strong> {sosState.lat?.toFixed(4)}, {sosState.lng?.toFixed(4)}</p>
-                      <p><strong>Severity:</strong> <span className="badge badge-red">{sosState.severity || 'High'}</span></p>
+                      <p><strong>Incident / Severity:</strong> {sosState.description} (<span className="badge badge-red">{sosState.severity || 'High'}</span>)</p>
+                      <p><strong>Exact Live GPS:</strong> {sosState.lat?.toFixed(4)}, {sosState.lng?.toFixed(4)}</p>
                     </div>
                     <div>
-                      <p><strong>Assigned Responder:</strong> {sosState.volunteerName ? `${sosState.volunteerName} (Verified)` : 'Matching nearby volunteers...'}</p>
+                      <p><strong>Assigned Volunteer:</strong> {sosState.volunteerName ? `${sosState.volunteerName} (✓ AHA Certified)` : 'Matching available nearby responders...'}</p>
                       <p><strong>Volunteer Phone:</strong> {sosState.volunteerPhone || 'N/A'}</p>
-                      <p><strong>Dispatch Status:</strong> <span className="badge badge-blue">{sosState.status}</span></p>
-                      <p><strong>Ambulance Backup:</strong> {sosState.ambulanceStatus || 'None requested'}</p>
+                      <p><strong>Ambulance Status:</strong> <span className="badge badge-emerald">{sosState.ambulanceStatus || 'None requested'}</span></p>
                     </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                    {sosState.ambulanceStatus === 'requested' && (
+                      <button className="btn btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem' }} onClick={dispatchAmbulance}>
+                        🚑 Confirm Ambulance Dispatch
+                      </button>
+                    )}
+                    <button 
+                      className="btn btn-outline" 
+                      style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem', borderColor: 'var(--red)', color: 'var(--red)' }}
+                      onClick={() => {
+                        api.closeSOS();
+                        setSosState(null);
+                        alert('Emergency case closed by Admin Desk.');
+                      }}
+                    >
+                      ✕ Close & Clear Active Case
+                    </button>
                   </div>
                 </div>
               ) : (
-                <p style={{ color: 'var(--text-muted)' }}>No active emergency cases currently in progress.</p>
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🟢</span>
+                  <p>All emergency sectors clear. No active SOS in progress.</p>
+                </div>
               )}
+            </div>
+
+            {/* Registered Community & Responders Directory */}
+            <div className="card">
+              <h3 className="card-title">👥 Active Volunteer Responders & Field Network</h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(0,0,0,0.03)', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
+                      <th style={{ padding: '0.6rem' }}>Responder</th>
+                      <th style={{ padding: '0.6rem' }}>Role & Cert</th>
+                      <th style={{ padding: '0.6rem' }}>Contact</th>
+                      <th style={{ padding: '0.6rem' }}>Verification</th>
+                      <th style={{ padding: '0.6rem' }}>Live Duty</th>
+                      <th style={{ padding: '0.6rem' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((m) => (
+                      <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.6rem' }}>
+                          <strong>{m.name}</strong>
+                        </td>
+                        <td style={{ padding: '0.6rem' }}>
+                          <span className={`badge ${m.role === 'Volunteer' ? 'badge-blue' : 'badge-emerald'}`}>{m.role}</span>
+                        </td>
+                        <td style={{ padding: '0.6rem' }}>{m.phone || '+1 (555) 012-3456'}</td>
+                        <td style={{ padding: '0.6rem' }}>
+                          <span className="badge badge-emerald">✓ Verified</span>
+                        </td>
+                        <td style={{ padding: '0.6rem' }}>
+                          <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>🟢 On Duty (5km)</span>
+                        </td>
+                        <td style={{ padding: '0.6rem' }}>
+                          <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => alert(`Contacting ${m.name}...`)}>
+                            📞 Ping
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -2067,13 +2138,17 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
         {activeTab === 'ambulance' && (
           <div className="grid-2">
             <div className="card">
-              <h3 className="card-title">🚑 Pending Dispatches</h3>
-              {sosState && sosState.ambulanceStatus === 'requested' ? (
-                <div style={{ border: '1px solid var(--border)', padding: '1rem', borderRadius: '12px' }}>
-                  <p><strong>Request location:</strong> {sosState.lat.toFixed(4)}, {sosState.lng.toFixed(4)}</p>
-                  <button className="btn btn-primary" style={{ marginTop: '0.75rem' }} onClick={dispatchAmbulance}>
-                    Confirm and Dispatch Ambulance
-                  </button>
+              <h3 className="card-title">🚑 Pending Ambulance Dispatches</h3>
+              {sosState && (sosState.ambulanceStatus === 'requested' || sosState.ambulanceStatus === 'Dispatched') ? (
+                <div style={{ border: '1px solid var(--border)', padding: '1.25rem', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.04)' }}>
+                  <p><strong>Patient:</strong> {sosState.patientName} ({sosState.patientPhone})</p>
+                  <p><strong>Incident Location:</strong> {sosState.lat.toFixed(4)}, {sosState.lng.toFixed(4)}</p>
+                  <p><strong>Current Status:</strong> <span className="badge badge-emerald">{sosState.ambulanceStatus} (ETA: {sosState.ambulanceEta || '6 mins'})</span></p>
+                  {sosState.ambulanceStatus === 'requested' && (
+                    <button className="btn btn-primary" style={{ marginTop: '0.75rem' }} onClick={dispatchAmbulance}>
+                      Confirm and Dispatch ER Ambulance Unit
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p style={{ color: 'var(--text-muted)' }}>No pending ambulance requests.</p>
@@ -2113,39 +2188,71 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
         )}
 
         {activeTab === 'content' && (
-          <div className="grid-2">
-            <div className="card">
-              <h3 className="card-title">📅 Schedule Awareness Webinar</h3>
-              <form onSubmit={handleAddWebinar}>
-                <div className="form-group">
-                  <label className="form-label">Webinar Topic</label>
-                  <input type="text" className="form-input" placeholder="e.g. Stroke Triage Steps" value={newWebinar.title} onChange={e => setNewWebinar({...newWebinar, title: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Speaker</label>
-                  <input type="text" className="form-input" placeholder="Speaker name" value={newWebinar.speaker} onChange={e => setNewWebinar({...newWebinar, speaker: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Date & Time</label>
-                  <input type="datetime-local" className="form-input" value={newWebinar.date} onChange={e => setNewWebinar({...newWebinar, date: e.target.value})} />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Publish Webinar</button>
-              </form>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="grid-2">
+              <div className="card">
+                <h3 className="card-title">📅 Schedule Health Camp / Webinar</h3>
+                <form onSubmit={handleAddWebinar}>
+                  <div className="form-group">
+                    <label className="form-label">Webinar / Camp Topic</label>
+                    <input type="text" className="form-input" placeholder="e.g. Stroke Triage Steps" value={newWebinar.title} onChange={e => setNewWebinar({...newWebinar, title: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Organizer / Speaker</label>
+                    <input type="text" className="form-input" placeholder="Speaker or Hospital name" value={newWebinar.speaker} onChange={e => setNewWebinar({...newWebinar, speaker: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Date & Time</label>
+                    <input type="datetime-local" className="form-input" value={newWebinar.date} onChange={e => setNewWebinar({...newWebinar, date: e.target.value})} required />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Publish to Citizen Feed</button>
+                </form>
+              </div>
+
+              <div className="card">
+                <h3 className="card-title">📖 Upload Educational Multimedia Guide</h3>
+                <form onSubmit={handleAddArticle}>
+                  <div className="form-group">
+                    <label className="form-label">Title</label>
+                    <input type="text" className="form-input" placeholder="e.g. CPR Hands placement" value={newArticle.title} onChange={e => setNewArticle({...newArticle, title: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Content Summary</label>
+                    <textarea className="form-textarea" rows="4" placeholder="Description of treatment steps..." value={newArticle.content} onChange={e => setNewArticle({...newArticle, content: e.target.value})} required />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Publish Article to Network</button>
+                </form>
+              </div>
             </div>
 
+            {/* Moderation List of all Published Camps & Articles */}
             <div className="card">
-              <h3 className="card-title">📖 Upload First Aid Guide</h3>
-              <form onSubmit={handleAddArticle}>
-                <div className="form-group">
-                  <label className="form-label">Title</label>
-                  <input type="text" className="form-input" placeholder="e.g. CPR Hands placement" value={newArticle.title} onChange={e => setNewArticle({...newArticle, title: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Content</label>
-                  <textarea className="form-textarea" rows="4" placeholder="Description of treatment steps..." value={newArticle.content} onChange={e => setNewArticle({...newArticle, content: e.target.value})} />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Publish Article</button>
-              </form>
+              <h3 className="card-title">📑 Community Content Moderation (Volunteer & Admin Posts)</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {webinars.map(w => (
+                  <div key={w.id} style={{ background: 'rgba(16, 185, 129, 0.04)', padding: '0.75rem 1rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <div>
+                      <strong>🏥 {w.title}</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Organizer: {w.speaker} | {new Date(w.date).toLocaleDateString()} | 👥 {w.attendees || 0} Registered</div>
+                    </div>
+                    <button className="btn btn-outline" style={{ borderColor: 'var(--red)', color: 'var(--red)', padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => handleDeleteWebinar(w.id, w.title)}>
+                      🗑️ Delete
+                    </button>
+                  </div>
+                ))}
+
+                {articles.map(a => (
+                  <div key={a.id} style={{ background: 'rgba(0,0,0,0.02)', padding: '0.75rem 1rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)' }}>
+                    <div>
+                      <strong>{a.contentType === 'video' ? '🎬' : a.contentType === 'document' ? '📄' : '📖'} {a.title}</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Author: {a.author || 'Volunteer'} | Category: {a.category}</div>
+                    </div>
+                    <button className="btn btn-outline" style={{ borderColor: 'var(--red)', color: 'var(--red)', padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => handleDeleteArticle(a.id, a.title)}>
+                      🗑️ Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
