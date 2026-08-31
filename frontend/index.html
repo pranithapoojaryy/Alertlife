@@ -9,19 +9,21 @@
     <meta name="theme-color" id="app-theme-color" content="#6366f1" />
     <title>Alert Life - Emergency SOS</title>
     <script>
-      (function() {
-        const params = new URLSearchParams(window.location.search);
-        const isVolunteer = params.get('portal') === 'volunteer' || window.location.pathname.includes('volunteer');
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var isVolunteer = params.get('portal') === 'volunteer' || window.location.pathname.indexOf('volunteer') !== -1;
         if (isVolunteer) {
           document.title = 'Alert Responder - Volunteer First Responder';
-          const favicon = document.getElementById('app-favicon') || document.querySelector("link[rel~='icon']");
+          var favicon = document.getElementById('app-favicon') || document.querySelector("link[rel~='icon']");
           if (favicon) favicon.href = '/volunteer-icon.svg';
-          const manifest = document.getElementById('app-manifest') || document.querySelector("link[rel='manifest']");
+          var manifest = document.getElementById('app-manifest') || document.querySelector("link[rel='manifest']");
           if (manifest) manifest.href = '/manifest-volunteer.json';
-          const themeColor = document.getElementById('app-theme-color') || document.querySelector("meta[name='theme-color']");
+          var themeColor = document.getElementById('app-theme-color') || document.querySelector("meta[name='theme-color']");
           if (themeColor) themeColor.setAttribute('content', '#10b981');
         }
-      })();
+      } catch(e) {
+        console.warn('Portal initialization script safe pass:', e);
+      }
     </script>
   </head>
   <body>
