@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 
 function App() {
@@ -39,6 +39,25 @@ function App() {
       role: currentRole
     };
   });
+
+  // Dynamically update Tab Icon, Apple Touch Icon, and Title in React DOM
+  useEffect(() => {
+    const isVol = user?.role === 'volunteer';
+    const iconHref = isVol ? '/volunteer-icon.svg' : '/favicon.svg';
+    const manifestHref = isVol ? '/manifest-volunteer.json' : '/manifest.json';
+    const themeColor = isVol ? '#10b981' : '#6366f1';
+    
+    document.title = isVol ? 'Alert Responder - Volunteer First Responder' : 'Alert Life - Emergency SOS';
+
+    const favicons = document.querySelectorAll("link[rel*='icon']");
+    favicons.forEach(el => el.setAttribute('href', iconHref));
+
+    const manifest = document.querySelector("link[rel='manifest']");
+    if (manifest) manifest.setAttribute('href', manifestHref);
+
+    const metaTheme = document.querySelector("meta[name='theme-color']");
+    if (metaTheme) metaTheme.setAttribute('content', themeColor);
+  }, [user?.role]);
 
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
