@@ -434,7 +434,7 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
             <select
               className="form-select"
               style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 600, width: 'auto', background: 'rgba(99, 102, 241, 0.08)', borderColor: 'var(--blue)' }}
-              value={user.role}
+              value={currentRole}
               onChange={(e) => {
                 const newRole = e.target.value;
                 const newUserData = {
@@ -461,14 +461,14 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
           {sosState && (
             <div style={{ background: 'rgba(244, 63, 94, 0.12)', border: '1px solid var(--red)', padding: '0.85rem 1rem', borderRadius: '12px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <span>🚨 Active SOS request: <strong>{sosState.description}</strong> ({sosState.status})</span>
-              {user.role === 'citizen' && (
+              {currentRole === 'citizen' && (
                 <button className="btn btn-outline btn-danger" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => api.closeSOS()}>Cancel</button>
               )}
             </div>
           )}
 
           {/* CITIZEN VIEWS */}
-          {user.role === 'citizen' && (
+          {currentRole === 'citizen' && (
             <>
               {activeTab === 'sos' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -948,7 +948,7 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
           )}
 
           {/* VOLUNTEER VIEWS */}
-          {user.role === 'volunteer' && (
+          {currentRole === 'volunteer' && (
             <>
               {activeTab === 'sos' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -1805,19 +1805,19 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
         <nav className="bottom-nav">
           <button className={`nav-tab ${activeTab === 'sos' ? 'active' : ''}`} onClick={() => setActiveTab('sos')}>
             <span className="nav-tab-icon">🚨</span>
-            {user.role === 'volunteer' ? 'Dispatch' : 'SOS'}
+            {currentRole === 'volunteer' ? 'Dispatch' : 'SOS'}
           </button>
           <button className={`nav-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
             <span className="nav-tab-icon">📋</span>
-            {user.role === 'volunteer' ? 'Credentials' : 'Medical Card'}
+            {currentRole === 'volunteer' ? 'Credentials' : 'Medical Card'}
           </button>
-          {user.role === 'volunteer' && (
+          {currentRole === 'volunteer' && (
             <button className={`nav-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
               <span className="nav-tab-icon">📜</span>
               Incident Logs
             </button>
           )}
-          {user.role === 'citizen' && (
+          {currentRole === 'citizen' && (
             <button className={`nav-tab ${activeTab === 'members' ? 'active' : ''}`} onClick={() => setActiveTab('members')}>
               <span className="nav-tab-icon">👥</span>
               Directory
