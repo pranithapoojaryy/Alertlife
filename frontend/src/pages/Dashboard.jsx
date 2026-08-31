@@ -993,8 +993,8 @@ export default function Dashboard({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {/* Incoming Emergency Dispatch Card */}
-                  {sosState && (sosState.status === 'matched' || sosState.status === 'locating') && (
+                  {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) */}
+                  {sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && !sosState.volunteerId && (
                     <div className="card" style={{ border: '2px solid var(--red)', background: 'rgba(244, 63, 94, 0.05)', animation: 'pulse-border 1.5s infinite' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>🚨 INCOMING CITIZEN EMERGENCY DISPATCH</span>
@@ -1057,8 +1057,22 @@ export default function Dashboard({ user, onLogout }) {
                     </div>
                   )}
 
-                  {/* Active Mission Dashboard (When accepted) */}
-                  {sosState && sosState.volunteerId === 'vol-1' && (
+                  {/* Standby Radar when no emergency is active */}
+                  {!sosState && (
+                    <div className="card" style={{ textAlign: 'center', padding: '2rem 1.5rem', background: 'rgba(16, 185, 129, 0.03)', border: '1px dashed var(--border)' }}>
+                      <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.5rem', animation: 'pulse-avatar 2s infinite' }}>📡</span>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Emergency Dispatch Radar Active</h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+                        Scanning for citizen SOS alerts, roadside accidents, and minor injuries within your <strong>{volProfile.serviceRadius || 5} km</strong> coverage zone.
+                      </p>
+                      <span className="badge badge-emerald" style={{ marginTop: '0.75rem' }}>
+                        🟢 Ready for Instant Dispatch
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Active Mission Dashboard (When accepted by volunteer) */}
+                  {sosState && sosState.volunteerId && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                       {/* Active navigation map & status */}
                       <div className="card">
