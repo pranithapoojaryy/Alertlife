@@ -375,13 +375,26 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
     api.updateSOS({ consultationActive: false });
   };
 
+  const handleDetailedReportSubmit = (e) => {
+    e.preventDefault();
+    const activeEmergencyId = sosState?.id || 'sos-' + Date.now();
+    api.submitIncidentReport(activeEmergencyId, {
+      patientCondition: reportForm.condition,
+      interventions: reportForm.interventions,
+      pulse: reportForm.pulse,
+      bloodPressure: reportForm.bloodPressure,
+      notes: reportForm.notes,
+      description: `${reportForm.interventions} | Condition: ${reportForm.condition}`,
+      vitals: `BP ${reportForm.bloodPressure} | HR ${reportForm.pulse}`
+    });
+    setSosState(null);
+    setNavProgress(0);
+    alert('✓ Field Incident & Vitals Logged successfully! Rescue work recorded for Admin verification.');
+  };
+
   const submitVolunteerReport = (e) => {
     e.preventDefault();
-    api.updateSOS({ volunteerNotes });
-    api.closeSOS();
-    setSosState(null);
-    setVolunteerNotes('');
-    setNavProgress(0);
+    handleDetailedReportSubmit(e);
   };
 
   // Hospital Desk
