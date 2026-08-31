@@ -24,7 +24,27 @@ const defaultState = {
     allergies: "None",
     medicalHistory: "Asthma"
   },
-  activeSOS: null,
+  activeSOS: {
+    id: "sos-demo-1",
+    timestamp: new Date().toISOString(),
+    lat: 37.7749,
+    lng: -122.4194,
+    description: "🩸 Severe Roadside Bleeding & Cut on Leg",
+    severity: "high",
+    emergencyType: "road_accident",
+    category: "road_accident",
+    patientName: "Jane Citizen",
+    patientPhone: "+1 (555) 019-2834",
+    patientBlood: "O+",
+    allergies: "Penicillin",
+    medicalHistory: "Asthma",
+    status: "locating",
+    volunteerId: null,
+    volunteerName: null,
+    volunteerPhone: null,
+    ambulanceStatus: "Dispatched",
+    ambulanceEta: "5 mins"
+  },
   webinars: [
     { id: "web-1", title: "Hands-Only CPR Certification Training", speaker: "Dr. Emily Johnson", date: "2026-09-05T10:00:00", location: "Community Health Center & Online", type: "Webinar", attendees: 124 },
     { id: "web-2", title: "Free Cardiac Health Checkup & Blood Donation Camp", speaker: "David Miller (Lead Responder)", date: "2026-09-12T09:00:00", location: "City Town Hall Ground", type: "Health Camp", attendees: 240 },

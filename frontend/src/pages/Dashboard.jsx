@@ -1065,9 +1065,28 @@ export default function Dashboard({ user, onLogout }) {
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
                         Scanning for citizen SOS alerts, roadside accidents, and minor injuries within your <strong>{volProfile.serviceRadius || 5} km</strong> coverage zone.
                       </p>
-                      <span className="badge badge-emerald" style={{ marginTop: '0.75rem' }}>
-                        🟢 Ready for Instant Dispatch
-                      </span>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                        <span className="badge badge-emerald">
+                          🟢 Ready for Instant Dispatch
+                        </span>
+                        <button
+                          className="btn btn-primary"
+                          style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, var(--red), var(--red-dark))' }}
+                          onClick={() => {
+                            const newSOS = api.triggerSOS({
+                              lat: 37.7749,
+                              lng: -122.4194,
+                              description: '🩸 Roadside Skid & Leg Injury (Citizen SOS)',
+                              severity: 'high',
+                              category: 'road_accident',
+                              ambulanceRequested: true
+                            });
+                            setSosState(newSOS);
+                          }}
+                        >
+                          ⚡ Simulate Incoming Citizen SOS
+                        </button>
+                      </div>
                     </div>
                   )}
 
