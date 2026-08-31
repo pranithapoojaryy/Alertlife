@@ -134,15 +134,25 @@ export default function Dashboard({ user, onLogout }) {
     }
   }, [sosState?.status]);
 
-  // Citizen SOS Trigger
-  const handleTriggerSOS = () => {
+  // Citizen Emergency Action Trigger (Urgent SOS, Minor Injuries, Small Road Accidents, Ambulance Dispatch)
+  const [selectedIncidentType, setSelectedIncidentType] = useState('critical'); // critical, minor_injury, road_accident, first_aid
+  const [requestAmbulance, setRequestAmbulance] = useState(false);
+
+  const handleTriggerSOS = (customType, customDesc, needAmbulance = false) => {
+    const finalDesc = customDesc || sosDescription || (customType === 'minor_injury' ? 'Minor Injury First Aid Assistance' : customType === 'road_accident' ? 'Minor Road Accident Support' : 'Urgent Medical Emergency');
+    const finalSeverity = customType === 'minor_injury' || customType === 'road_accident' ? 'moderate' : 'high';
+    const isAmbulance = needAmbulance || requestAmbulance;
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const newSOS = api.triggerSOS({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-            description: sosDescription || "Medical Emergency"
+            description: finalDesc,
+            severity: finalSeverity,
+            category: customType || selectedIncidentType,
+            ambulanceRequested: isAmbulance
           });
           setSosState(newSOS);
           simulateDispatches();
@@ -151,7 +161,10 @@ export default function Dashboard({ user, onLogout }) {
           const newSOS = api.triggerSOS({
             lat: 37.7749,
             lng: -122.4194,
-            description: sosDescription || "Medical Emergency"
+            description: finalDesc,
+            severity: finalSeverity,
+            category: customType || selectedIncidentType,
+            ambulanceRequested: isAmbulance
           });
           setSosState(newSOS);
           simulateDispatches();
@@ -434,21 +447,166 @@ export default function Dashboard({ user, onLogout }) {
           {user.role === 'citizen' && (
             <>
               {activeTab === 'sos' && (
-                <div>
-                  <div className="card" style={{ marginBottom: '1rem' }}>
-                    <h3 className="card-title">🚨 Urgent Emergency</h3>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '1rem' }}>
-                      Tap the SOS button to alert all certified responders within {radius} km.
-                    </p>
-                    <div className="form-group">
-                      <label className="form-label">Describe Condition</label>
-                      <input type="text" className="form-input" placeholder="e.g. Chest pain, Breathing trouble" value={sosDescription} onChange={e => setSosDescription(e.target.value)} disabled={sosState} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Urgent / Minor Triage Selector */}
+                  <div className="card" style={{ padding: '0.85rem' }}>
+                    <label className="form-label" style={{ marginBottom: '0.4rem' }}>Select Incident Severity & Assistance Needed</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
+                      {[
+                        { id: 'critical', label: '🚨 Critical SOS', desc: 'Cardiac / Unconscious', color: 'var(--red)' },
+                        { id: 'minor_injury', label: '🩹 Minor Injury', desc: 'Cuts, Sprains, Burns', color: 'var(--amber)' },
+                        { id: 'road_accident', label: '🚗 Road Accident', desc: 'Minor Crash Support', color: 'var(--blue)' }
+                      ].map(type => (
+                        <button
+                          key={type.id}
+                          type="button"
+                          disabled={!!sosState}
+                          onClick={() => setSelectedIncidentType(type.id)}
+                          style={{
+                            padding: '0.6rem 0.4rem',
+                            borderRadius: '10px',
+                            border: '1px solid',
+                            borderColor: selectedIncidentType === type.id ? type.color : 'var(--border)',
+                            background: selectedIncidentType === type.id ? 'rgba(99, 102, 241, 0.08)' : 'rgba(0,0,0,0.02)',
+                            color: selectedIncidentType === type.id ? type.color : 'var(--text-primary)',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <div>{type.label}</div>
+                          <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--text-secondary)', marginTop: '0.15rem' }}>{type.desc}</div>
+                        </button>
+                      ))}
                     </div>
+                  </div>
+
+                  {/* Main Action SOS Card */}
+                  <div className="card">
+                    <h3 className="card-title">
+                      {selectedIncidentType === 'critical' ? '🚨 Urgent Life-Threatening Emergency' : selectedIncidentType === 'minor_injury' ? '🩹 Minor Injury & First Aid Volunteer Dispatch' : '🚗 Roadside Accident First Aid Dispatch'}
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                      {selectedIncidentType === 'critical' 
+                        ? `Tap SOS to immediately alert all certified volunteers and ER ambulance within ${radius} km.`
+                        : `Request immediate on-scene first aid support from nearby certified volunteers for dressing, splints, burns, or sprains.`}
+                    </p>
+
+                    <div className="form-group">
+                      <label className="form-label">Condition & Injury Details</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder={selectedIncidentType === 'minor_injury' ? "e.g. Deep cut on forearm, ankle sprain, minor thermal burn" : selectedIncidentType === 'road_accident' ? "e.g. Minor two-wheeler skid, scrapes and bleeding" : "e.g. Severe chest pain, shortness of breath, collapsed"} 
+                        value={sosDescription} 
+                        onChange={e => setSosDescription(e.target.value)} 
+                        disabled={!!sosState} 
+                      />
+                    </div>
+
+                    {/* Ambulance Checkbox Toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(16, 185, 129, 0.06)', padding: '0.65rem 0.85rem', borderRadius: '10px', marginBottom: '1rem', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                      <div>
+                        <strong style={{ fontSize: '0.82rem' }}>🚑 Request Ambulance Backup</strong>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Dispatches paramedic hospital ambulance alongside volunteer</p>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={requestAmbulance} 
+                        onChange={e => setRequestAmbulance(e.target.checked)} 
+                        disabled={!!sosState}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                    </div>
+
                     <div className="sos-button-container">
-                      <button className="sos-pulse-button" onClick={handleTriggerSOS} disabled={sosState}>
-                        SOS
-                        <span>{sosState ? 'CALL ACTIVE' : 'TAP TO ALERT'}</span>
+                      <button 
+                        className="sos-pulse-button" 
+                        onClick={() => handleTriggerSOS(selectedIncidentType, sosDescription, requestAmbulance)} 
+                        disabled={!!sosState}
+                        style={{
+                          background: selectedIncidentType === 'minor_injury' 
+                            ? 'radial-gradient(circle, #f59e0b 0%, #d97706 100%)' 
+                            : selectedIncidentType === 'road_accident' 
+                            ? 'radial-gradient(circle, #6366f1 0%, #4f46e5 100%)' 
+                            : 'radial-gradient(circle, var(--red) 0%, var(--red-dark) 100%)'
+                        }}
+                      >
+                        {selectedIncidentType === 'critical' ? 'SOS' : 'HELP'}
+                        <span>{sosState ? 'DISPATCH ACTIVE' : 'TAP FOR VOLUNTEER'}</span>
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Quick 1-Tap Minor Injury Action Presets */}
+                  {!sosState && (
+                    <div className="card">
+                      <h3 className="card-title">⚡ Quick 1-Tap Emergency Actions</h3>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+                        One-click instant dispatch for common roadside and home incidents:
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                        {[
+                          { title: '🩸 Bleeding & Cuts', desc: 'Direct pressure & bandage kit', type: 'minor_injury', ambulance: false },
+                          { title: '🦴 Fracture / Sprain', desc: 'Splinting & immobilization', type: 'minor_injury', ambulance: true },
+                          { title: '🔥 Burns & Scalds', desc: 'Cool dressing & burn relief', type: 'minor_injury', ambulance: false },
+                          { title: '🛵 Two-Wheeler Skid', desc: 'Roadside scrape & triage', type: 'road_accident', ambulance: true },
+                          { title: '🐝 Animal/Insect Bite', desc: 'Allergy & sting protocol', type: 'minor_injury', ambulance: false },
+                          { title: '🫁 Asthma / Dizziness', desc: 'Oxygen & seated recovery', type: 'critical', ambulance: true }
+                        ].map((action, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => handleTriggerSOS(action.type, action.title, action.ambulance)}
+                            style={{
+                              padding: '0.6rem 0.5rem',
+                              textAlign: 'left',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.2rem',
+                              background: '#fff',
+                              border: '1px solid var(--border)',
+                              borderRadius: '10px'
+                            }}
+                          >
+                            <strong style={{ fontSize: '0.78rem' }}>{action.title}</strong>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{action.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 24/7 National Emergency Helplines & Ambulance Quick Dial */}
+                  <div className="card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(99, 102, 241, 0.08))' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <h3 className="card-title" style={{ margin: 0 }}>📞 Emergency Hotline Quick Dial</h3>
+                      <span className="badge badge-emerald">24/7 Toll-Free</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
+                      <a href="tel:108" style={{ textDecoration: 'none' }}>
+                        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.5rem', textAlign: 'center' }}>
+                          <span style={{ fontSize: '1.2rem', display: 'block' }}>🚑</span>
+                          <strong style={{ fontSize: '0.85rem', color: 'var(--red)' }}>108 / 911</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'block' }}>Ambulance</span>
+                        </div>
+                      </a>
+                      <a href="tel:100" style={{ textDecoration: 'none' }}>
+                        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.5rem', textAlign: 'center' }}>
+                          <span style={{ fontSize: '1.2rem', display: 'block' }}>🚓</span>
+                          <strong style={{ fontSize: '0.85rem', color: 'var(--blue)' }}>100 / 112</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'block' }}>Police/Rescue</span>
+                        </div>
+                      </a>
+                      <a href="tel:102" style={{ textDecoration: 'none' }}>
+                        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.5rem', textAlign: 'center' }}>
+                          <span style={{ fontSize: '1.2rem', display: 'block' }}>🏥</span>
+                          <strong style={{ fontSize: '0.85rem', color: 'var(--emerald)' }}>102</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'block' }}>First Aid Help</span>
+                        </div>
+                      </a>
                     </div>
                   </div>
 

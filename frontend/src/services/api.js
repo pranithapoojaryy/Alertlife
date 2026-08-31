@@ -173,8 +173,8 @@ export const api = {
         latitude: sosData.lat,
         longitude: sosData.lng,
         description: sosData.description,
-        emergencyType: 'medical',
-        severity: 'high'
+        emergencyType: sosData.emergencyType || 'medical',
+        severity: sosData.severity || 'high'
       });
       if (data.success) backendSOS = data.emergency;
     } catch (err) {
@@ -188,6 +188,9 @@ export const api = {
       lat: sosData.lat || 37.7749,
       lng: sosData.lng || -122.4194,
       description: sosData.description || "Medical Emergency",
+      severity: sosData.severity || "high",
+      emergencyType: sosData.emergencyType || "medical",
+      category: sosData.category || "General Emergency",
       patientName: db.profile?.name || "Jane Citizen",
       patientPhone: db.profile?.phone || "+1 (555) 019-2834",
       patientBlood: db.profile?.bloodGroup || "O+",
@@ -197,8 +200,8 @@ export const api = {
       volunteerId: null,
       volunteerName: null,
       volunteerPhone: null,
-      ambulanceStatus: null,
-      ambulanceEta: null
+      ambulanceStatus: sosData.ambulanceRequested ? "Dispatched" : null,
+      ambulanceEta: sosData.ambulanceRequested ? "6 mins" : null
     };
     db.activeSOS = newSOS;
     saveLocalDB(db);
