@@ -132,8 +132,19 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
       }
     };
     fetchData();
-    const interval = setInterval(fetchData, 1500);
-    return () => clearInterval(interval);
+
+    // High frequency sync interval
+    const interval = setInterval(fetchData, 800);
+
+    // Instant cross-tab and in-tab event listeners
+    window.addEventListener('storage', fetchData);
+    window.addEventListener('alertlife_storage_update', fetchData);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', fetchData);
+      window.removeEventListener('alertlife_storage_update', fetchData);
+    };
   }, []);
 
   // Handle volunteer navigation updates

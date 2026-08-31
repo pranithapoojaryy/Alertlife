@@ -238,7 +238,6 @@ export const api = {
 
   // SOS requests
   getActiveSOS: () => {
-    // Can check backend or return local storage active SOS
     return getLocalDB().activeSOS;
   },
 
@@ -254,7 +253,7 @@ export const api = {
       });
       if (data.success) backendSOS = data.emergency;
     } catch (err) {
-      console.warn('Failed to trigger backend SOS request, running local simulator.', err);
+      console.warn('Backend SOS sync note:', err.message);
     }
 
     const db = getLocalDB();
@@ -281,6 +280,7 @@ export const api = {
     };
     db.activeSOS = newSOS;
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return newSOS;
   },
 
@@ -289,6 +289,7 @@ export const api = {
     if (db.activeSOS) {
       db.activeSOS = { ...db.activeSOS, ...updates };
       saveLocalDB(db);
+      window.dispatchEvent(new Event('alertlife_storage_update'));
     }
     return db.activeSOS;
   },
@@ -304,10 +305,11 @@ export const api = {
       } catch (err) {
         console.warn('Failed to close backend SOS request.', err);
       }
-      db.activeSOS = null;
-      saveLocalDB(db);
     }
-    return null;
+    db.activeSOS = null;
+    saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
+    return true;
   },
 
   // Webinars & articles
