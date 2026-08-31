@@ -480,6 +480,34 @@ export const api = {
     return db.webinars;
   },
 
+  updateWebinar: async (id, webinarData) => {
+    try {
+      if (id && !id.startsWith('web-')) {
+        await client.put(`/events/${id}`, webinarData);
+      }
+    } catch (err) {
+      console.warn('Failed to update event on backend, updating locally.', err);
+    }
+    const db = getLocalDB();
+    db.webinars = (db.webinars || []).map(w => w.id === id ? { ...w, ...webinarData } : w);
+    saveLocalDB(db);
+    return db.webinars;
+  },
+
+  deleteWebinar: async (id) => {
+    try {
+      if (id && !id.startsWith('web-')) {
+        await client.delete(`/events/${id}`);
+      }
+    } catch (err) {
+      console.warn('Failed to delete event on backend, deleting locally.', err);
+    }
+    const db = getLocalDB();
+    db.webinars = (db.webinars || []).filter(w => w.id !== id);
+    saveLocalDB(db);
+    return db.webinars;
+  },
+
   addArticle: async (articleData) => {
     try {
       await client.post('/education', articleData);
@@ -488,6 +516,34 @@ export const api = {
     }
     const db = getLocalDB();
     db.articles = [...(db.articles || []), { id: 'art-' + Date.now(), ...articleData }];
+    saveLocalDB(db);
+    return db.articles;
+  },
+
+  updateArticle: async (id, articleData) => {
+    try {
+      if (id && !id.startsWith('art-')) {
+        await client.put(`/education/${id}`, articleData);
+      }
+    } catch (err) {
+      console.warn('Failed to update article on backend, updating locally.', err);
+    }
+    const db = getLocalDB();
+    db.articles = (db.articles || []).map(a => a.id === id ? { ...a, ...articleData } : a);
+    saveLocalDB(db);
+    return db.articles;
+  },
+
+  deleteArticle: async (id) => {
+    try {
+      if (id && !id.startsWith('art-')) {
+        await client.delete(`/education/${id}`);
+      }
+    } catch (err) {
+      console.warn('Failed to delete article on backend, deleting locally.', err);
+    }
+    const db = getLocalDB();
+    db.articles = (db.articles || []).filter(a => a.id !== id);
     saveLocalDB(db);
     return db.articles;
   }

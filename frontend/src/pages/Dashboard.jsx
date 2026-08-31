@@ -199,15 +199,60 @@ export default function Dashboard({ user, onLogout }) {
   };
 
   // Awareness Publishing Handler (Videos, Images, PDF Documents, Health Camps)
+  const [editingId, setEditingId] = useState(null);
+
+  const openEditModal = (item, isCamp = false) => {
+    setEditingId(item.id);
+    if (isCamp) {
+      setNewPublish({
+        title: item.title || '',
+        category: 'Camp Awareness',
+        contentType: 'camp',
+        mediaUrl: '',
+        duration: '',
+        location: item.location || '',
+        date: item.date ? new Date(item.date).toISOString().slice(0, 16) : '',
+        content: item.title || ''
+      });
+    } else {
+      setNewPublish({
+        title: item.title || '',
+        category: item.category || 'First Aid Guides',
+        contentType: item.contentType || 'article',
+        mediaUrl: item.videoUrl || item.imageUrl || item.docUrl || '',
+        duration: item.readTime || '',
+        location: '',
+        date: '',
+        content: item.content || ''
+      });
+    }
+    setShowPublishModal(true);
+  };
+
+  const handleDeleteArticle = (id, title) => {
+    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      api.deleteArticle(id).then(updated => {
+        if (updated) setArticles(updated);
+      });
+    }
+  };
+
+  const handleDeleteWebinar = (id, title) => {
+    if (window.confirm(`Are you sure you want to delete camp/webinar "${title}"?`)) {
+      api.deleteWebinar(id).then(updated => {
+        if (updated) setWebinars(updated);
+      });
+    }
+  };
+
   const handlePublishAwareness = (e) => {
     e.preventDefault();
-    if (!newPublish.title || !newPublish.content) {
+    if (!newPublish.title || (!newPublish.content && newPublish.contentType !== 'camp')) {
       alert('Please provide a title and description.');
       return;
     }
 
     if (newPublish.contentType === 'camp') {
-      // Create Health Camp Event
       const campObj = {
         title: newPublish.title,
         speaker: `${volProfile.name || 'Volunteer'} (Organizer)`,
@@ -215,11 +260,17 @@ export default function Dashboard({ user, onLogout }) {
         date: newPublish.date || new Date().toISOString(),
         type: 'Health Camp'
       };
-      api.addWebinar(campObj).then(updatedEvents => {
-        if (updatedEvents) setWebinars(updatedEvents);
-      });
+
+      if (editingId) {
+        api.updateWebinar(editingId, campObj).then(updatedEvents => {
+          if (updatedEvents) setWebinars(updatedEvents);
+        });
+      } else {
+        api.addWebinar(campObj).then(updatedEvents => {
+          if (updatedEvents) setWebinars(updatedEvents);
+        });
+      }
     } else {
-      // Create Multimedia Awareness Item (Video, Image, PDF, Article)
       const contentObj = {
         title: newPublish.title,
         category: newPublish.category,
@@ -230,15 +281,23 @@ export default function Dashboard({ user, onLogout }) {
         imageUrl: newPublish.contentType === 'image' ? (newPublish.mediaUrl || 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80') : null,
         docUrl: newPublish.contentType === 'document' ? (newPublish.mediaUrl || '#') : null,
         author: `${volProfile.name || 'Volunteer'} (Verified Responder)`,
-        date: 'Just now',
+        date: 'Updated recently',
         content: newPublish.content
       };
-      api.addArticle(contentObj).then(updatedArticles => {
-        if (updatedArticles) setArticles(updatedArticles);
-      });
+
+      if (editingId) {
+        api.updateArticle(editingId, contentObj).then(updatedArticles => {
+          if (updatedArticles) setArticles(updatedArticles);
+        });
+      } else {
+        api.addArticle(contentObj).then(updatedArticles => {
+          if (updatedArticles) setArticles(updatedArticles);
+        });
+      }
     }
 
-    alert(`✓ Successfully published "${newPublish.title}" to Citizen Awareness Feeds!`);
+    alert(editingId ? `✓ Updated "${newPublish.title}" successfully!` : `✓ Successfully published "${newPublish.title}" to Citizen Awareness Feeds!`);
+    setEditingId(null);
     setNewPublish({
       title: '',
       category: 'Camp Awareness',
@@ -1068,7 +1127,18 @@ export default function Dashboard({ user, onLogout }) {
                   {/* Publishing Studio Form Modal */}
                   {showPublishModal && (
                     <div className="card" style={{ border: '2px solid var(--blue)', background: '#ffffff' }}>
-                      <h3 className="card-title">📤 Publish New Citizen Awareness Content</h3>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h3 className="card-title" style={{ margin: 0 }}>
+                          {editingId ? '✏️ Edit Awareness Content' : '📤 Publish New Citizen Awareness Content'}
+                        </h3>
+                        <button 
+                          className="btn btn-outline" 
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
+                          onClick={() => { setShowPublishModal(false); setEditingId(null); }}
+                        >
+                          ✕ Close
+                        </button>
+                      </div>
                       <form onSubmit={handlePublishAwareness}>
                         <div className="form-group">
                           <label className="form-label">Content Medium / Type</label>
@@ -1176,9 +1246,14 @@ export default function Dashboard({ user, onLogout }) {
 
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
                           <button type="submit" className="btn btn-primary" style={{ flex: 2, padding: '0.8rem' }}>
-                            ✓ Broadcast to Citizen Community
+                            {editingId ? '✓ Save & Update Content' : '✓ Broadcast to Citizen Community'}
                           </button>
-                          <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowPublishModal(false)}>
+                          <button 
+                            type="button" 
+                            className="btn btn-outline" 
+                            style={{ flex: 1 }} 
+                            onClick={() => { setShowPublishModal(false); setEditingId(null); }}
+                          >
                             Cancel
                           </button>
                         </div>
@@ -1234,9 +1309,25 @@ export default function Dashboard({ user, onLogout }) {
                                   📍 {w.location || 'Community Center'} | 📅 {new Date(w.date).toLocaleDateString()} at {new Date(w.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                               </div>
-                              <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>
-                                👥 {w.attendees || 0} Registered
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>
+                                  👥 {w.attendees || 0} Registered
+                                </span>
+                                <button
+                                  className="btn btn-outline"
+                                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', borderColor: 'var(--blue)', color: 'var(--blue)' }}
+                                  onClick={() => openEditModal(w, true)}
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button
+                                  className="btn btn-outline"
+                                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', borderColor: 'var(--red)', color: 'var(--red)' }}
+                                  onClick={() => handleDeleteWebinar(w.id, w.title)}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -1268,7 +1359,23 @@ export default function Dashboard({ user, onLogout }) {
                                 <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
                                   {item.contentType === 'video' ? '🎬 Video Tutorial' : item.contentType === 'image' ? '🖼️ Infographic Poster' : item.contentType === 'document' ? '📄 Printable Guide' : '📖 Guide'}
                                 </span>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{item.readTime}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{item.readTime}</span>
+                                  <button
+                                    className="btn btn-outline"
+                                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.68rem', borderColor: 'var(--blue)', color: 'var(--blue)' }}
+                                    onClick={() => openEditModal(item, false)}
+                                  >
+                                    ✏️ Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-outline"
+                                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.68rem', borderColor: 'var(--red)', color: 'var(--red)' }}
+                                    onClick={() => handleDeleteArticle(item.id, item.title)}
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </div>
                               </div>
 
                               <h4 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>{item.title}</h4>
