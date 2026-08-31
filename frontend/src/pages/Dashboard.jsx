@@ -176,8 +176,8 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
     const finalSeverity = finalType === 'minor_injury' || finalType === 'road_accident' ? 'moderate' : 'high';
     const isAmbulance = needAmbulance || requestAmbulance;
 
-    const executeSOS = (lat, lng) => {
-      const newSOS = api.triggerSOS({
+    const executeSOS = async (lat, lng) => {
+      const newSOS = await api.triggerSOS({
         lat: lat || 37.7749,
         lng: lng || -122.4194,
         description: finalDesc,
@@ -197,7 +197,7 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
         () => {
           executeSOS(37.7749, -122.4194);
         },
-        { timeout: 3000, enableHighAccuracy: true, maximumAge: 60000 }
+        { timeout: 1500, enableHighAccuracy: false, maximumAge: 60000 }
       );
     } else {
       executeSOS(37.7749, -122.4194);
@@ -205,13 +205,11 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
   };
 
   const simulateDispatches = () => {
-    setTimeout(() => {
-      // Mark as matched so incoming emergency card appears on Volunteer's screen
-      const current = api.getActiveSOS();
-      if (current && (current.status === 'locating' || !current.status)) {
-        api.updateSOS({ status: 'matched' });
-      }
-    }, 1000);
+    // Immediately ensure status is ready for volunteer detection
+    const current = api.getActiveSOS();
+    if (current && (current.status === 'locating' || !current.status)) {
+      api.updateSOS({ status: 'matched' });
+    }
   };
 
   // Volunteer Operations
