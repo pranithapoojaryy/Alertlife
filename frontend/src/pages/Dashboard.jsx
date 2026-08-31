@@ -706,6 +706,17 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
                             </span>
                           </div>
                         )}
+
+                        <button 
+                          className="btn btn-outline" 
+                          style={{ marginTop: '0.5rem', width: '100%', borderColor: 'var(--red)', color: 'var(--red)', padding: '0.45rem', fontSize: '0.8rem' }}
+                          onClick={async () => {
+                            await api.closeSOS();
+                            setSosState(null);
+                          }}
+                        >
+                          ✕ Cancel / Clear Active Emergency
+                        </button>
                       </div>
 
                       {sosState.status === 'accepted' && (
