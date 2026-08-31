@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- Rounded Background with Gradient -->
+  <defs>
+    <linearGradient id="volGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#f0fdf4" stop-opacity="0.9" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Background App Tile -->
+  <rect width="512" height="512" rx="112" fill="url(#volGrad)" />
+  
+  <!-- Outer Glow Ring -->
+  <circle cx="256" cy="256" r="210" stroke="#ffffff" stroke-opacity="0.15" stroke-width="8" fill="none" />
+
+  <!-- Volunteer First Responder Shield Symbol -->
+  <g filter="url(#glow)">
+    <path d="M256 90 L380 145 C380 270 325 365 256 415 C187 365 132 270 132 145 Z" 
+          fill="url(#shieldGrad)" />
+    
+    <!-- Medical Emergency Cross inside Shield -->
+    <path d="M228 175 H284 V226 H335 V282 H284 V333 H228 V282 H177 V226 H228 Z" 
+          fill="#10b981" rx="8" />
+
+    <!-- Helping Hands / Heart Badge -->
+    <circle cx="256" cy="254" r="22" fill="#ffffff" />
+    <path d="M256 244 C256 240 248 236 244 242 C240 248 256 262 256 262 C256 262 272 248 268 242 C264 236 256 240 256 244 Z" fill="#ef4444" />
+  </g>
+
+  <!-- Pulse Ring Effect at bottom -->
+  <path d="M160 450 Q 256 465 352 450" stroke="#10b981" stroke-width="6" stroke-linecap="round" fill="none" stroke-opacity="0.8" />
+</svg>

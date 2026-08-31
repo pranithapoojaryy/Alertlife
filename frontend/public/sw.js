@@ -1,7 +1,9 @@
-const CACHE_NAME = 'alertlife-v2';
+const CACHE_NAME = 'alertlife-v3';
 const ASSETS = [
   '/manifest.json',
-  '/favicon.svg'
+  '/manifest-volunteer.json',
+  '/favicon.svg',
+  '/volunteer-icon.svg'
 ];
 
 // Install: cache only static assets (NOT index.html — let network serve it fresh)

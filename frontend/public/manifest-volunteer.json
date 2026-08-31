@@ -1,0 +1,18 @@
+{
+  "short_name": "Alert Responder",
+  "name": "Alert Life - Volunteer First Responder",
+  "description": "Emergency dispatch, real-time CPR metronome, and live triage tools for certified first responders.",
+  "icons": [
+    {
+      "src": "/volunteer-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/?portal=volunteer",
+  "background_color": "#0b0f19",
+  "theme_color": "#10b981",
+  "display": "standalone",
+  "orientation": "portrait"
+}
