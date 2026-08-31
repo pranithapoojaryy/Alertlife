@@ -139,43 +139,48 @@ export default function Dashboard({ user, onLogout }) {
   const [requestAmbulance, setRequestAmbulance] = useState(false);
 
   const handleTriggerSOS = (customType, customDesc, needAmbulance = false) => {
-    const finalDesc = customDesc || sosDescription || (customType === 'minor_injury' ? 'Minor Injury First Aid Assistance' : customType === 'road_accident' ? 'Minor Road Accident Support' : 'Urgent Medical Emergency');
-    const finalSeverity = customType === 'minor_injury' || customType === 'road_accident' ? 'moderate' : 'high';
+    const finalType = customType || selectedIncidentType || 'critical';
+    const finalDesc = customDesc || sosDescription || (finalType === 'minor_injury' ? 'Minor Injury First Aid Assistance' : finalType === 'road_accident' ? 'Minor Road Accident Support' : 'Urgent Medical Emergency');
+    const finalSeverity = finalType === 'minor_injury' || finalType === 'road_accident' ? 'moderate' : 'high';
     const isAmbulance = needAmbulance || requestAmbulance;
 
-    if (navigator.geolocation) {
+    const executeSOS = (lat, lng) => {
+      const newSOS = api.triggerSOS({
+        lat: lat || 37.7749,
+        lng: lng || -122.4194,
+        description: finalDesc,
+        severity: finalSeverity,
+        category: finalType,
+        ambulanceRequested: isAmbulance
+      });
+      setSosState(newSOS);
+      simulateDispatches();
+    };
+
+    if (navigator.geolocation && navigator.geolocation.getCurrentPosition) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const newSOS = api.triggerSOS({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            description: finalDesc,
-            severity: finalSeverity,
-            category: customType || selectedIncidentType,
-            ambulanceRequested: isAmbulance
-          });
-          setSosState(newSOS);
-          simulateDispatches();
+          executeSOS(pos.coords.latitude, pos.coords.longitude);
         },
         () => {
-          const newSOS = api.triggerSOS({
-            lat: 37.7749,
-            lng: -122.4194,
-            description: finalDesc,
-            severity: finalSeverity,
-            category: customType || selectedIncidentType,
-            ambulanceRequested: isAmbulance
-          });
-          setSosState(newSOS);
-          simulateDispatches();
-        }
+          executeSOS(37.7749, -122.4194);
+        },
+        { timeout: 3000, enableHighAccuracy: true, maximumAge: 60000 }
       );
+    } else {
+      executeSOS(37.7749, -122.4194);
     }
   };
 
   const simulateDispatches = () => {
     setTimeout(() => {
-      api.updateSOS({ status: 'matched' });
+      api.updateSOS({ 
+        status: 'accepted',
+        volunteerId: 'vol-1',
+        volunteerName: 'David Miller',
+        volunteerPhone: '+1 (555) 012-3456',
+        volunteerCert: 'AHA Certified First Responder'
+      });
     }, 2000);
   };
 
