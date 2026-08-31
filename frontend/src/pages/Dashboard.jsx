@@ -578,33 +578,65 @@ export default function Dashboard({ user, onLogout }) {
 
               {activeTab === 'education' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  {/* Emergency Protocol Reminder Banner */}
-                  <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(244, 63, 94, 0.06))' }}>
-                    <h3 className="card-title">📚 Citizen First-Aid & Camp Center</h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      Browse verified emergency guides, instructional videos, downloadable manuals, and register for free health checkup camps in your area.
-                    </p>
+                  {/* Hero Banner */}
+                  <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1))' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontSize: '2rem' }}>📢</span>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Community Health & Camp Center</h3>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                          Verified first-aid tutorials, YouTube training videos, downloadable emergency medical manuals, and free neighborhood health checkup camps.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Citizen Filter Pills */}
+                  <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                    {['all', 'video', 'image', 'document', 'camps'].map(tabKey => (
+                      <button
+                        key={tabKey}
+                        onClick={() => setAwarenessMediaFilter(tabKey)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '99px',
+                          border: '1px solid var(--border)',
+                          background: awarenessMediaFilter === tabKey ? 'var(--blue)' : 'rgba(0,0,0,0.03)',
+                          color: awarenessMediaFilter === tabKey ? '#fff' : 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {tabKey === 'all' && '🌐 All Feeds'}
+                        {tabKey === 'video' && '🎬 Video Tutorials'}
+                        {tabKey === 'image' && '🖼️ Posters & Infographics'}
+                        {tabKey === 'document' && '📄 PDF Manuals'}
+                        {tabKey === 'camps' && '🏥 Health Camps'}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Upcoming Free Health Camps & Webinars */}
-                  {webinars.length > 0 && (
+                  {(awarenessMediaFilter === 'all' || awarenessMediaFilter === 'camps') && webinars.length > 0 && (
                     <div className="card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <h3 className="card-title" style={{ margin: 0 }}>🏥 Free Health Camps & Events</h3>
+                        <h3 className="card-title" style={{ margin: 0 }}>🏥 Free Health Camps & Medical Checkups</h3>
                         <span className="badge badge-emerald">{webinars.length} Available</span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {webinars.map(w => (
-                          <div key={w.id} style={{ background: 'rgba(0,0,0,0.02)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                          <div key={w.id} style={{ background: 'rgba(16, 185, 129, 0.04)', padding: '0.85rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
                               <div>
                                 <span className="badge badge-emerald" style={{ fontSize: '0.65rem', marginBottom: '0.3rem' }}>{w.type || 'Health Camp'}</span>
                                 <h4 style={{ fontSize: '0.95rem', margin: '0.2rem 0' }}>{w.title}</h4>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                                   👤 Organized by: <strong>{w.speaker}</strong>
                                 </p>
-                                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                                  📍 {w.location || 'Community Ground'} | 📅 {new Date(w.date).toLocaleDateString()}
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  📍 {w.location || 'Community Center Ground'} | 📅 {new Date(w.date).toLocaleDateString()} at {new Date(w.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                               </div>
                               <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleRegisterWebinar(w.id)}>
@@ -618,71 +650,116 @@ export default function Dashboard({ user, onLogout }) {
                   )}
 
                   {/* Multimedia Awareness Posts (Videos, Posters, Docs) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {articles.map(art => (
-                      <div key={art.id} className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
-                            {art.contentType === 'video' ? '🎬 Video Tutorial' : art.contentType === 'image' ? '🖼️ Camp Poster' : art.contentType === 'document' ? '📄 Health Manual' : '📖 Guide'}
+                  {(awarenessMediaFilter !== 'camps') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {articles
+                        .filter(art => {
+                          if (awarenessMediaFilter === 'all') return true;
+                          return (art.contentType || 'article') === awarenessMediaFilter;
+                        })
+                        .map(art => {
+                          // Extract YouTube Embed URL if available
+                          let ytEmbedUrl = null;
+                          if (art.videoUrl) {
+                            const ytMatch = art.videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                            if (ytMatch && ytMatch[1]) {
+                              ytEmbedUrl = `https://www.youtube-nocookie.com/embed/${ytMatch[1]}`;
+                            }
+                          }
+
+                          return (
+                            <div key={art.id} className="card" style={{ padding: '1.25rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
+                                  {art.contentType === 'video' ? '🎬 Video Tutorial' : art.contentType === 'image' ? '🖼️ Camp Poster' : art.contentType === 'document' ? '📄 Health Manual' : '📖 Guide'}
+                                </span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{art.readTime}</span>
+                              </div>
+
+                              <h4 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>{art.title}</h4>
+
+                              {/* Interactive YouTube Video Player Embed */}
+                              {art.contentType === 'video' && (
+                                <div style={{ marginBottom: '0.75rem', borderRadius: '12px', overflow: 'hidden', background: '#000' }}>
+                                  {ytEmbedUrl ? (
+                                    <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden' }}>
+                                      <iframe
+                                        src={ytEmbedUrl}
+                                        title={art.title}
+                                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', maxHeight: '200px' }}>
+                                      <img src={art.thumbnail || "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80"} alt={art.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      <a 
+                                        href={art.videoUrl || "https://www.youtube.com/watch?v=M4ACYp75mjU"} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        style={{
+                                          position: 'absolute',
+                                          inset: 0,
+                                          background: 'rgba(0,0,0,0.4)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          color: '#fff',
+                                          fontSize: '2rem',
+                                          textDecoration: 'none'
+                                        }}
+                                      >
+                                        ▶️ Watch Video
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Poster / Infographic Image */}
+                              {art.contentType === 'image' && art.imageUrl && (
+                                <div style={{ borderRadius: '12px', overflow: 'hidden', maxHeight: '240px', marginBottom: '0.75rem' }}>
+                                  <img src={art.imageUrl} alt={art.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                              )}
+
+                              {/* Document Download Link */}
+                              {art.contentType === 'document' && (
+                                <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '0.75rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', border: '1px solid var(--border)' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>📄 Official Emergency Manual (PDF)</span>
+                                  <button className="btn btn-outline" style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }} onClick={() => alert('Downloading official medical guide (PDF)...')}>
+                                    ⬇ Download PDF
+                                  </button>
+                                </div>
+                              )}
+
+                              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                {art.content}
+                              </p>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.4rem', borderTop: '1px solid var(--border)', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                <span>Published by: <strong>{art.author || 'Certified Volunteer'}</strong></span>
+                                <span>{art.date || 'Aug 2026'}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                      {/* Empty State when no items for this tab */}
+                      {articles.filter(item => (item.contentType || 'article') === awarenessMediaFilter).length === 0 && awarenessMediaFilter !== 'all' && (
+                        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+                          <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>
+                            {awarenessMediaFilter === 'video' ? '🎬' : awarenessMediaFilter === 'image' ? '🖼️' : '📄'}
                           </span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{art.readTime}</span>
+                          <h4>No {awarenessMediaFilter === 'video' ? 'videos' : awarenessMediaFilter === 'image' ? 'posters' : 'documents'} published yet</h4>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                            Check back soon for upcoming volunteer tutorials and guides!
+                          </p>
                         </div>
-
-                        <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>{art.title}</h4>
-
-                        {/* Video Preview */}
-                        {art.contentType === 'video' && art.thumbnail && (
-                          <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', maxHeight: '180px', marginBottom: '0.75rem' }}>
-                            <img src={art.thumbnail} alt={art.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <a 
-                              href={art.videoUrl || "https://www.youtube.com/watch?v=M4ACYp75mjU"} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                background: 'rgba(0,0,0,0.35)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '2rem',
-                                textDecoration: 'none'
-                              }}
-                            >
-                              ▶️ Watch Video
-                            </a>
-                          </div>
-                        )}
-
-                        {/* Poster / Infographic */}
-                        {art.contentType === 'image' && art.imageUrl && (
-                          <div style={{ borderRadius: '12px', overflow: 'hidden', maxHeight: '200px', marginBottom: '0.75rem' }}>
-                            <img src={art.imageUrl} alt={art.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          </div>
-                        )}
-
-                        {/* Document Link */}
-                        {art.contentType === 'document' && (
-                          <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '0.75rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', border: '1px solid var(--border)' }}>
-                            <span style={{ fontSize: '0.8rem' }}>📄 Medical Guidelines (PDF)</span>
-                            <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }} onClick={() => alert('Downloading official health handbook PDF...')}>
-                              ⬇ Download
-                            </button>
-                          </div>
-                        )}
-
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                          {art.content}
-                        </p>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.4rem', borderTop: '1px solid var(--border)', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                          <span>Published by: <strong>{art.author || 'Certified Volunteer'}</strong></span>
-                          <span>{art.date || 'Aug 2026'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </>
