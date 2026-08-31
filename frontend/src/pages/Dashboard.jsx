@@ -359,6 +359,12 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
     setSosState(active);
   };
 
+  const handlePassSOS = () => {
+    api.updateSOS({ status: 'declined', volunteerId: null });
+    setSosState(null);
+    setNavProgress(0);
+  };
+
   const triggerAmbulance = () => {
     api.updateSOS({
       status: 'hospital_notified',
@@ -1014,7 +1020,7 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
                   </div>
 
                   {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) */}
-                  {sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && !sosState.volunteerId && (
+                  {sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && sosState.status !== 'declined' && !sosState.volunteerId && (
                     <div className="card" style={{ border: '2px solid var(--red)', background: 'rgba(244, 63, 94, 0.05)', animation: 'pulse-border 1.5s infinite' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>🚨 INCOMING CITIZEN EMERGENCY DISPATCH</span>
@@ -1069,7 +1075,7 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
                         <button 
                           className="btn btn-outline" 
                           style={{ flex: 1, padding: '0.85rem' }} 
-                          onClick={() => api.updateSOS({ status: 'declined' })}
+                          onClick={handlePassSOS}
                         >
                           Pass
                         </button>
