@@ -26,12 +26,55 @@ const defaultState = {
   },
   activeSOS: null,
   webinars: [
-    { id: "web-1", title: "Hands-Only CPR Certification Training", speaker: "Dr. Emily Johnson", date: "2026-09-05T10:00:00", attendees: 124 },
-    { id: "web-2", title: "First Aid Basics for Parents & Caregivers", speaker: "David Miller (EMT-B)", date: "2026-09-12T14:30:00", attendees: 88 }
+    { id: "web-1", title: "Hands-Only CPR Certification Training", speaker: "Dr. Emily Johnson", date: "2026-09-05T10:00:00", location: "Community Health Center & Online", type: "Webinar", attendees: 124 },
+    { id: "web-2", title: "Free Cardiac Health Checkup & Blood Donation Camp", speaker: "David Miller (Lead Responder)", date: "2026-09-12T09:00:00", location: "City Town Hall Ground", type: "Health Camp", attendees: 240 },
+    { id: "web-3", title: "Pediatric First Aid & Choking Workshop", speaker: "Dr. Robert Vance (Pediatric ER)", date: "2026-09-18T15:00:00", location: "Metro Medical Center", type: "Health Camp", attendees: 95 }
   ],
   articles: [
-    { id: "art-1", title: "Recognizing a Stroke: Think F.A.S.T.", category: "Guides", readTime: "4 min read", content: "Learn the signs: Face drooping, Arm weakness, Speech difficulty, Time to call emergency." },
-    { id: "art-2", title: "How to Clear an Obstructed Airway (Choking)", category: "CPR & First Aid", readTime: "5 min read", content: "Lean the person forward. Give 5 back blows between the shoulder blades with the heel of your hand. Give 5 abdominal thrusts." }
+    { 
+      id: "art-1", 
+      title: "Recognizing a Stroke: Think F.A.S.T.", 
+      category: "Emergency Guides", 
+      contentType: "article",
+      readTime: "4 min read", 
+      author: "David Miller (Volunteer)",
+      date: "Aug 28, 2026",
+      content: "Learn the signs: Face drooping on one side, Arm weakness when raised, Speech difficulty or slurring, Time to call emergency services immediately." 
+    },
+    { 
+      id: "art-2", 
+      title: "Hands-on CPR Video Demonstration", 
+      category: "CPR Training", 
+      contentType: "video",
+      videoUrl: "https://www.youtube.com/watch?v=M4ACYp75mjU",
+      thumbnail: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80",
+      readTime: "3 min video", 
+      author: "Alert Life Response Team",
+      date: "Aug 29, 2026",
+      content: "Step-by-step video guide explaining hand placement, posture, 2-inch chest compression depth, and 100-120 BPM tempo." 
+    },
+    { 
+      id: "art-3", 
+      title: "Community Free Eye & Dental Camp Awareness Poster", 
+      category: "Camp Awareness", 
+      contentType: "image",
+      imageUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80",
+      readTime: "Camp Infographic", 
+      author: "David Miller (Volunteer)",
+      date: "Aug 30, 2026",
+      content: "Free general health checkup, blood pressure, sugar screening, and CPR demonstration camp open to all citizens this Saturday." 
+    },
+    { 
+      id: "art-4", 
+      title: "Complete First-Aid & Emergency Manual (PDF Guide)", 
+      category: "Health Documents", 
+      contentType: "document",
+      docUrl: "#",
+      readTime: "12 pages PDF", 
+      author: "Dr. Emily Johnson",
+      date: "Aug 25, 2026",
+      content: "Official printable medical pocket guide containing burns, choking, fracture splinting, bleeding tourniquets, and snake bite care." 
+    }
   ],
   radius: 3.5
 };

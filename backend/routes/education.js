@@ -6,8 +6,8 @@ const roleCheck = require('../middleware/roleCheck');
 
 router.get('/', getAllContent);
 router.get('/:id', getContentById);
-router.post('/', protect, roleCheck('admin', 'hospital'), createContent);
-router.put('/:id', protect, roleCheck('admin', 'hospital'), updateContent);
-router.delete('/:id', protect, roleCheck('admin'), deleteContent);
+router.post('/', protect, roleCheck('admin', 'hospital', 'volunteer'), createContent);
+router.put('/:id', protect, roleCheck('admin', 'hospital', 'volunteer'), updateContent);
+router.delete('/:id', protect, roleCheck('admin', 'volunteer'), deleteContent);
 
 module.exports = router;

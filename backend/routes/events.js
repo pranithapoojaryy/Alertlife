@@ -6,8 +6,8 @@ const roleCheck = require('../middleware/roleCheck');
 
 router.get('/', getAllEvents);
 router.get('/:id', getEventById);
-router.post('/', protect, roleCheck('admin', 'hospital'), createEvent);
+router.post('/', protect, roleCheck('admin', 'hospital', 'volunteer'), createEvent);
 router.post('/:id/register', protect, registerForEvent);
-router.put('/:id', protect, roleCheck('admin', 'hospital'), updateEvent);
+router.put('/:id', protect, roleCheck('admin', 'hospital', 'volunteer'), updateEvent);
 
 module.exports = router;

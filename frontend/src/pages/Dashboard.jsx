@@ -61,10 +61,19 @@ export default function Dashboard({ user, onLogout }) {
   const [callMuted, setCallMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
 
-  // Forms
-  const [volunteerNotes, setVolunteerNotes] = useState('');
-  const [newWebinar, setNewWebinar] = useState({ title: '', speaker: '', date: '' });
-  const [newArticle, setNewArticle] = useState({ title: '', category: 'Guides', readTime: '5 min read', content: '' });
+  // Awareness Publishing for Volunteers & Admins
+  const [awarenessMediaFilter, setAwarenessMediaFilter] = useState('all');
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [newPublish, setNewPublish] = useState({
+    title: '',
+    category: 'Camp Awareness',
+    contentType: 'image',
+    mediaUrl: '',
+    duration: '',
+    location: '',
+    date: '',
+    content: ''
+  });
 
   // CPR Metronome audio click & counter simulation
   useEffect(() => {
@@ -189,21 +198,58 @@ export default function Dashboard({ user, onLogout }) {
     });
   };
 
-  const handleDetailedReportSubmit = (e) => {
+  // Awareness Publishing Handler (Videos, Images, PDF Documents, Health Camps)
+  const handlePublishAwareness = (e) => {
     e.preventDefault();
-    if (!reportForm.notes || !reportForm.interventions) {
-      alert('Please fill out first aid interventions and responder notes.');
+    if (!newPublish.title || !newPublish.content) {
+      alert('Please provide a title and description.');
       return;
     }
-    api.submitIncidentReport(sosState?.id, reportForm).then(() => {
-      alert('✓ Incident report submitted. Mission logged to your history.');
-      setSosState(null);
-      setNavProgress(0);
-      setIsCprActive(false);
-      if (api.getIncidentHistory) {
-        setIncidentLogs(api.getIncidentHistory());
-      }
+
+    if (newPublish.contentType === 'camp') {
+      // Create Health Camp Event
+      const campObj = {
+        title: newPublish.title,
+        speaker: `${volProfile.name || 'Volunteer'} (Organizer)`,
+        location: newPublish.location || 'Community Health Center',
+        date: newPublish.date || new Date().toISOString(),
+        type: 'Health Camp'
+      };
+      api.addWebinar(campObj).then(updatedEvents => {
+        if (updatedEvents) setWebinars(updatedEvents);
+      });
+    } else {
+      // Create Multimedia Awareness Item (Video, Image, PDF, Article)
+      const contentObj = {
+        title: newPublish.title,
+        category: newPublish.category,
+        contentType: newPublish.contentType,
+        readTime: newPublish.contentType === 'video' ? (newPublish.duration || '3 min video') : newPublish.contentType === 'document' ? 'PDF Document' : 'Health Guide',
+        videoUrl: newPublish.contentType === 'video' ? (newPublish.mediaUrl || 'https://www.youtube.com/watch?v=M4ACYp75mjU') : null,
+        thumbnail: newPublish.contentType === 'video' ? 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80' : null,
+        imageUrl: newPublish.contentType === 'image' ? (newPublish.mediaUrl || 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80') : null,
+        docUrl: newPublish.contentType === 'document' ? (newPublish.mediaUrl || '#') : null,
+        author: `${volProfile.name || 'Volunteer'} (Verified Responder)`,
+        date: 'Just now',
+        content: newPublish.content
+      };
+      api.addArticle(contentObj).then(updatedArticles => {
+        if (updatedArticles) setArticles(updatedArticles);
+      });
+    }
+
+    alert(`✓ Successfully published "${newPublish.title}" to Citizen Awareness Feeds!`);
+    setNewPublish({
+      title: '',
+      category: 'Camp Awareness',
+      contentType: 'image',
+      mediaUrl: '',
+      duration: '',
+      location: '',
+      date: '',
+      content: ''
     });
+    setShowPublishModal(false);
   };
 
   const acceptSOS = () => {
@@ -472,22 +518,109 @@ export default function Dashboard({ user, onLogout }) {
               )}
 
               {activeTab === 'education' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div className="card">
-                    <h3 className="card-title">📚 Interactive Guides</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem' }}>
-                      <p><strong>1. Verify Conscious State:</strong> Shout and tap shoulders.</p>
-                      <p><strong>2. Call for Defibrillator (AED):</strong> Inform bystanders.</p>
-                      <p><strong>3. Chest Compressions:</strong> Compress 2 inches deep at 110 beats/min.</p>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {/* Emergency Protocol Reminder Banner */}
+                  <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(244, 63, 94, 0.06))' }}>
+                    <h3 className="card-title">📚 Citizen First-Aid & Camp Center</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      Browse verified emergency guides, instructional videos, downloadable manuals, and register for free health checkup camps in your area.
+                    </p>
                   </div>
-                  <div className="card">
-                    <h3 className="card-title">📅 Awareness Webinars</h3>
-                    {webinars.map(w => (
-                      <div key={w.id} style={{ background: 'rgba(0,0,0,0.02)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
-                        <strong>{w.title}</strong>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Speaker: {w.speaker}</p>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', marginTop: '0.5rem' }} onClick={() => handleRegisterWebinar(w.id)}>Register</button>
+
+                  {/* Upcoming Free Health Camps & Webinars */}
+                  {webinars.length > 0 && (
+                    <div className="card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h3 className="card-title" style={{ margin: 0 }}>🏥 Free Health Camps & Events</h3>
+                        <span className="badge badge-emerald">{webinars.length} Available</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {webinars.map(w => (
+                          <div key={w.id} style={{ background: 'rgba(0,0,0,0.02)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <div>
+                                <span className="badge badge-emerald" style={{ fontSize: '0.65rem', marginBottom: '0.3rem' }}>{w.type || 'Health Camp'}</span>
+                                <h4 style={{ fontSize: '0.95rem', margin: '0.2rem 0' }}>{w.title}</h4>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  👤 Organized by: <strong>{w.speaker}</strong>
+                                </p>
+                                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                  📍 {w.location || 'Community Ground'} | 📅 {new Date(w.date).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleRegisterWebinar(w.id)}>
+                                Register Free ({w.attendees || 0})
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multimedia Awareness Posts (Videos, Posters, Docs) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {articles.map(art => (
+                      <div key={art.id} className="card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
+                            {art.contentType === 'video' ? '🎬 Video Tutorial' : art.contentType === 'image' ? '🖼️ Camp Poster' : art.contentType === 'document' ? '📄 Health Manual' : '📖 Guide'}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{art.readTime}</span>
+                        </div>
+
+                        <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>{art.title}</h4>
+
+                        {/* Video Preview */}
+                        {art.contentType === 'video' && art.thumbnail && (
+                          <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', maxHeight: '180px', marginBottom: '0.75rem' }}>
+                            <img src={art.thumbnail} alt={art.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <a 
+                              href={art.videoUrl || "https://www.youtube.com/watch?v=M4ACYp75mjU"} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'rgba(0,0,0,0.35)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#fff',
+                                fontSize: '2rem',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              ▶️ Watch Video
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Poster / Infographic */}
+                        {art.contentType === 'image' && art.imageUrl && (
+                          <div style={{ borderRadius: '12px', overflow: 'hidden', maxHeight: '200px', marginBottom: '0.75rem' }}>
+                            <img src={art.imageUrl} alt={art.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        )}
+
+                        {/* Document Link */}
+                        {art.contentType === 'document' && (
+                          <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '0.75rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', border: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: '0.8rem' }}>📄 Medical Guidelines (PDF)</span>
+                            <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }} onClick={() => alert('Downloading official health handbook PDF...')}>
+                              ⬇ Download
+                            </button>
+                          </div>
+                        )}
+
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                          {art.content}
+                        </p>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.4rem', borderTop: '1px solid var(--border)', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                          <span>Published by: <strong>{art.author || 'Certified Volunteer'}</strong></span>
+                          <span>{art.date || 'Aug 2026'}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -910,11 +1043,284 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
               )}
 
-              {/* TAB 4: Training & Certified Protocol Guides */}
+              {/* TAB 4: Awareness & Health Camp Publisher */}
               {activeTab === 'education' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {/* Action Banner to Publish */}
+                  <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1))' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.15rem' }}>📢 Citizen Awareness Hub</h3>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                          Publish educational videos, first-aid posters, medical guide documents, or schedule free health checkup camps for citizens.
+                        </p>
+                      </div>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                        onClick={() => setShowPublishModal(!showPublishModal)}
+                      >
+                        {showPublishModal ? '✕ Close Publisher' : '+ Publish Awareness Post'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Publishing Studio Form Modal */}
+                  {showPublishModal && (
+                    <div className="card" style={{ border: '2px solid var(--blue)', background: '#ffffff' }}>
+                      <h3 className="card-title">📤 Publish New Citizen Awareness Content</h3>
+                      <form onSubmit={handlePublishAwareness}>
+                        <div className="form-group">
+                          <label className="form-label">Content Medium / Type</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                            {[
+                              { id: 'video', label: '🎬 Video', desc: 'YouTube/Video Demo' },
+                              { id: 'image', label: '🖼️ Poster', desc: 'Infographic / Flyer' },
+                              { id: 'document', label: '📄 PDF Guide', desc: 'Medical Manual' },
+                              { id: 'camp', label: '🏥 Camp', desc: 'Health Camp Event' }
+                            ].map(type => (
+                              <button
+                                key={type.id}
+                                type="button"
+                                onClick={() => setNewPublish({ ...newPublish, contentType: type.id })}
+                                style={{
+                                  padding: '0.6rem 0.4rem',
+                                  borderRadius: '10px',
+                                  border: '1px solid',
+                                  borderColor: newPublish.contentType === type.id ? 'var(--blue)' : 'var(--border)',
+                                  background: newPublish.contentType === type.id ? 'rgba(99, 102, 241, 0.12)' : 'rgba(0,0,0,0.02)',
+                                  color: newPublish.contentType === type.id ? 'var(--blue)' : 'var(--text-primary)',
+                                  fontWeight: 600,
+                                  fontSize: '0.78rem',
+                                  cursor: 'pointer',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                {type.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Headline / Title</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            placeholder={newPublish.contentType === 'camp' ? "e.g. Free Cardiac & BP Screening Camp" : newPublish.contentType === 'video' ? "e.g. Step-by-Step Adult CPR Video Tutorial" : "e.g. Choking Relief Poster for Toddlers"}
+                            value={newPublish.title} 
+                            onChange={e => setNewPublish({...newPublish, title: e.target.value})} 
+                            required 
+                          />
+                        </div>
+
+                        <div className="grid-2">
+                          <div className="form-group">
+                            <label className="form-label">Category</label>
+                            <select className="form-select" value={newPublish.category} onChange={e => setNewPublish({...newPublish, category: e.target.value})}>
+                              <option value="Camp Awareness">🏥 Health Camp Awareness</option>
+                              <option value="CPR Training">💓 CPR & Resuscitation</option>
+                              <option value="First Aid Guides">🩹 First Aid Guides</option>
+                              <option value="Health Tips">🥗 Daily Health & Wellness</option>
+                              <option value="Emergency Protocols">⚡ Emergency Protocols</option>
+                            </select>
+                          </div>
+
+                          {newPublish.contentType === 'video' && (
+                            <div className="form-group">
+                              <label className="form-label">Video Demo URL (YouTube / MP4)</label>
+                              <input type="url" className="form-input" placeholder="https://youtube.com/watch?v=..." value={newPublish.mediaUrl} onChange={e => setNewPublish({...newPublish, mediaUrl: e.target.value})} />
+                            </div>
+                          )}
+
+                          {newPublish.contentType === 'image' && (
+                            <div className="form-group">
+                              <label className="form-label">Infographic / Poster Image URL</label>
+                              <input type="url" className="form-input" placeholder="https://images.unsplash.com/..." value={newPublish.mediaUrl} onChange={e => setNewPublish({...newPublish, mediaUrl: e.target.value})} />
+                            </div>
+                          )}
+
+                          {newPublish.contentType === 'document' && (
+                            <div className="form-group">
+                              <label className="form-label">Document Download URL</label>
+                              <input type="text" className="form-input" placeholder="PDF link or drive URL" value={newPublish.mediaUrl} onChange={e => setNewPublish({...newPublish, mediaUrl: e.target.value})} />
+                            </div>
+                          )}
+
+                          {newPublish.contentType === 'camp' && (
+                            <div className="form-group">
+                              <label className="form-label">Camp Location / Venue</label>
+                              <input type="text" className="form-input" placeholder="e.g. Town Hall Community Ground" value={newPublish.location} onChange={e => setNewPublish({...newPublish, location: e.target.value})} required />
+                            </div>
+                          )}
+                        </div>
+
+                        {newPublish.contentType === 'camp' && (
+                          <div className="form-group">
+                            <label className="form-label">Camp Date & Start Time</label>
+                            <input type="datetime-local" className="form-input" value={newPublish.date} onChange={e => setNewPublish({...newPublish, date: e.target.value})} required />
+                          </div>
+                        )}
+
+                        <div className="form-group">
+                          <label className="form-label">Detailed Content / Instructions</label>
+                          <textarea 
+                            className="form-textarea" 
+                            rows="3" 
+                            placeholder={newPublish.contentType === 'camp' ? "Explain timings, free services offered (ECG, blood sugar, vitals), and required documents..." : "Explain the health guide steps, key takeaways, and emergency contact steps..."} 
+                            value={newPublish.content} 
+                            onChange={e => setNewPublish({...newPublish, content: e.target.value})} 
+                            required 
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                          <button type="submit" className="btn btn-primary" style={{ flex: 2, padding: '0.8rem' }}>
+                            ✓ Broadcast to Citizen Community
+                          </button>
+                          <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowPublishModal(false)}>
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Filter Pills */}
+                  <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                    {['all', 'video', 'image', 'document', 'camps'].map(tabKey => (
+                      <button
+                        key={tabKey}
+                        onClick={() => setAwarenessMediaFilter(tabKey)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '99px',
+                          border: '1px solid var(--border)',
+                          background: awarenessMediaFilter === tabKey ? 'var(--blue)' : 'rgba(0,0,0,0.03)',
+                          color: awarenessMediaFilter === tabKey ? '#fff' : 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {tabKey === 'all' && '🌐 All Feeds'}
+                        {tabKey === 'video' && '🎬 Videos'}
+                        {tabKey === 'image' && '🖼️ Posters & Infographics'}
+                        {tabKey === 'document' && '📄 PDF Documents'}
+                        {tabKey === 'camps' && '🏥 Health Camps'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Scheduled Health Camps List */}
+                  {(awarenessMediaFilter === 'all' || awarenessMediaFilter === 'camps') && webinars.length > 0 && (
+                    <div className="card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h3 className="card-title" style={{ margin: 0 }}>🏥 Scheduled Health Camps & Awareness Webinars</h3>
+                        <span className="badge badge-emerald">{webinars.length} Active Events</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {webinars.map(w => (
+                          <div key={w.id} style={{ background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', padding: '0.85rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <div>
+                                <span className="badge badge-emerald" style={{ fontSize: '0.65rem', marginBottom: '0.35rem' }}>{w.type || 'Health Camp'}</span>
+                                <h4 style={{ fontSize: '0.95rem', margin: '0.2rem 0' }}>{w.title}</h4>
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                  👤 Organizer: <strong>{w.speaker}</strong>
+                                </p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  📍 {w.location || 'Community Center'} | 📅 {new Date(w.date).toLocaleDateString()} at {new Date(w.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                              <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>
+                                👥 {w.attendees || 0} Registered
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multimedia Awareness Feed (Videos, Posters, Docs) */}
+                  {(awarenessMediaFilter !== 'camps') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {articles
+                        .filter(item => {
+                          if (awarenessMediaFilter === 'all') return true;
+                          return item.contentType === awarenessMediaFilter;
+                        })
+                        .map(item => (
+                          <div key={item.id} className="card" style={{ padding: '1.25rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                              <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
+                                {item.contentType === 'video' ? '🎬 Video Tutorial' : item.contentType === 'image' ? '🖼️ Infographic Poster' : item.contentType === 'document' ? '📄 Printable Guide' : '📖 Guide'}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{item.readTime}</span>
+                            </div>
+
+                            <h4 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>{item.title}</h4>
+
+                            {/* Video Player Embed / Thumbnail */}
+                            {item.contentType === 'video' && item.thumbnail && (
+                              <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', maxHeight: '200px', marginBottom: '0.75rem' }}>
+                                <img src={item.thumbnail} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <a 
+                                  href={item.videoUrl || "https://www.youtube.com/watch?v=M4ACYp75mjU"} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: 'rgba(0,0,0,0.4)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    textDecoration: 'none',
+                                    color: '#fff',
+                                    fontSize: '2.5rem'
+                                  }}
+                                >
+                                  ▶️
+                                </a>
+                              </div>
+                            )}
+
+                            {/* Poster / Infographic Image */}
+                            {item.contentType === 'image' && item.imageUrl && (
+                              <div style={{ borderRadius: '12px', overflow: 'hidden', maxHeight: '220px', marginBottom: '0.75rem' }}>
+                                <img src={item.imageUrl} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            )}
+
+                            {/* Document Download Link */}
+                            {item.contentType === 'document' && (
+                              <div style={{ background: 'rgba(99, 102, 241, 0.06)', padding: '0.75rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', border: '1px solid var(--border)' }}>
+                                <span>📄 Official Health Manual (PDF)</span>
+                                <a href={item.docUrl || '#'} className="btn btn-outline" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }} onClick={(e) => { e.preventDefault(); alert('Downloading Medical Guidelines PDF...'); }}>
+                                  ⬇ Download PDF
+                                </a>
+                              </div>
+                            )}
+
+                            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                              {item.content}
+                            </p>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                              <span>Author: <strong>{item.author || 'Alert Life Team'}</strong></span>
+                              <span>Published: {item.date || 'Aug 2026'}</span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Certified Protocol Quick Reference */}
                   <div className="card">
-                    <h3 className="card-title">📖 Certified Protocol Quick Reference</h3>
+                    <h3 className="card-title">📖 Responder Protocol Quick Reference</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.82rem' }}>
                       <div style={{ padding: '0.75rem', background: 'rgba(244, 63, 94, 0.05)', borderRadius: '10px', borderLeft: '4px solid var(--red)' }}>
                         <strong style={{ color: 'var(--red-dark)' }}>⚡ Adult CPR & Defibrillation</strong>
@@ -930,21 +1336,6 @@ export default function Dashboard({ user, onLogout }) {
                         <strong style={{ color: 'var(--emerald)' }}>🫁 Choking Relief (Conscious Adult)</strong>
                         <p style={{ marginTop: '0.25rem' }}>Stand behind victim. Give 5 firm back blows between shoulder blades. If still blocked, wrap arms around waist, make fist above navel, and give 5 quick inward/upward abdominal thrusts.</p>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="card">
-                    <h3 className="card-title">📚 Continuing Education Articles</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {articles.map(art => (
-                        <div key={art.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <strong style={{ fontSize: '0.85rem' }}>{art.title}</strong>
-                            <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>{art.category || 'Guide'}</span>
-                          </div>
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{art.content}</p>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 </div>
