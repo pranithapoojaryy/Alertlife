@@ -265,19 +265,32 @@ export const api = {
   getArticles: async () => {
     try {
       const { data } = await client.get('/education');
-      if (data.success && data.content) {
-        return data.content.map(c => ({
+      if (data.success && (data.contents || data.content)) {
+        const rawList = data.contents || data.content;
+        return rawList.map(c => ({
           id: c._id,
           title: c.title,
           category: c.category || 'Guides',
-          readTime: c.readTime || '5 min read',
+          contentType: c.contentType || 'article',
+          readTime: c.readTime || (c.contentType === 'video' ? '3 min video' : c.contentType === 'document' ? 'PDF Guide' : '5 min read'),
+          videoUrl: c.videoUrl || null,
+          thumbnail: c.thumbnail || null,
+          imageUrl: c.imageUrl || c.filePath || null,
+          docUrl: c.filePath || c.docUrl || '#',
+          author: c.author?.name || 'Volunteer Responder',
           content: c.description || c.content
         }));
       }
     } catch (err) {
       console.warn('Failed to fetch articles from backend, using local guides.', err);
     }
-    return getLocalDB().articles;
+    const db = getLocalDB();
+    // If localDB articles lack contentType, migrate with default rich articles
+    if (db.articles && db.articles.length > 0 && !db.articles.some(a => a.contentType === 'video')) {
+      db.articles = defaultState.articles;
+      saveLocalDB(db);
+    }
+    return db.articles || defaultState.articles;
   },
 
   getMembers: async () => {
