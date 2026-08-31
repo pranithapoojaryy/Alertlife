@@ -30,6 +30,62 @@ const defaultState = {
     { id: "web-2", title: "Free Cardiac Health Checkup & Blood Donation Camp", speaker: "David Miller (Lead Responder)", date: "2026-09-12T09:00:00", location: "City Town Hall Ground", type: "Health Camp", attendees: 240 },
     { id: "web-3", title: "Pediatric First Aid & Choking Workshop", speaker: "Dr. Robert Vance (Pediatric ER)", date: "2026-09-18T15:00:00", location: "Metro Medical Center", type: "Health Camp", attendees: 95 }
   ],
+  rescueLedger: [
+    {
+      id: "resc-1",
+      emergencyId: "sos-101",
+      volunteerName: "David Miller",
+      volunteerEmail: "david.miller@alertlife.org",
+      volunteerPhone: "+1 (555) 012-3456",
+      patientName: "Jane Citizen",
+      patientPhone: "+1 (555) 019-2834",
+      incidentType: "Minor Road Accident",
+      severity: "Moderate",
+      location: "37.7749, -122.4194 (Market & 4th St)",
+      date: "Aug 30, 2026, 14:15",
+      durationMins: 38,
+      status: "Completed & Verified",
+      payoutAmount: 45.00,
+      payoutStatus: "Credited to Bank",
+      notes: "Arrived in 3 mins. Controlled laceration bleeding, dressed wound with gauze, and escorted patient to ambulance."
+    },
+    {
+      id: "resc-2",
+      emergencyId: "sos-102",
+      volunteerName: "David Miller",
+      volunteerEmail: "david.miller@alertlife.org",
+      volunteerPhone: "+1 (555) 012-3456",
+      patientName: "Robert Hayes",
+      patientPhone: "+1 (555) 392-8812",
+      incidentType: "Cardiac Arrest / CPR",
+      severity: "Critical",
+      location: "37.7833, -122.4167 (Union Square)",
+      date: "Aug 29, 2026, 09:40",
+      durationMins: 52,
+      status: "Completed & Verified",
+      payoutAmount: 75.00,
+      payoutStatus: "Credited to Bank",
+      notes: "Delivered 2 cycles of CPR and AED shock. Pulse regained before ambulance arrival."
+    },
+    {
+      id: "resc-3",
+      emergencyId: "sos-103",
+      volunteerName: "Elena Rostova",
+      volunteerEmail: "elena@alertlife.org",
+      volunteerPhone: "+1 (555) 882-9011",
+      patientName: "Marcus Vance",
+      patientPhone: "+1 (555) 441-2910",
+      incidentType: "Severe Bleeding & Sprain",
+      severity: "Moderate",
+      location: "37.7650, -122.4200 (Mission District)",
+      date: "Aug 28, 2026, 18:20",
+      durationMins: 40,
+      status: "Pending Admin Credit",
+      payoutAmount: 50.00,
+      payoutStatus: "Pending Approval",
+      notes: "Applied splint and ice dressing. Stabilized patient until ER crew took over."
+    }
+  ],
   articles: [
     { 
       id: "art-1", 
@@ -426,6 +482,7 @@ export const api = {
       console.warn('Failed to post report to backend, handling locally.', err);
     }
     const db = getLocalDB();
+    const active = db.activeSOS;
     if (db.volunteerProfile) {
       db.volunteerProfile.totalEmergenciesHandled = (db.volunteerProfile.totalEmergenciesHandled || 0) + 1;
       db.volunteerProfile.availabilityStatus = 'available';
@@ -436,6 +493,28 @@ export const api = {
       date: new Date().toLocaleString(),
       ...reportData
     });
+
+    // Automatically record into Admin Rescue Ledger for Salary/Stipend tracking
+    const newRescueLog = {
+      id: 'resc-' + Date.now(),
+      emergencyId: emergencyId || 'sos-' + Date.now(),
+      volunteerName: db.volunteerProfile?.name || 'David Miller',
+      volunteerEmail: db.volunteerProfile?.email || 'david.miller@alertlife.org',
+      volunteerPhone: db.volunteerProfile?.phone || '+1 (555) 012-3456',
+      patientName: active?.patientName || 'Jane Citizen',
+      patientPhone: active?.patientPhone || '+1 (555) 019-2834',
+      incidentType: active?.description || 'First Aid Intervention',
+      severity: active?.severity || 'Moderate',
+      location: active ? `${active.lat?.toFixed(4)}, ${active.lng?.toFixed(4)}` : 'Downtown Area',
+      date: new Date().toLocaleString(),
+      durationMins: 35,
+      status: 'Completed & Verified',
+      payoutAmount: active?.severity === 'high' ? 75.00 : 45.00,
+      payoutStatus: 'Pending Admin Approval',
+      notes: `${reportData.interventions || 'First aid given'} | ${reportData.notes || 'Patient stabilized.'}`
+    };
+
+    db.rescueLedger = [newRescueLog, ...(db.rescueLedger || defaultState.rescueLedger || [])];
     db.activeSOS = null;
     saveLocalDB(db);
     return true;
@@ -549,6 +628,39 @@ export const api = {
     db.articles = (db.articles || []).filter(a => a.id !== id);
     saveLocalDB(db);
     return db.articles;
+  },
+
+  // Volunteer Rescue Work & Salary / Stipend Ledger
+  getRescueLedger: () => {
+    const db = getLocalDB();
+    return db.rescueLedger || defaultState.rescueLedger || [];
+  },
+
+  recordRescueWork: (logData) => {
+    const db = getLocalDB();
+    const newLog = {
+      id: 'resc-' + Date.now(),
+      date: new Date().toLocaleString(),
+      status: 'Completed & Verified',
+      payoutAmount: logData.severity === 'high' || logData.severity === 'Critical' ? 75.00 : 45.00,
+      payoutStatus: 'Pending Admin Approval',
+      ...logData
+    };
+    db.rescueLedger = [newLog, ...(db.rescueLedger || defaultState.rescueLedger || [])];
+    saveLocalDB(db);
+    return db.rescueLedger;
+  },
+
+  creditVolunteerPayout: (rescueId) => {
+    const db = getLocalDB();
+    db.rescueLedger = (db.rescueLedger || defaultState.rescueLedger || []).map(r => {
+      if (r.id === rescueId) {
+        return { ...r, payoutStatus: 'Credited to Bank Account', creditedAt: new Date().toLocaleDateString() };
+      }
+      return r;
+    });
+    saveLocalDB(db);
+    return db.rescueLedger;
   }
 };
 

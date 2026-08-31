@@ -88,6 +88,17 @@ export default function Dashboard({ user, onLogout }) {
     return () => clearInterval(metronomeInterval);
   }, [isCprActive]);
 
+  // Volunteer Work & Salary / Stipend Ledger for Admin
+  const [rescueLedger, setRescueLedger] = useState(api.getRescueLedger ? api.getRescueLedger() : []);
+
+  const handleCreditVolunteer = (rescueId, volName, amount) => {
+    if (window.confirm(`Confirm salary/stipend transfer of $${amount} to ${volName}?`)) {
+      const updated = api.creditVolunteerPayout(rescueId);
+      if (updated) setRescueLedger(updated);
+      alert(`✓ Payout of $${amount} successfully credited to ${volName}'s verified bank account!`);
+    }
+  };
+
   // Sync state on intervals
   useEffect(() => {
     // Fetch initial profile async
@@ -108,6 +119,9 @@ export default function Dashboard({ user, onLogout }) {
       api.getMembers().then(data => setMembers(data || []));
       if (api.getIncidentHistory) {
         setIncidentLogs(api.getIncidentHistory() || []);
+      }
+      if (api.getRescueLedger) {
+        setRescueLedger(api.getRescueLedger() || []);
       }
     };
     fetchData();
@@ -1776,6 +1790,9 @@ export default function Dashboard({ user, onLogout }) {
           <button className={`menu-item ${activeTab === 'monitor' ? 'active' : ''}`} onClick={() => setActiveTab('monitor')}>
             👑 Active Monitor
           </button>
+          <button className={`menu-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
+            💰 Volunteer Payouts & Rescues
+          </button>
           <button className={`menu-item ${activeTab === 'ambulance' ? 'active' : ''}`} onClick={() => setActiveTab('ambulance')}>
             🚑 Ambulance Desk
           </button>
@@ -1805,7 +1822,7 @@ export default function Dashboard({ user, onLogout }) {
           <div>
             <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
               <div className="card">
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Saves</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Rescue Missions</p>
                 <h2>12,840</h2>
               </div>
               <div className="card">
@@ -1813,23 +1830,141 @@ export default function Dashboard({ user, onLogout }) {
                 <h2>4,839</h2>
               </div>
               <div className="card">
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Avg Response Time</p>
-                <h2 style={{ color: 'var(--red)' }}>2m 45s</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Payouts Credited</p>
+                <h2 style={{ color: 'var(--emerald)' }}>$48,250</h2>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <h3 className="card-title">🚨 Live SOS & Volunteer Dispatch Monitor</h3>
+              {sosState ? (
+                <div style={{ background: 'rgba(244,63,94,0.04)', border: '1px solid var(--border)', padding: '1.25rem', borderRadius: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem' }}>
+                    <div>
+                      <p><strong>Patient Name:</strong> {sosState.patientName}</p>
+                      <p><strong>Patient Phone:</strong> {sosState.patientPhone}</p>
+                      <p><strong>Condition / Incident:</strong> {sosState.description}</p>
+                      <p><strong>Live Location:</strong> {sosState.lat?.toFixed(4)}, {sosState.lng?.toFixed(4)}</p>
+                      <p><strong>Severity:</strong> <span className="badge badge-red">{sosState.severity || 'High'}</span></p>
+                    </div>
+                    <div>
+                      <p><strong>Assigned Responder:</strong> {sosState.volunteerName ? `${sosState.volunteerName} (Verified)` : 'Matching nearby volunteers...'}</p>
+                      <p><strong>Volunteer Phone:</strong> {sosState.volunteerPhone || 'N/A'}</p>
+                      <p><strong>Dispatch Status:</strong> <span className="badge badge-blue">{sosState.status}</span></p>
+                      <p><strong>Ambulance Backup:</strong> {sosState.ambulanceStatus || 'None requested'}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)' }}>No active emergency cases currently in progress.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: Volunteer Rescue Work & Salary Payouts Management */}
+        {activeTab === 'payroll' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="grid-3">
+              <div className="card">
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Missions Handled</p>
+                <h2>{rescueLedger.length}</h2>
+              </div>
+              <div className="card">
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Pending Salary Approvals</p>
+                <h2 style={{ color: 'var(--amber)' }}>
+                  {rescueLedger.filter(r => r.payoutStatus.includes('Pending')).length}
+                </h2>
+              </div>
+              <div className="card">
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Payout Amount</p>
+                <h2 style={{ color: 'var(--emerald)' }}>
+                  ${rescueLedger.reduce((acc, curr) => acc + (curr.payoutAmount || 0), 0).toFixed(2)}
+                </h2>
               </div>
             </div>
 
             <div className="card">
-              <h3 className="card-title">📜 System Active Case Monitor</h3>
-              {sosState ? (
-                <div style={{ background: 'rgba(244,63,94,0.04)', border: '1px solid var(--border)', padding: '1rem', borderRadius: '12px' }}>
-                  <p><strong>Patient:</strong> {sosState.patientName}</p>
-                  <p><strong>Description:</strong> {sosState.description}</p>
-                  <p><strong>Status:</strong> <span className="badge badge-red">{sosState.status}</span></p>
-                  <p><strong>Ambulance Requested:</strong> {sosState.ambulanceStatus || 'No'}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 className="card-title" style={{ margin: 0 }}>💰 Volunteer Rescue Ledger & Salary Crediting</h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    Track all volunteer rescue missions with patient details, GPS location, first-aid reports, and credit compensation directly.
+                  </p>
                 </div>
-              ) : (
-                <p style={{ color: 'var(--text-muted)' }}>No active emergency cases currently reported.</p>
-              )}
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(0,0,0,0.03)', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Rescue ID & Date</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Volunteer Responder</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Patient & Incident</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>GPS Location & Time</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Action Taken / Notes</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Stipend / Salary</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Payment Status</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Admin Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rescueLedger.map((row) => (
+                      <tr key={row.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <strong>{row.id}</strong>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{row.date}</div>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <strong>{row.volunteerName}</strong>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{row.volunteerPhone}</div>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <strong>{row.patientName}</strong>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{row.incidentType}</div>
+                          <span className={`badge ${row.severity === 'Critical' || row.severity === 'high' ? 'badge-red' : 'badge-amber'}`} style={{ fontSize: '0.62rem' }}>
+                            {row.severity || 'Moderate'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <span style={{ fontSize: '0.75rem' }}>📍 {row.location}</span>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>⏱️ {row.durationMins || 30} mins on-scene</div>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', maxWidth: '220px' }}>
+                          <p style={{ fontSize: '0.75rem', margin: 0, lineHeight: 1.3 }}>{row.notes}</p>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <strong style={{ fontSize: '0.9rem', color: 'var(--emerald)' }}>${(row.payoutAmount || 45).toFixed(2)}</strong>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Calculated rate</div>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <span className={`badge ${row.payoutStatus.includes('Credited') ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.68rem' }}>
+                            {row.payoutStatus}
+                          </span>
+                          {row.creditedAt && (
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>on {row.creditedAt}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          {row.payoutStatus.includes('Pending') ? (
+                            <button
+                              className="btn btn-primary"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.72rem', background: 'var(--emerald)' }}
+                              onClick={() => handleCreditVolunteer(row.id, row.volunteerName, row.payoutAmount || 45)}
+                            >
+                              ✓ Credit Salary
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--emerald)', fontWeight: 700 }}>
+                              ✓ Disbursed
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
