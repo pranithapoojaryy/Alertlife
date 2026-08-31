@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 
-export default function Dashboard({ user, onLogout }) {
-  const isMobile = user?.role === 'citizen' || user?.role === 'volunteer';
+export default function Dashboard({ user = { name: 'David Miller', email: 'david@alertlife.org', role: 'volunteer' }, onLogout }) {
+  const currentRole = (user && user.role) ? user.role.toLowerCase() : 'volunteer';
+  const isMobile = currentRole === 'citizen' || currentRole === 'volunteer';
 
   // State Management
-  const [activeTab, setActiveTab] = useState(isMobile ? 'sos' : 'monitor');
+  const [activeTab, setActiveTab] = useState('sos');
   const [sosDescription, setSosDescription] = useState('');
-  const [sosState, setSosState] = useState(api.getActiveSOS());
+  const [sosState, setSosState] = useState(() => {
+    try {
+      return api.getActiveSOS();
+    } catch {
+      return null;
+    }
+  });
   const [profile, setProfile] = useState({ name: '', email: '', phone: '', bloodGroup: 'O+', allergies: 'None', medicalHistory: 'None' });
   const [radius, setRadius] = useState(api.getRadius());
 
