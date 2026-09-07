@@ -249,49 +249,51 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     const finalSeverity = finalType === 'minor_injury' || finalType === 'road_accident' ? 'moderate' : 'high';
     const isAmbulance = needAmbulance || requestAmbulance;
 
-    const executeSOS = async (lat, lng, addr = '') => {
-      let finalAddr = addr;
-      if (!finalAddr && lat && lng) {
-        try {
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-          if (geoRes.ok) {
-            const geoData = await geoRes.json();
-            if (geoData.display_name) {
-              const parts = geoData.display_name.split(',');
-              finalAddr = parts.slice(0, 3).join(',').trim();
-            }
-          }
-        } catch {
-          finalAddr = `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
-        }
-      }
+    // Instant default coordinates (Bengaluru tech hub / fallback)
+    const defaultLat = 12.9352;
+    const defaultLng = 77.6245;
+    const defaultAddress = 'Koramangala, Bengaluru, Karnataka';
 
-      const newSOS = await api.triggerSOS({
-        lat: lat,
-        lng: lng,
-        address: finalAddr || `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
-        description: finalDesc,
-        severity: finalSeverity,
-        category: finalType,
-        ambulanceRequested: isAmbulance,
-        patientProfile: profile
-      });
+    // 1. Immediately trigger and activate SOS locally & on backend
+    api.triggerSOS({
+      lat: defaultLat,
+      lng: defaultLng,
+      address: defaultAddress,
+      description: finalDesc,
+      severity: finalSeverity,
+      category: finalType,
+      ambulanceRequested: isAmbulance,
+      patientProfile: profile
+    }).then(newSOS => {
       setSosState(newSOS);
       simulateDispatches();
-    };
+    });
 
+    // 2. Query high-accuracy GPS in background and update emergency if available
     if (navigator.geolocation && navigator.geolocation.getCurrentPosition) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          executeSOS(pos.coords.latitude, pos.coords.longitude);
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          let addr = `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { signal: AbortSignal.timeout(2000) });
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              if (geoData.display_name) {
+                addr = geoData.display_name.split(',').slice(0, 3).join(',').trim();
+              }
+            }
+          } catch {
+            // retain coordinate string
+          }
+          api.updateSOS({ lat, lng, address: addr });
         },
         () => {
-          executeSOS(12.9352, 77.6245, 'Koramangala, Bengaluru, Karnataka');
+          // Keep default location
         },
-        { timeout: 4000, enableHighAccuracy: true, maximumAge: 10000 }
+        { timeout: 3000, enableHighAccuracy: false, maximumAge: 30000 }
       );
-    } else {
-      executeSOS(12.9352, 77.6245, 'Koramangala, Bengaluru, Karnataka');
     }
   };
 
