@@ -26,7 +26,18 @@ const register = async (req, res) => {
     if (role === 'citizen') {
       await Citizen.create({ userId: user._id, bloodGroup, ...roleData });
     } else if (role === 'volunteer') {
-      await Volunteer.create({ userId: user._id, ...roleData });
+      await Volunteer.create({ 
+        userId: user._id, 
+        availabilityStatus: 'available',
+        isVerified: true,
+        currentLocation: {
+          latitude: 12.9352,
+          longitude: 77.6245,
+          lastUpdated: new Date()
+        },
+        ...roleData 
+      });
+      await User.findByIdAndUpdate(user._id, { isVerified: true });
     } else if (role === 'hospital') {
       await Hospital.create({ userId: user._id, ...roleData });
     } else if (role === 'doctor') {

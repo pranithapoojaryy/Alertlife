@@ -73,30 +73,41 @@ const createEmergency = async (req, res) => {
       });
     }
 
-    // Find nearby available volunteers within service radius
-    const volunteers = await Volunteer.find({
-      availabilityStatus: 'available',
-      isVerified: true,
-      'currentLocation.latitude': { $exists: true },
+    // Find active volunteers (all registered active volunteers or nearby)
+    let volunteers = await Volunteer.find({
+      $or: [
+        { availabilityStatus: 'available' },
+        { availabilityStatus: { $exists: false } },
+        { isVerified: true }
+      ]
     }).populate('userId', 'name phone');
 
+    // If volunteers found, ensure they are assigned and notified
+    if (!volunteers || volunteers.length === 0) {
+      volunteers = await Volunteer.find({}).populate('userId', 'name phone');
+    }
+
     const nearbyVolunteers = volunteers.filter((v) => {
-      if (!v.currentLocation?.latitude) return false;
+      if (!v.currentLocation?.latitude || !v.currentLocation?.longitude) return true; // Include active volunteers who haven't sent GPS yet
       const dist = getDistance(latitude, longitude, v.currentLocation.latitude, v.currentLocation.longitude);
-      return dist <= (v.serviceRadius || 5);
+      return dist <= (v.serviceRadius || 25); // generous service radius
     });
 
-    // Create assignments and notifications for nearby volunteers
-    for (const vol of nearbyVolunteers) {
+    // Create assignments and notifications for volunteers
+    const targets = nearbyVolunteers.length > 0 ? nearbyVolunteers : volunteers;
+    for (const vol of targets) {
+      if (!vol.userId) continue;
+      const volLat = vol.currentLocation?.latitude || latitude;
+      const volLng = vol.currentLocation?.longitude || longitude;
       const assignment = await VolunteerAssignment.create({
         emergencyId: emergency._id,
-        volunteerId: vol.userId._id,
-        distanceKm: getDistance(latitude, longitude, vol.currentLocation.latitude, vol.currentLocation.longitude).toFixed(2),
+        volunteerId: vol.userId._id || vol.userId,
+        distanceKm: getDistance(latitude, longitude, volLat, volLng).toFixed(2),
       });
       emergency.assignedVolunteers.push(assignment._id);
 
       await Notification.create({
-        userId: vol.userId._id,
+        userId: vol.userId._id || vol.userId,
         title: '🚨 Emergency Alert!',
         message: `Emergency: ${emergencyType.replace('_', ' ')} near your location. Please respond immediately!`,
         type: 'emergency',
@@ -407,29 +418,39 @@ const createGuestEmergency = async (req, res) => {
       });
     }
 
-    // Find nearby available volunteers within service radius
-    const volunteers = await Volunteer.find({
-      availabilityStatus: 'available',
-      isVerified: true,
-      'currentLocation.latitude': { $exists: true },
+    // Find active volunteers (all registered active volunteers or nearby)
+    let volunteers = await Volunteer.find({
+      $or: [
+        { availabilityStatus: 'available' },
+        { availabilityStatus: { $exists: false } },
+        { isVerified: true }
+      ]
     }).populate('userId', 'name phone');
 
+    if (!volunteers || volunteers.length === 0) {
+      volunteers = await Volunteer.find({}).populate('userId', 'name phone');
+    }
+
     const nearbyVolunteers = volunteers.filter((v) => {
-      if (!v.currentLocation?.latitude) return false;
+      if (!v.currentLocation?.latitude || !v.currentLocation?.longitude) return true;
       const dist = getDistance(latitude, longitude, v.currentLocation.latitude, v.currentLocation.longitude);
-      return dist <= (v.serviceRadius || 5);
+      return dist <= (v.serviceRadius || 25);
     });
 
-    for (const vol of nearbyVolunteers) {
+    const targets = nearbyVolunteers.length > 0 ? nearbyVolunteers : volunteers;
+    for (const vol of targets) {
+      if (!vol.userId) continue;
+      const volLat = vol.currentLocation?.latitude || latitude;
+      const volLng = vol.currentLocation?.longitude || longitude;
       const assignment = await VolunteerAssignment.create({
         emergencyId: emergency._id,
-        volunteerId: vol.userId._id,
-        distanceKm: getDistance(latitude, longitude, vol.currentLocation.latitude, vol.currentLocation.longitude).toFixed(2),
+        volunteerId: vol.userId._id || vol.userId,
+        distanceKm: getDistance(latitude, longitude, volLat, volLng).toFixed(2),
       });
       emergency.assignedVolunteers.push(assignment._id);
 
       await Notification.create({
-        userId: vol.userId._id,
+        userId: vol.userId._id || vol.userId,
         title: '🚨 Guest Emergency Alert!',
         message: `Emergency: ${emergencyType.replace('_', ' ')} near your location. Guest Phone: ${guestPhone}`,
         type: 'emergency',
