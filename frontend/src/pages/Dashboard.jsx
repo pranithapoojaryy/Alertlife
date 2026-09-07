@@ -193,7 +193,15 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         }
       }
 
-      setSosState(liveSos);
+      setSosState(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(liveSos)) {
+          return prev;
+        }
+        return liveSos;
+      });
+    };
+
+    const fetchStaticData = () => {
       api.getWebinars().then(data => setWebinars(data || []));
       api.getArticles().then(data => setArticles(data || []));
       api.getMembers().then(data => setMembers(data || []));
@@ -204,10 +212,12 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         setRescueLedger(api.getRescueLedger() || []);
       }
     };
+
     fetchData();
+    fetchStaticData();
 
     // High frequency sync interval (polls live Render cloud backend)
-    const interval = setInterval(fetchData, 1500);
+    const interval = setInterval(fetchData, 2500);
 
     // Instant cross-tab and in-tab event listeners
     window.addEventListener('storage', fetchData);

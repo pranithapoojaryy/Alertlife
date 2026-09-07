@@ -232,10 +232,12 @@ export const api = {
   syncActiveSOSFromBackend: async () => {
     try {
       const { data } = await client.get('/emergencies');
-      if (data.success && data.emergencies && data.emergencies.length > 0) {
+      if (data.success && Array.isArray(data.emergencies)) {
+        // Look for any active emergency
         const active = data.emergencies.find(e => e.status !== 'resolved' && e.status !== 'closed' && e.status !== 'cancelled');
+        const db = getLocalDB();
+
         if (active) {
-          const db = getLocalDB();
           const mapped = {
             id: active._id,
             timestamp: active.createdAt || new Date().toISOString(),
@@ -259,29 +261,30 @@ export const api = {
             ambulanceStatus: active.ambulanceRequest ? "Dispatched" : null,
             ambulanceEta: active.ambulanceRequest ? "6 mins" : null
           };
-          db.activeSOS = mapped;
-          saveLocalDB(db);
-          window.dispatchEvent(new Event('alertlife_storage_update'));
+
+          // Only save if changed to avoid unnecessary disk/react updates
+          if (JSON.stringify(db.activeSOS) !== JSON.stringify(mapped)) {
+            db.activeSOS = mapped;
+            saveLocalDB(db);
+          }
           return mapped;
         } else {
-          // If backend has completed/resolved list, check if local activeSOS was closed
-          const db = getLocalDB();
+          // If no active emergency in backend, check if our current local SOS was explicitly closed/resolved on the backend
           if (db.activeSOS && db.activeSOS.id && !db.activeSOS.id.startsWith('sos-')) {
-            const foundInResolved = data.emergencies.find(e => e._id === db.activeSOS.id && (e.status === 'resolved' || e.status === 'closed' || e.status === 'cancelled'));
-            if (foundInResolved) {
+            const foundClosed = data.emergencies.find(e => e._id === db.activeSOS.id && (e.status === 'resolved' || e.status === 'closed' || e.status === 'cancelled'));
+            if (foundClosed) {
               db.activeSOS = null;
               saveLocalDB(db);
-              window.dispatchEvent(new Event('alertlife_storage_update'));
               return null;
             }
           }
-          return db.activeSOS;
+          return db.activeSOS || null;
         }
       }
     } catch (err) {
-      // Offline fallback
+      // Offline fallback: keep current local SOS state
     }
-    return getLocalDB().activeSOS;
+    return getLocalDB().activeSOS || null;
   },
 
   triggerSOS: async (sosData) => {
