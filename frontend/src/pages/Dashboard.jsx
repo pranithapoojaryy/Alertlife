@@ -154,13 +154,46 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       });
     }
 
-    const fetchData = async () => {
-      if (api.syncActiveSOSFromBackend) {
-        const liveSos = await api.syncActiveSOSFromBackend();
-        setSosState(liveSos);
-      } else {
-        setSosState(api.getActiveSOS());
+    // Track previous SOS id to trigger audio & vibration alert on new emergency
+    let lastKnownSosId = null;
+
+    const playAlertChime = () => {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+      } catch {
+        // AudioContext not allowed before user gesture
       }
+    };
+
+    const fetchData = async () => {
+      let liveSos = null;
+      if (api.syncActiveSOSFromBackend) {
+        liveSos = await api.syncActiveSOSFromBackend();
+      } else {
+        liveSos = api.getActiveSOS();
+      }
+      
+      // Alert volunteer if a new unaccepted citizen emergency arrives
+      if (liveSos && liveSos.id && liveSos.id !== lastKnownSosId && !liveSos.volunteerId && currentRole === 'volunteer') {
+        lastKnownSosId = liveSos.id;
+        playAlertChime();
+        if (navigator.vibrate) {
+          navigator.vibrate([300, 100, 300, 100, 400]);
+        }
+      }
+
+      setSosState(liveSos);
       api.getWebinars().then(data => setWebinars(data || []));
       api.getArticles().then(data => setArticles(data || []));
       api.getMembers().then(data => setMembers(data || []));
@@ -216,10 +249,27 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     const finalSeverity = finalType === 'minor_injury' || finalType === 'road_accident' ? 'moderate' : 'high';
     const isAmbulance = needAmbulance || requestAmbulance;
 
-    const executeSOS = async (lat, lng) => {
+    const executeSOS = async (lat, lng, addr = '') => {
+      let finalAddr = addr;
+      if (!finalAddr && lat && lng) {
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData.display_name) {
+              const parts = geoData.display_name.split(',');
+              finalAddr = parts.slice(0, 3).join(',').trim();
+            }
+          }
+        } catch {
+          finalAddr = `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+        }
+      }
+
       const newSOS = await api.triggerSOS({
-        lat: lat || 12.9352,
-        lng: lng || 77.6245,
+        lat: lat,
+        lng: lng,
+        address: finalAddr || `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
         description: finalDesc,
         severity: finalSeverity,
         category: finalType,
@@ -236,12 +286,12 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           executeSOS(pos.coords.latitude, pos.coords.longitude);
         },
         () => {
-          executeSOS(37.7749, -122.4194);
+          executeSOS(12.9352, 77.6245, 'Koramangala, Bengaluru, Karnataka');
         },
-        { timeout: 1500, enableHighAccuracy: false, maximumAge: 60000 }
+        { timeout: 4000, enableHighAccuracy: true, maximumAge: 10000 }
       );
     } else {
-      executeSOS(37.7749, -122.4194);
+      executeSOS(12.9352, 77.6245, 'Koramangala, Bengaluru, Karnataka');
     }
   };
 
@@ -1676,10 +1726,27 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           <span style={{ color: 'var(--text-secondary)' }}>📋 Medical History:</span>
                           <strong>{sosState.medicalHistory || 'None'}</strong>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>📍 Exact GPS Target:</span>
-                          <strong>{sosState.lat?.toFixed(4)}, {sosState.lng?.toFixed(4)}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>📍 Incident Location:</span>
+                          <strong style={{ textAlign: 'right', color: 'var(--red-dark)' }}>{sosState.address || `${sosState.lat?.toFixed(4)}°, ${sosState.lng?.toFixed(4)}°`}</strong>
                         </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>🌐 GPS Coordinates:</span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem' }}>{sosState.lat?.toFixed(5)}, {sosState.lng?.toFixed(5)}</span>
+                        </div>
+                        {sosState.lat && sosState.lng && (
+                          <div style={{ marginTop: '0.25rem' }}>
+                            <a 
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${sosState.lat},${sosState.lng}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="btn btn-outline"
+                              style={{ width: '100%', padding: '0.35rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--blue)', color: 'var(--blue)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
+                            >
+                              🗺️ Preview Exact Location on Google Maps ↗
+                            </a>
+                          </div>
+                        )}
                         {sosState.ambulanceStatus && (
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: 'var(--text-secondary)' }}>🚑 Ambulance Backup:</span>
@@ -1759,22 +1826,49 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           </span>
                         </div>
 
-                        <div className="map-simulation" style={{ marginBottom: '0.75rem' }}>
-                          <div className="map-grid-lines" />
-                          <svg width="100%" height="100%" style={{ position: 'relative', zIndex: 2 }}>
-                            <circle cx="50" cy="270" r="10" fill="var(--blue)" />
-                            <text x="65" y="275" fill="white" fontSize="12" fontWeight="bold">You (Volunteer)</text>
-                            
-                            <circle cx="280" cy="80" r="10" fill="var(--red)" />
-                            <text x="210" y="70" fill="white" fontSize="12" fontWeight="bold">Patient SOS</text>
-                            
-                            <path d="M50 270 Q 150 180, 280 80" fill="none" stroke="var(--blue)" strokeWidth="5" className="map-route-line" />
-                          </svg>
+                        <div style={{ background: 'rgba(99, 102, 241, 0.06)', borderRadius: '12px', padding: '0.75rem', marginBottom: '0.75rem', border: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>📍 Destination:</span>
+                            <strong>{sosState.address || `${sosState.lat?.toFixed(4)}°, ${sosState.lng?.toFixed(4)}°`}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>🎯 GPS Target:</span>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{sosState.lat?.toFixed(5)}, {sosState.lng?.toFixed(5)}</span>
+                          </div>
                         </div>
 
+                        {/* Interactive Real-Time Map View */}
+                        <div style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid var(--border)', marginBottom: '0.75rem', height: '240px' }}>
+                          <iframe
+                            title="Live Rescue GPS Route Map"
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            scrolling="no"
+                            marginHeight="0"
+                            marginWidth="0"
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${(sosState.lng || 77.6245) - 0.01}%2C${(sosState.lat || 12.9352) - 0.01}%2C${(sosState.lng || 77.6245) + 0.01}%2C${(sosState.lat || 12.9352) + 0.01}&layer=mapnik&marker=${sosState.lat || 12.9352}%2C${sosState.lng || 77.6245}`}
+                            style={{ filter: 'contrast(1.05) saturate(1.1)', border: 0 }}
+                          />
+                          <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(239, 68, 68, 0.9)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.3rem', zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                            <span>🚨 Citizen SOS Location</span>
+                          </div>
+                        </div>
+
+                        {/* Direct GPS Turn-by-Turn Navigation Launch Button */}
+                        <a 
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${sosState.lat || 12.9352},${sosState.lng || 77.6245}&travelmode=driving`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="btn btn-primary"
+                          style={{ width: '100%', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 800, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', marginBottom: '0.75rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff' }}
+                        >
+                          🧭 Start Live Turn-by-Turn GPS Navigation ↗
+                        </a>
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
-                          <span>Route Progress: <strong>{navProgress}%</strong></span>
-                          <span>ETA: <strong>{navProgress >= 100 ? '0 mins (Arrived)' : '2 mins remaining'}</strong></span>
+                          <span>Dispatch Progress: <strong>{navProgress}%</strong></span>
+                          <span>ETA: <strong>{navProgress >= 100 ? '0 mins (Arrived On Scene)' : '2 mins remaining'}</strong></span>
                         </div>
 
                         {/* Progress Bar */}
