@@ -263,6 +263,15 @@ export const api = {
           saveLocalDB(db);
           window.dispatchEvent(new Event('alertlife_storage_update'));
           return mapped;
+        } else {
+          // Backend has returned list and none is active
+          const db = getLocalDB();
+          if (db.activeSOS && db.activeSOS.id && !db.activeSOS.id.startsWith('sos-local-only')) {
+            db.activeSOS = null;
+            saveLocalDB(db);
+            window.dispatchEvent(new Event('alertlife_storage_update'));
+          }
+          return null;
         }
       }
     } catch (err) {
