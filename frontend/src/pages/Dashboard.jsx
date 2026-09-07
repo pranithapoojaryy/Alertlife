@@ -664,27 +664,21 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           <div className="mobile-logo">
             <span>🚨</span> Alert Life
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <select
-              className="form-select"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 600, width: 'auto', background: 'rgba(99, 102, 241, 0.08)', borderColor: 'var(--blue)' }}
-              value={currentRole}
-              onChange={(e) => {
-                const newRole = e.target.value;
-                const newUserData = {
-                  name: newRole === 'volunteer' ? 'David Miller' : newRole === 'admin' ? 'Dr. Sarah Desk' : (profile?.name || 'Pranitha'),
-                  email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'admin' ? 'admin@alertlife.org' : (profile?.email || 'pranitha@alertlife.org'),
-                  role: newRole
-                };
-                localStorage.setItem('user_session', JSON.stringify(newUserData));
-                window.location.search = `?portal=${newRole}`;
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span 
+              style={{ 
+                padding: '0.25rem 0.6rem', 
+                fontSize: '0.75rem', 
+                fontWeight: 700, 
+                borderRadius: '20px',
+                background: currentRole === 'volunteer' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)', 
+                color: currentRole === 'volunteer' ? 'var(--emerald)' : 'var(--blue)',
+                border: `1px solid ${currentRole === 'volunteer' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.3)'}`
               }}
             >
-              <option value="citizen">👤 Citizen App</option>
-              <option value="volunteer">🛡️ Volunteer Portal</option>
-              <option value="admin">🏢 Admin Desk</option>
-            </select>
-            <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }} onClick={onLogout}>
+              {currentRole === 'volunteer' ? '🛡️ Volunteer' : '👤 Citizen'}
+            </span>
+            <button className="btn btn-outline" style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem' }} onClick={onLogout}>
               Logout
             </button>
           </div>

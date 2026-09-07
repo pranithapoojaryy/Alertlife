@@ -121,7 +121,7 @@ function App() {
       const userData = {
         email: loggedUser.email || loginEmail,
         name: loggedUser.name || loginEmail.split('@')[0],
-        role: currentRole
+        role: loggedUser.role || currentRole
       };
       localStorage.setItem('user_session', JSON.stringify(userData));
       setUser(userData);
