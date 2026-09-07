@@ -1571,15 +1571,45 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                   <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(16, 185, 129, 0.08))' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '1.35rem' }}>🛡️</span>
                           <h3 style={{ fontSize: '1.15rem', margin: 0 }}>{volProfile.name}</h3>
-                          <span className={`badge ${volProfile.isVerified ? 'badge-emerald' : 'badge-amber'}`}>
-                            {volProfile.isVerified ? '✓ Verified Responder' : 'Pending Verification'}
+                          <span 
+                            className={`badge ${volProfile.isVerified ? 'badge-emerald' : 'badge-amber'}`}
+                            style={{ cursor: volProfile.isVerified ? 'default' : 'pointer' }}
+                            onClick={() => {
+                              if (!volProfile.isVerified) {
+                                Swal.fire({
+                                  title: 'First Responder Verification',
+                                  text: 'Click below to verify your credentials with the Alert Life network or test immediate activation.',
+                                  icon: 'info',
+                                  showCancelButton: true,
+                                  confirmButtonColor: '#10b981',
+                                  confirmButtonText: '✓ Verify Credentials Now',
+                                  cancelButtonText: 'Close'
+                                }).then((result) => {
+                                  if (result.isConfirmed) {
+                                    api.verifyVolunteer(volProfile.id || 'curr-vol').then(() => {
+                                      setVolProfile(prev => ({ ...prev, isVerified: true }));
+                                      Swal.fire({
+                                        title: 'Verified Responder Activated!',
+                                        text: 'Your first responder certification has been approved and activated.',
+                                        icon: 'success',
+                                        confirmButtonColor: '#10b981',
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                      });
+                                    });
+                                  }
+                                });
+                              }
+                            }}
+                          >
+                            {volProfile.isVerified ? '✓ Verified Responder' : '⚠️ Pending Verification (Tap to Verify)'}
                           </span>
                         </div>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                          Cert: <strong>{volProfile.certification}</strong> (#{volProfile.certificationNumber})
+                          Cert: <strong>{volProfile.certification || 'Certified First Responder'}</strong> {volProfile.certificationNumber ? `(#${volProfile.certificationNumber})` : ''}
                         </p>
                       </div>
 
@@ -2589,14 +2619,28 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         <td style={{ padding: '0.6rem' }}>
                           <span className={`badge ${m.role === 'Volunteer' ? 'badge-blue' : 'badge-emerald'}`}>{m.role}</span>
                         </td>
-                        <td style={{ padding: '0.6rem' }}>{m.phone || '+1 (555) 012-3456'}</td>
+                        <td style={{ padding: '0.6rem' }}>{m.phone || 'N/A'}</td>
                         <td style={{ padding: '0.6rem' }}>
-                          <span className="badge badge-emerald">✓ Verified</span>
+                          <span className={`badge ${m.active ? 'badge-emerald' : 'badge-amber'}`}>
+                            {m.active ? '✓ Verified' : 'Pending'}
+                          </span>
                         </td>
                         <td style={{ padding: '0.6rem' }}>
                           <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>🟢 On Duty (5km)</span>
                         </td>
-                        <td style={{ padding: '0.6rem' }}>
+                        <td style={{ padding: '0.6rem', display: 'flex', gap: '0.35rem' }}>
+                          <button 
+                            className="btn btn-primary" 
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} 
+                            onClick={() => {
+                              api.verifyVolunteer(m.id).then(() => {
+                                Swal.fire({ title: 'Approved!', text: `${m.name} has been verified and approved as active responder.`, icon: 'success', timer: 1500, showConfirmButton: false });
+                                setMembers(prev => prev.map(item => item.id === m.id ? { ...item, active: true } : item));
+                              });
+                            }}
+                          >
+                            ✓ Approve
+                          </button>
                           <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => Swal.fire({ title: 'Contacting Responder', text: `Initiating direct emergency channel to ${m.name} (${m.phone || 'N/A'})...`, icon: 'info', confirmButtonColor: '#6366f1' })}>
                             📞 Ping
                           </button>

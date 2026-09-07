@@ -553,6 +553,23 @@ export const api = {
     return db.volunteerProfile;
   },
 
+  verifyVolunteer: async (volId) => {
+    try {
+      if (volId && !volId.startsWith('curr-')) {
+        await client.put(`/volunteers/${volId}/verify`);
+      }
+    } catch (err) {
+      console.warn('Backend volunteer verify info:', err.message);
+    }
+    const db = getLocalDB();
+    if (db.volunteerProfile) {
+      db.volunteerProfile.isVerified = true;
+    }
+    saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
+    return true;
+  },
+
   submitIncidentReport: async (emergencyId, reportData) => {
     try {
       if (emergencyId && !emergencyId.startsWith('sos-')) {
