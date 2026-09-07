@@ -28,25 +28,26 @@ function App() {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user_session');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...parsed, role: currentRole };
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.email) {
+          return { ...parsed, role: parsed.role || currentRole };
+        }
+      } catch {
+        localStorage.removeItem('user_session');
+      }
     }
-    return {
-      name: currentRole === 'volunteer' ? 'David Miller' : currentRole === 'admin' ? 'Dr. Sarah Desk' : 'Pranitha',
-      email: currentRole === 'volunteer' ? 'david@alertlife.org' : currentRole === 'admin' ? 'admin@alertlife.org' : 'pranitha@alertlife.org',
-      role: currentRole
-    };
+    return null; // Require login/signup before opening Dashboard
   });
 
   // Listen to browser navigation and popstate to instantly sync portal
   useEffect(() => {
     const handleLocationChange = () => {
       const activeRole = getPortalRole();
-      setUser(prev => ({
-        name: activeRole === 'volunteer' ? 'David Miller' : activeRole === 'admin' ? 'Dr. Sarah Desk' : (prev?.name && prev.name !== 'Jane Citizen' ? prev.name : 'Pranitha'),
-        email: activeRole === 'volunteer' ? 'david@alertlife.org' : activeRole === 'admin' ? 'admin@alertlife.org' : (prev?.email && prev.email !== 'jane@alertlife.com' ? prev.email : 'pranitha@alertlife.org'),
-        role: activeRole
-      }));
+      setUser(prev => {
+        if (!prev) return null;
+        return { ...prev, role: activeRole };
+      });
     };
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
@@ -73,6 +74,7 @@ function App() {
 
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [regForm, setRegForm] = useState({ 
     name: '', 
     email: '', 
@@ -107,10 +109,14 @@ function App() {
       return;
     }
 
+    if (!loginPassword) {
+      setError('Please enter your password.');
+      return;
+    }
+
     try {
       const { api } = await import('./services/api');
-      const password = e.target.elements?.password?.value || 'password123';
-      const loggedUser = await api.login(loginEmail, password);
+      const loggedUser = await api.login(loginEmail, loginPassword);
       
       const userData = {
         email: loggedUser.email || loginEmail,
@@ -215,7 +221,7 @@ function App() {
               </div>
               <div className="form-group">
                 <label className="form-label">Password</label>
-                <input type="password" className="form-input" placeholder="••••••••" required />
+                <input type="password" className="form-input" placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
               </div>
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
                 Sign In to {currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} Portal

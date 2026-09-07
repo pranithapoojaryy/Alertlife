@@ -64,26 +64,60 @@ export const api = {
       }
       return data.user;
     } catch (err) {
-      // Fallback
-      console.warn('Backend login failed, using local fallback session.', err);
-      localStorage.setItem('alertlife_token', 'mock-token');
-      const db = getLocalDB();
-      const name = email.split('@')[0];
-      if (!db.profile.name) {
-        db.profile.name = name;
-        db.profile.email = email;
-        saveLocalDB(db);
+      // Check for local credentials fallback
+      const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+      const localFound = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (localFound) {
+        if (localFound.password === password) {
+          localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
+          return localFound;
+        } else {
+          throw new Error('Invalid password. Please check your credentials.');
+        }
       }
-      return { email, name: db.profile.name || name, role: 'citizen' };
+
+      if (err.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+      
+      // Fallback only if no local users registered yet
+      if (registeredUsers.length === 0) {
+        localStorage.setItem('alertlife_token', 'mock-token');
+        const db = getLocalDB();
+        const name = email.split('@')[0];
+        return { email, name: db.profile.name || name, role: 'citizen' };
+      }
+
+      throw new Error(err.response?.data?.message || 'Invalid email or password. Please sign up if you do not have an account.');
     }
   },
 
   register: async (formData) => {
+    // Store in local registered users pool for guaranteed credential check
+    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+    const existing = registeredUsers.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
+    if (existing) {
+      throw new Error('This email is already registered. Please sign in.');
+    }
+
     try {
       const { data } = await client.post('/auth/register', formData);
       if (data.token) {
         localStorage.setItem('alertlife_token', data.token);
       }
+      
+      const newLocalUser = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role || 'citizen',
+        bloodGroup: formData.bloodGroup || 'O+'
+      };
+      registeredUsers.push(newLocalUser);
+      localStorage.setItem('alertlife_registered_users', JSON.stringify(registeredUsers));
+
       const db = getLocalDB();
       db.profile = {
         ...db.profile,
@@ -102,10 +136,24 @@ export const api = {
         };
       }
       saveLocalDB(db);
-      return data.user;
+      return data.user || newLocalUser;
     } catch (err) {
-      console.warn('Backend registration failed, using local fallback.', err);
-      localStorage.setItem('alertlife_token', 'mock-token');
+      if (err.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+
+      const newLocalUser = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role || 'citizen',
+        bloodGroup: formData.bloodGroup || 'O+'
+      };
+      registeredUsers.push(newLocalUser);
+      localStorage.setItem('alertlife_registered_users', JSON.stringify(registeredUsers));
+      localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
+
       const db = getLocalDB();
       db.profile = {
         ...db.profile,
@@ -124,7 +172,7 @@ export const api = {
         };
       }
       saveLocalDB(db);
-      return { email: formData.email, name: formData.name, role: formData.role || 'citizen' };
+      return newLocalUser;
     }
   },
 
