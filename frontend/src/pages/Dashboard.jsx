@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { api } from '../services/api';
 
-export default function Dashboard({ user = { name: 'David Miller', email: 'david@alertlife.org', role: 'volunteer' }, onLogout }) {
-  const currentRole = (user && user.role) ? user.role.toLowerCase() : 'volunteer';
+export default function Dashboard({ user = { name: '', email: '', role: 'citizen' }, onLogout }) {
+  const currentRole = (user && user.role) ? user.role.toLowerCase() : 'citizen';
   const isMobile = currentRole === 'citizen' || currentRole === 'volunteer';
 
   // State Management
@@ -19,21 +19,18 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
   const [profile, setProfile] = useState(() => {
     const local = api.getProfileSync ? api.getProfileSync() : null;
     return local || { 
-      name: 'Pranitha', 
-      email: 'pranitha@alertlife.org', 
-      phone: '+91 98450 12345', 
+      name: user.name || '', 
+      email: user.email || '', 
+      phone: '', 
       bloodGroup: 'O+', 
-      allergies: 'None', 
-      medicalHistory: 'None',
-      dateOfBirth: '2002-04-12',
-      gender: 'Female',
-      address: 'Koramangala 4th Block, Bengaluru, Karnataka 560034',
-      organDonor: true,
-      medications: 'None',
-      emergencyContacts: [
-        { id: 'c1', name: 'Anand Poojary (Father)', phone: '+91 98450 67890', relation: 'Parent' },
-        { id: 'c2', name: 'Dr. Ramesh Rao (Clinic)', phone: '+91 80 2553 1122', relation: 'Primary Physician' }
-      ]
+      allergies: '', 
+      medicalHistory: '',
+      dateOfBirth: '',
+      gender: '',
+      address: '',
+      organDonor: false,
+      medications: '',
+      emergencyContacts: []
     };
   });
   const [newContact, setNewContact] = useState({ name: '', phone: '', relation: 'Parent' });
@@ -44,29 +41,29 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
   // Volunteer Specific Extended States
   const [dutyStatus, setDutyStatus] = useState('available');
   const [volProfile, setVolProfile] = useState({
-    name: 'David Miller',
-    email: 'david.miller@alertlife.org',
-    phone: '+1 (555) 012-3456',
-    certification: 'AHA Certified First Responder',
-    certificationNumber: 'EMT-99410-X',
-    skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'EpiPen / Anaphylaxis', 'Choking Relief'],
+    name: user.name || '',
+    email: user.email || '',
+    phone: '',
+    certification: 'Certified First Responder',
+    certificationNumber: '',
+    skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'Choking Relief'],
     availabilityStatus: 'available',
     serviceRadius: 5,
     isVerified: true,
-    totalEmergenciesHandled: 18,
-    rating: 4.9,
-    experience: 3,
-    currentLocation: { latitude: 37.7749, longitude: -122.4194 }
+    totalEmergenciesHandled: 0,
+    rating: 5.0,
+    experience: 1,
+    currentLocation: { latitude: 12.9352, longitude: 77.6245 }
   });
   const [isCprActive, setIsCprActive] = useState(false);
   const [cprBeats, setCprBeats] = useState(0);
   const [incidentLogs, setIncidentLogs] = useState(api.getIncidentHistory ? api.getIncidentHistory() : []);
   const [reportForm, setReportForm] = useState({
-    condition: 'Stabilized / Awake',
-    interventions: 'CPR 2 cycles, AED Shock delivered, Airway cleared',
-    pulse: '84 bpm',
-    bloodPressure: '122/82',
-    notes: 'Citizen restored pulse within 3 minutes. Handed over to City General Ambulance unit.'
+    condition: '',
+    interventions: '',
+    pulse: '',
+    bloodPressure: '',
+    notes: ''
   });
   const [kitItems, setKitItems] = useState([
     { name: 'Pocket CPR Mask / Face Shield', checked: true },
@@ -484,10 +481,10 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
   const acceptSOS = () => {
     const active = api.updateSOS({
       status: 'accepted',
-      volunteerId: 'vol-1',
-      volunteerName: volProfile.name || 'David Miller',
-      volunteerPhone: volProfile.phone || '+1 (555) 012-3456',
-      volunteerCert: volProfile.certification || 'AHA Certified Responder'
+      volunteerId: 'vol-active',
+      volunteerName: volProfile.name || user.name || 'Volunteer Responder',
+      volunteerPhone: volProfile.phone || user.phone || '',
+      volunteerCert: volProfile.certification || 'Certified First Responder'
     });
     setSosState(active);
   };
@@ -890,11 +887,11 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
                           <div style={{ background: 'rgba(99, 102, 241, 0.06)', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span>Assigned First Responder:</span>
-                              <strong>{sosState.volunteerName || 'David Miller'} (Verified)</strong>
+                              <strong>{sosState.volunteerName || 'First Responder'}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--text-secondary)' }}>Certification:</span>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{sosState.volunteerCert || 'AHA Certified First Responder'}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{sosState.volunteerCert || 'Certified First Responder'}</span>
                             </div>
                             {sosState.volunteerPhone && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
@@ -1635,13 +1632,17 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
                       <div style={{ background: 'rgba(255,255,255,0.85)', borderRadius: '12px', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.82rem', marginBottom: '1rem', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>👤 Citizen Name:</span>
-                          <strong>{sosState.patientName || 'Jane Citizen'}</strong>
+                          <strong>{sosState.patientName || 'Citizen In Need'}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>📞 Citizen Phone:</span>
-                          <a href={`tel:${sosState.patientPhone || '+1 (555) 019-2834'}`} style={{ color: 'var(--blue)', fontWeight: 700, textDecoration: 'none' }}>
-                            {sosState.patientPhone || '+1 (555) 019-2834'}
-                          </a>
+                          {sosState.patientPhone ? (
+                            <a href={`tel:${sosState.patientPhone}`} style={{ color: 'var(--blue)', fontWeight: 700, textDecoration: 'none' }}>
+                              {sosState.patientPhone}
+                            </a>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>Not provided</span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>🩸 Blood Group / Allergies:</span>
@@ -2497,15 +2498,17 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
             <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
               <div className="card">
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Rescue Missions</p>
-                <h2>12,840</h2>
+                <h2>{rescueLedger.length}</h2>
               </div>
               <div className="card">
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Verified Responders</p>
-                <h2>4,839</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Registered Network Members</p>
+                <h2>{members.length}</h2>
               </div>
               <div className="card">
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Payouts Credited</p>
-                <h2 style={{ color: 'var(--emerald)' }}>$48,250</h2>
+                <h2 style={{ color: 'var(--emerald)' }}>
+                  ${rescueLedger.filter(r => r.payoutStatus.includes('Credited')).reduce((acc, curr) => acc + (curr.payoutAmount || 0), 0).toFixed(2)}
+                </h2>
               </div>
             </div>
 

@@ -95,49 +95,82 @@ function App() {
     window.history.pushState({}, '', url);
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginEmail) return;
+    if (!loginEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
     
-    if (loginEmail.toLowerCase().includes('@')) {
+    if (!loginEmail.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      const { api } = await import('./services/api');
+      const password = e.target.elements?.password?.value || 'password123';
+      const loggedUser = await api.login(loginEmail, password);
+      
       const userData = {
-        email: loginEmail,
-        name: loginEmail.split('@')[0],
+        email: loggedUser.email || loginEmail,
+        name: loggedUser.name || loginEmail.split('@')[0],
         role: currentRole
       };
       localStorage.setItem('user_session', JSON.stringify(userData));
       setUser(userData);
       setError('');
-    } else {
-      setError('Please enter a valid email address.');
+    } catch (err) {
+      setError(err.message || 'Login failed. Please check credentials.');
     }
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    if (!regForm.name || !regForm.email || !regForm.phone) {
-      setError('All fields are required.');
+    if (!regForm.name?.trim()) {
+      setError('Please enter your full name.');
       return;
     }
-    
-    const userData = {
-      email: regForm.email,
-      name: regForm.name,
-      role: currentRole
-    };
-    localStorage.setItem('user_session', JSON.stringify(userData));
+    if (!regForm.email?.trim() || !regForm.email.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!regForm.phone?.trim()) {
+      setError('Please enter your phone number.');
+      return;
+    }
+    if (!/^\+?[\d\s\-()]{7,20}$/.test(regForm.phone.trim())) {
+      setError('Please enter a valid phone number format (e.g. +1 555-0123).');
+      return;
+    }
+    if (!regForm.password || regForm.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
 
-    // Sync mock profile name
-    import('./services/api').then(({ api }) => {
-      api.updateProfile({
-        name: regForm.name,
-        email: regForm.email,
-        phone: regForm.phone,
-        bloodGroup: regForm.bloodGroup
-      });
-    });
-    setUser(userData);
-    setError('');
+    try {
+      const { api } = await import('./services/api');
+      const regPayload = {
+        name: regForm.name.trim(),
+        email: regForm.email.toLowerCase().trim(),
+        phone: regForm.phone.trim(),
+        password: regForm.password,
+        role: currentRole,
+        bloodGroup: regForm.bloodGroup || 'O+'
+      };
+
+      const resUser = await api.register(regPayload);
+      const userData = {
+        email: resUser?.email || regPayload.email,
+        name: resUser?.name || regPayload.name,
+        role: currentRole
+      };
+      localStorage.setItem('user_session', JSON.stringify(userData));
+      setUser(userData);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    }
   };
 
   const handleLogout = () => {
@@ -207,6 +240,10 @@ function App() {
               <div className="form-group">
                 <label className="form-label">Phone Number</label>
                 <input type="tel" className="form-input" placeholder="+1 (555) 000-0000" value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input type="password" className="form-input" placeholder="Create password (min 6 characters)" value={regForm.password} onChange={e => setRegForm({...regForm, password: e.target.value})} required />
               </div>
               {currentRole === 'citizen' && (
                 <div className="form-group">

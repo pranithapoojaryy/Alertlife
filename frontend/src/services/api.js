@@ -14,209 +14,44 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Mock Local Storage Database Fallback
+// Clean Local Storage Database Initial State
 const defaultState = {
   profile: {
-    name: "Pranitha",
-    email: "pranitha@alertlife.org",
-    phone: "+91 98450 12345",
+    name: "",
+    email: "",
+    phone: "",
     bloodGroup: "O+",
-    allergies: "None",
-    medicalHistory: "None",
-    dateOfBirth: "2002-04-12",
-    gender: "Female",
-    address: "Koramangala 4th Block, Bengaluru, Karnataka 560034",
-    emergencyContacts: [
-      { id: "c1", name: "Anand Poojary (Father)", phone: "+91 98450 67890", relation: "Parent" },
-      { id: "c2", name: "Dr. Ramesh Rao (Clinic)", phone: "+91 80 2553 1122", relation: "Primary Physician" },
-      { id: "c3", name: "Pooja Poojary (Sister)", phone: "+91 98450 99887", relation: "Sibling" }
-    ],
-    organDonor: true,
-    medications: "None"
+    allergies: "",
+    medicalHistory: "",
+    dateOfBirth: "",
+    gender: "",
+    address: "",
+    emergencyContacts: [],
+    organDonor: false,
+    medications: ""
   },
   activeSOS: null,
-  webinars: [
-    { 
-      id: "web-1", 
-      title: "Hands-Only CPR & AED Live Certification Workshop", 
-      speaker: "Dr. Emily Johnson (AHA Certified Instructor)", 
-      date: "2026-09-05T10:00:00", 
-      location: "San Francisco Community Health Center & Zoom Live", 
-      type: "Webinar", 
-      attendees: 148 
-    },
-    { 
-      id: "web-2", 
-      title: "Free Cardiac Health Checkup & Blood Donation Camp", 
-      speaker: "David Miller (Lead Paramedic Responder)", 
-      date: "2026-09-12T09:00:00", 
-      location: "City Town Hall Ground (Booth 4A)", 
-      type: "Health Camp", 
-      attendees: 310 
-    },
-    { 
-      id: "web-3", 
-      title: "Pediatric First Aid & Infant Choking Relief Clinic", 
-      speaker: "Dr. Robert Vance (Pediatric Emergency Medicine)", 
-      date: "2026-09-18T15:00:00", 
-      location: "Metro Children's Medical Center Auditorium", 
-      type: "Health Camp", 
-      attendees: 125 
-    },
-    { 
-      id: "web-4", 
-      title: "Stop the Bleed & Severe Trauma Tourniquet Training", 
-      speaker: "Captain Marcus Bell (Trauma Specialist)", 
-      date: "2026-09-24T11:00:00", 
-      location: "Bay Area Fire Department Station 7", 
-      type: "Webinar", 
-      attendees: 89 
-    }
-  ],
-  rescueLedger: [
-    {
-      id: "resc-1",
-      emergencyId: "sos-101",
-      volunteerName: "David Miller",
-      volunteerEmail: "david.miller@alertlife.org",
-      volunteerPhone: "+1 (555) 012-3456",
-      patientName: "Jane Citizen",
-      patientPhone: "+1 (555) 019-2834",
-      incidentType: "Minor Roadside Scooter Skid",
-      severity: "Moderate",
-      location: "37.7749, -122.4194 (Market & 4th St)",
-      date: "Aug 31, 2026, 14:15",
-      durationMins: 28,
-      status: "Completed & Verified",
-      payoutAmount: 45.00,
-      payoutStatus: "Credited to Bank",
-      notes: "Arrived in 2.5 mins. Cleaned deep gravel abrasions on forearm with saline, applied sterile pressure dressing, checked radial pulse (78 bpm), and escorted patient safely."
-    },
-    {
-      id: "resc-2",
-      emergencyId: "sos-102",
-      volunteerName: "David Miller",
-      volunteerEmail: "david.miller@alertlife.org",
-      volunteerPhone: "+1 (555) 012-3456",
-      patientName: "Robert Hayes (62 yrs)",
-      patientPhone: "+1 (555) 392-8812",
-      incidentType: "Sudden Cardiac Arrest / Unconscious",
-      severity: "Critical",
-      location: "37.7833, -122.4167 (Union Square Plaza)",
-      date: "Aug 30, 2026, 09:40",
-      durationMins: 45,
-      status: "Completed & Verified",
-      payoutAmount: 75.00,
-      payoutStatus: "Credited to Bank",
-      notes: "Initiated CPR within 90 seconds. Retrieved public AED, delivered 1 biphasic shock at 200J. Normal sinus rhythm restored before SF General Ambulance arrived."
-    },
-    {
-      id: "resc-3",
-      emergencyId: "sos-103",
-      volunteerName: "Elena Rostova",
-      volunteerEmail: "elena@alertlife.org",
-      volunteerPhone: "+1 (555) 882-9011",
-      patientName: "Marcus Vance",
-      patientPhone: "+1 (555) 441-2910",
-      incidentType: "Deep Cut Bleeding & Ankle Sprain",
-      severity: "Moderate",
-      location: "37.7650, -122.4200 (Mission District & 16th)",
-      date: "Aug 29, 2026, 18:20",
-      durationMins: 32,
-      status: "Completed & Verified",
-      payoutAmount: 50.00,
-      payoutStatus: "Credited to Bank",
-      notes: "Applied hemostatic gauze pressure pack, stabilized sprained right ankle with SAM splint. Patient vitals stable (BP 124/80)."
-    },
-    {
-      id: "resc-4",
-      emergencyId: "sos-104",
-      volunteerName: "Sophia Martinez",
-      volunteerEmail: "sophia@alertlife.com",
-      volunteerPhone: "+1 (555) 012-7890",
-      patientName: "Lucas Wright",
-      patientPhone: "+1 (555) 671-8821",
-      incidentType: "Acute Asthma Attack / Wheezing",
-      severity: "High",
-      location: "37.7900, -122.4010 (Financial District)",
-      date: "Aug 28, 2026, 12:05",
-      durationMins: 24,
-      status: "Pending Admin Credit",
-      payoutAmount: 60.00,
-      payoutStatus: "Pending Approval",
-      notes: "Assisted citizen with spacer inhaler administration, guided calm diaphragmatic breathing, oxygen saturation monitored at 96%."
-    }
-  ],
-  articles: [
-    { 
-      id: "art-1", 
-      title: "Recognizing a Stroke: Think F.A.S.T. Protocol", 
-      category: "Emergency Guides", 
-      contentType: "article",
-      readTime: "4 min read", 
-      author: "Dr. Emily Johnson (Chief Medical Officer)",
-      date: "Aug 30, 2026",
-      content: "F - Face Drooping: Ask person to smile. Does one side droop? A - Arm Weakness: Raise both arms. Does one drift downward? S - Speech Difficulty: Slurred or strange speech? T - Time to call 911 immediately. Every minute saves 1.9 million brain neurons." 
-    },
-    { 
-      id: "art-2", 
-      title: "Hands-Only CPR & AED Video Demonstration", 
-      category: "CPR Training", 
-      contentType: "video",
-      videoUrl: "https://www.youtube.com/watch?v=M4ACYp75mjU",
-      thumbnail: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80",
-      readTime: "3 min video", 
-      author: "Alert Life Paramedic Team",
-      date: "Aug 29, 2026",
-      content: "Watch high-yield practical demonstration: Correct interlocked palm placement on lower half of breastbone, 2 to 2.4-inch compression depth, 100-120 beats per minute tempo (Stayin' Alive beat), and seamless AED electrode pad attachment." 
-    },
-    { 
-      id: "art-3", 
-      title: "Citywide Free Cardiac Health Camp & Blood Drive Poster", 
-      category: "Camp Awareness", 
-      contentType: "image",
-      imageUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80",
-      readTime: "Camp Infographic", 
-      author: "David Miller (Lead Responder)",
-      date: "Aug 31, 2026",
-      content: "Free comprehensive blood pressure screening, random blood glucose testing, ECG on spot for seniors, O-negative urgent blood donor registration, and live Heimlich maneuver practice." 
-    },
-    { 
-      id: "art-4", 
-      title: "Official Citizen First-Aid & Emergency Response Pocket Manual", 
-      category: "Health Documents", 
-      contentType: "document",
-      docUrl: "#",
-      readTime: "16 pages PDF", 
-      author: "American Heart Association & Alert Life",
-      date: "Aug 26, 2026",
-      content: "Step-by-step practical guide covering 2nd degree burn cooling, Sam-splint fracture immobilization, EpiPen auto-injector administration, bee sting anaphylaxis management, and seizure safety protocols." 
-    },
-    {
-      id: "art-5",
-      title: "Choking Relief: Conscious Adult & Infant Heimlich Maneuver",
-      category: "Emergency Guides",
-      contentType: "article",
-      readTime: "3 min read",
-      author: "Elena Rostova (EMT-B)",
-      date: "Aug 27, 2026",
-      content: "For adults: 5 firm back blows between shoulder blades followed by 5 upward abdominal thrusts above navel. For infants under 1 yr: 5 chest thrusts with 2 fingers and 5 gentle downward back slaps over your knee."
-    }
-  ],
+  webinars: [],
+  rescueLedger: [],
+  articles: [],
   radius: 5.0
 };
 
 const getLocalDB = () => {
-  const data = localStorage.getItem('alertlife_db_v2');
+  const data = localStorage.getItem('alertlife_db_v3');
   if (!data) {
-    localStorage.setItem('alertlife_db_v2', JSON.stringify(defaultState));
+    localStorage.setItem('alertlife_db_v3', JSON.stringify(defaultState));
     return defaultState;
   }
-  return JSON.parse(data);
+  try {
+    return JSON.parse(data);
+  } catch {
+    return defaultState;
+  }
 };
 
 const saveLocalDB = (state) => {
-  localStorage.setItem('alertlife_db_v2', JSON.stringify(state));
+  localStorage.setItem('alertlife_db_v3', JSON.stringify(state));
 };
 
 export const api = {
@@ -232,25 +67,64 @@ export const api = {
       // Fallback
       console.warn('Backend login failed, using local fallback session.', err);
       localStorage.setItem('alertlife_token', 'mock-token');
-      return { email, name: email.split('@')[0], role: 'citizen' };
+      const db = getLocalDB();
+      const name = email.split('@')[0];
+      if (!db.profile.name) {
+        db.profile.name = name;
+        db.profile.email = email;
+        saveLocalDB(db);
+      }
+      return { email, name: db.profile.name || name, role: 'citizen' };
     }
   },
 
   register: async (formData) => {
     try {
-      const { data } = await client.post('/auth/register', { ...formData, role: 'citizen' });
+      const { data } = await client.post('/auth/register', formData);
       if (data.token) {
         localStorage.setItem('alertlife_token', data.token);
       }
+      const db = getLocalDB();
+      db.profile = {
+        ...db.profile,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        bloodGroup: formData.bloodGroup || 'O+'
+      };
+      if (formData.role === 'volunteer') {
+        db.volunteerProfile = {
+          ...db.volunteerProfile,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          certification: formData.certification || 'Certified First Responder'
+        };
+      }
+      saveLocalDB(db);
       return data.user;
     } catch (err) {
-      // Fallback
       console.warn('Backend registration failed, using local fallback.', err);
       localStorage.setItem('alertlife_token', 'mock-token');
       const db = getLocalDB();
-      db.profile = { ...db.profile, ...formData };
+      db.profile = {
+        ...db.profile,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        bloodGroup: formData.bloodGroup || 'O+'
+      };
+      if (formData.role === 'volunteer') {
+        db.volunteerProfile = {
+          ...db.volunteerProfile,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          certification: formData.certification || 'Certified First Responder'
+        };
+      }
       saveLocalDB(db);
-      return { email: formData.email, name: formData.name, role: 'citizen' };
+      return { email: formData.email, name: formData.name, role: formData.role || 'citizen' };
     }
   },
 
@@ -268,18 +142,18 @@ export const api = {
           email: data.profile.userId?.email || getLocalDB().profile?.email || '',
           phone: data.profile.userId?.phone || getLocalDB().profile?.phone || '',
           bloodGroup: data.profile.bloodGroup || getLocalDB().profile?.bloodGroup || 'O+',
-          allergies: Array.isArray(data.profile.allergies) ? data.profile.allergies.join(', ') : (data.profile.allergies || getLocalDB().profile?.allergies || 'None'),
-          medicalHistory: Array.isArray(data.profile.medicalHistory) ? data.profile.medicalHistory.map(m => m.condition || m).join(', ') : (data.profile.medicalHistory || getLocalDB().profile?.medicalHistory || 'None'),
-          dateOfBirth: data.profile.dateOfBirth ? data.profile.dateOfBirth.slice(0, 10) : (getLocalDB().profile?.dateOfBirth || '1994-06-15'),
-          gender: data.profile.gender || getLocalDB().profile?.gender || 'Female',
-          address: typeof data.profile.address === 'object' ? `${data.profile.address.street || ''} ${data.profile.address.city || ''} ${data.profile.address.state || ''}`.trim() : (data.profile.address || getLocalDB().profile?.address || '742 Evergreen Terrace, San Francisco, CA'),
+          allergies: Array.isArray(data.profile.allergies) ? data.profile.allergies.join(', ') : (data.profile.allergies || ''),
+          medicalHistory: Array.isArray(data.profile.medicalHistory) ? data.profile.medicalHistory.map(m => m.condition || m).join(', ') : (data.profile.medicalHistory || ''),
+          dateOfBirth: data.profile.dateOfBirth ? data.profile.dateOfBirth.slice(0, 10) : (getLocalDB().profile?.dateOfBirth || ''),
+          gender: data.profile.gender || getLocalDB().profile?.gender || '',
+          address: typeof data.profile.address === 'object' ? `${data.profile.address.street || ''} ${data.profile.address.city || ''} ${data.profile.address.state || ''}`.trim() : (data.profile.address || getLocalDB().profile?.address || ''),
           emergencyContacts: data.profile.emergencyContacts?.length ? data.profile.emergencyContacts : (getLocalDB().profile?.emergencyContacts || []),
-          organDonor: data.profile.organDonor ?? (getLocalDB().profile?.organDonor ?? true),
-          medications: data.profile.medications || getLocalDB().profile?.medications || 'Albuterol Inhaler (as needed)'
+          organDonor: data.profile.organDonor ?? (getLocalDB().profile?.organDonor ?? false),
+          medications: data.profile.medications || getLocalDB().profile?.medications || ''
         };
       }
     } catch (err) {
-      console.warn('Failed to fetch profile from backend, serving local profile.', err);
+      console.warn('Backend profile fetch info:', err.message);
     }
     return getLocalDB().profile;
   },
@@ -287,9 +161,14 @@ export const api = {
   updateProfile: async (profileData) => {
     try {
       const { data } = await client.put('/citizens/profile', profileData);
-      if (data.success) return data.profile;
+      if (data.success) {
+        const db = getLocalDB();
+        db.profile = { ...db.profile, ...profileData };
+        saveLocalDB(db);
+        return data.profile;
+      }
     } catch (err) {
-      console.warn('Failed to update backend profile, saving locally.', err);
+      console.warn('Backend profile update info:', err.message);
     }
     const db = getLocalDB();
     db.profile = { ...db.profile, ...profileData };
@@ -314,20 +193,20 @@ export const api = {
             timestamp: active.createdAt || new Date().toISOString(),
             lat: active.location?.latitude || 12.9352,
             lng: active.location?.longitude || 77.6245,
-            description: active.description || "Medical Emergency",
+            description: active.description || "Medical Emergency Assistance Requested",
             severity: active.severity || "high",
             emergencyType: active.emergencyType || "medical",
             category: active.emergencyType || "General Emergency",
-            patientName: active.citizenId?.name || db.profile?.name || "Pranitha",
-            patientPhone: active.citizenId?.phone || db.profile?.phone || "+91 98450 12345",
-            patientBlood: db.profile?.bloodGroup || "O+",
-            allergies: db.profile?.allergies || "None",
-            medicalHistory: db.profile?.medicalHistory || "None",
+            patientName: active.citizenId?.name || (typeof active.guestContact === 'object' ? active.guestContact?.phone : '') || db.profile?.name || "Citizen In Need",
+            patientPhone: active.citizenId?.phone || active.guestContact?.phone || db.profile?.phone || "",
+            patientBlood: active.citizenId?.bloodGroup || db.profile?.bloodGroup || "O+",
+            allergies: db.profile?.allergies || "None declared",
+            medicalHistory: db.profile?.medicalHistory || "None declared",
             status: active.status || "matched",
             volunteerId: active.assignedVolunteers?.[0] ? 'vol-1' : null,
-            volunteerName: active.assignedVolunteers?.[0] ? 'David Miller' : null,
-            volunteerPhone: active.assignedVolunteers?.[0] ? '+1 (555) 012-3456' : null,
-            volunteerCert: 'AHA Certified Responder',
+            volunteerName: active.assignedVolunteers?.[0]?.name || (active.assignedVolunteers?.[0] ? 'Assigned Responder' : null),
+            volunteerPhone: active.assignedVolunteers?.[0]?.phone || null,
+            volunteerCert: 'Certified First Responder',
             ambulanceStatus: active.ambulanceRequest ? "Dispatched" : null,
             ambulanceEta: active.ambulanceRequest ? "6 mins" : null
           };
@@ -338,19 +217,21 @@ export const api = {
         }
       }
     } catch (err) {
-      // Offline fallback note
+      // Offline fallback
     }
     return getLocalDB().activeSOS;
   },
 
   triggerSOS: async (sosData) => {
     let backendSOS = null;
+    const finalDescription = sosData.description?.trim() || (sosData.category === 'minor_injury' ? 'Minor Injury & First Aid Support' : sosData.category === 'road_accident' ? 'Road Accident & Trauma First Aid' : 'Urgent Emergency SOS');
+
     try {
       const { data } = await client.post('/emergencies', {
         latitude: sosData.lat,
         longitude: sosData.lng,
-        description: sosData.description,
-        emergencyType: sosData.emergencyType || 'medical',
+        description: finalDescription,
+        emergencyType: sosData.emergencyType || sosData.category || 'medical',
         severity: sosData.severity || 'high',
         address: sosData.address || `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`
       });
@@ -367,15 +248,15 @@ export const api = {
       timestamp: new Date().toISOString(),
       lat: sosData.lat || 12.9352,
       lng: sosData.lng || 77.6245,
-      description: sosData.description || "Medical Emergency",
+      description: finalDescription,
       severity: sosData.severity || "high",
-      emergencyType: sosData.emergencyType || "medical",
+      emergencyType: sosData.emergencyType || sosData.category || "medical",
       category: sosData.category || "General Emergency",
-      patientName: currentProfile.name || db.profile?.name || "Pranitha",
-      patientPhone: currentProfile.phone || db.profile?.phone || "+91 98450 12345",
+      patientName: currentProfile.name || db.profile?.name || "Citizen In Need",
+      patientPhone: currentProfile.phone || db.profile?.phone || "",
       patientBlood: currentProfile.bloodGroup || db.profile?.bloodGroup || "O+",
-      allergies: currentProfile.allergies || db.profile?.allergies || "None",
-      medicalHistory: currentProfile.medicalHistory || db.profile?.medicalHistory || "None",
+      allergies: currentProfile.allergies || "None",
+      medicalHistory: currentProfile.medicalHistory || "None",
       status: "matched",
       volunteerId: null,
       volunteerName: null,
@@ -396,7 +277,6 @@ export const api = {
       saveLocalDB(db);
       window.dispatchEvent(new Event('alertlife_storage_update'));
 
-      // If backend emergency id exists, update backend
       if (db.activeSOS.id && !db.activeSOS.id.startsWith('sos-')) {
         try {
           if (updates.status) {
@@ -438,13 +318,15 @@ export const api = {
           title: e.title,
           speaker: e.speaker || 'Certified Instructor',
           date: e.date,
+          location: e.location || 'Online / Community Center',
+          type: e.type || 'Webinar',
           attendees: e.attendees?.length || 0
         }));
       }
     } catch (err) {
-      console.warn('Failed to fetch events from backend, using local webinars.', err);
+      console.warn('Backend events fetch info:', err.message);
     }
-    return getLocalDB().webinars;
+    return getLocalDB().webinars || [];
   },
 
   registerForWebinar: async (webId) => {
@@ -454,7 +336,7 @@ export const api = {
       console.warn('Failed to register for event on backend.', err);
     }
     const db = getLocalDB();
-    db.webinars = db.webinars.map(w => w.id === webId ? { ...w, attendees: w.attendees + 1 } : w);
+    db.webinars = (db.webinars || []).map(w => w.id === webId ? { ...w, attendees: (w.attendees || 0) + 1 } : w);
     saveLocalDB(db);
     return db.webinars;
   },
@@ -479,15 +361,9 @@ export const api = {
         }));
       }
     } catch (err) {
-      console.warn('Failed to fetch articles from backend, using local guides.', err);
+      console.warn('Backend articles fetch info:', err.message);
     }
-    const db = getLocalDB();
-    // If localDB articles lack contentType, migrate with default rich articles
-    if (db.articles && db.articles.length > 0 && !db.articles.some(a => a.contentType === 'video')) {
-      db.articles = defaultState.articles;
-      saveLocalDB(db);
-    }
-    return db.articles || defaultState.articles;
+    return getLocalDB().articles || [];
   },
 
   getMembers: async () => {
@@ -523,19 +399,34 @@ export const api = {
       }
       if (combined.length > 0) return combined;
     } catch (err) {
-      console.warn('Failed to fetch members list from backend, using local fallback.', err);
+      console.warn('Backend members fetch info:', err.message);
     }
     
     const db = getLocalDB();
-    const mockMembers = [
-      { id: 'curr-cit', name: db.profile.name, email: db.profile.email, phone: db.profile.phone, bloodGroup: db.profile.bloodGroup, role: 'Citizen', active: true },
-      { id: 'vol-1', name: 'David Miller', email: 'david.miller@alertlife.org', phone: '+1 (555) 012-3456', bloodGroup: 'A+', role: 'Volunteer (Paramedic)', active: true },
-      { id: 'vol-2', name: 'Sophia Martinez', email: 'sophia@alertlife.org', phone: '+1 (555) 012-7890', bloodGroup: 'B-', role: 'Volunteer (EMT-Advanced)', active: true },
-      { id: 'vol-3', name: 'Dr. Robert Vance', email: 'robert.vance@alertlife.org', phone: '+1 (555) 304-1182', bloodGroup: 'O+', role: 'Physician Advisor', active: true },
-      { id: 'vol-4', name: 'Elena Rostova', email: 'elena@alertlife.org', phone: '+1 (555) 882-9011', bloodGroup: 'AB+', role: 'Volunteer (First Responder)', active: true },
-      { id: 'vol-5', name: 'Captain Marcus Bell', email: 'marcus.bell@sffd.org', phone: '+1 (555) 771-4402', bloodGroup: 'O-', role: 'Volunteer (Trauma EMT)', active: true }
-    ];
-    return mockMembers;
+    const membersList = [];
+    if (db.profile?.name) {
+      membersList.push({
+        id: 'curr-cit',
+        name: db.profile.name,
+        email: db.profile.email,
+        phone: db.profile.phone,
+        bloodGroup: db.profile.bloodGroup || 'O+',
+        role: 'Citizen',
+        active: true
+      });
+    }
+    if (db.volunteerProfile?.name) {
+      membersList.push({
+        id: 'curr-vol',
+        name: db.volunteerProfile.name,
+        email: db.volunteerProfile.email,
+        phone: db.volunteerProfile.phone,
+        bloodGroup: 'O+',
+        role: 'Volunteer',
+        active: true
+      });
+    }
+    return membersList;
   },
 
   // Volunteer Profile & Location
@@ -547,44 +438,49 @@ export const api = {
           name: data.profile.userId?.name || '',
           email: data.profile.userId?.email || '',
           phone: data.profile.userId?.phone || '',
-          certification: data.profile.certification || 'CPR / First-Aid Certified',
-          certificationNumber: data.profile.certificationNumber || 'FA-99214',
+          certification: data.profile.certification || 'Certified First Responder',
+          certificationNumber: data.profile.certificationNumber || '',
           skills: data.profile.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
           availabilityStatus: data.profile.availabilityStatus || 'available',
           serviceRadius: data.profile.serviceRadius || 5,
-          isVerified: data.profile.isVerified ?? true,
-          totalEmergenciesHandled: data.profile.totalEmergenciesHandled || 14,
-          rating: data.profile.rating || 4.9,
-          experience: data.profile.experience || 3
+          isVerified: data.profile.isVerified ?? false,
+          totalEmergenciesHandled: data.profile.totalEmergenciesHandled || 0,
+          rating: data.profile.rating || 5.0,
+          experience: data.profile.experience || 1
         };
       }
     } catch (err) {
-      console.warn('Failed to fetch volunteer profile from backend, using local state.', err);
+      console.warn('Backend volunteer profile fetch info:', err.message);
     }
     const db = getLocalDB();
     return db.volunteerProfile || {
-      name: "David Miller",
-      email: "david.miller@alertlife.org",
-      phone: "+1 (555) 012-3456",
-      certification: "AHA Certified Paramedic First Responder",
-      certificationNumber: "EMT-99410-X",
-      skills: ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "EpiPen / Anaphylaxis", "Airway Clearance & SAM Splinting"],
+      name: db.profile?.name || "",
+      email: db.profile?.email || "",
+      phone: db.profile?.phone || "",
+      certification: "Certified First Responder",
+      certificationNumber: "",
+      skills: ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "Choking Relief"],
       availabilityStatus: "available",
       serviceRadius: 5,
       isVerified: true,
-      totalEmergenciesHandled: 23,
-      rating: 4.96,
-      experience: 4,
-      currentLocation: { latitude: 37.7749, longitude: -122.4194 }
+      totalEmergenciesHandled: 0,
+      rating: 5.0,
+      experience: 1,
+      currentLocation: { latitude: 12.9352, longitude: 77.6245 }
     };
   },
 
   updateVolunteerProfile: async (volData) => {
     try {
       const { data } = await client.put('/volunteers/profile', volData);
-      if (data.success) return data.profile;
+      if (data.success) {
+        const db = getLocalDB();
+        db.volunteerProfile = { ...(db.volunteerProfile || {}), ...volData };
+        saveLocalDB(db);
+        return data.profile;
+      }
     } catch (err) {
-      console.warn('Failed to update backend volunteer profile, updating local.', err);
+      console.warn('Backend volunteer update info:', err.message);
     }
     const db = getLocalDB();
     db.volunteerProfile = { ...(db.volunteerProfile || {}), ...volData };
@@ -596,7 +492,7 @@ export const api = {
     try {
       await client.put('/volunteers/availability', { availabilityStatus: status, latitude, longitude });
     } catch (err) {
-      console.warn('Failed to update availability on backend, updating local state.', err);
+      console.warn('Backend availability update info:', err.message);
     }
     const db = getLocalDB();
     if (db.volunteerProfile) {
@@ -615,7 +511,7 @@ export const api = {
         await client.post(`/emergencies/${emergencyId}/report`, reportData);
       }
     } catch (err) {
-      console.warn('Failed to post report to backend, handling locally.', err);
+      console.warn('Backend report submission info:', err.message);
     }
     const db = getLocalDB();
     const active = db.activeSOS;
@@ -630,27 +526,26 @@ export const api = {
       ...reportData
     });
 
-    // Automatically record into Admin Rescue Ledger for Salary/Stipend tracking
     const newRescueLog = {
       id: 'resc-' + Date.now(),
       emergencyId: emergencyId || 'sos-' + Date.now(),
-      volunteerName: db.volunteerProfile?.name || 'David Miller',
-      volunteerEmail: db.volunteerProfile?.email || 'david.miller@alertlife.org',
-      volunteerPhone: db.volunteerProfile?.phone || '+1 (555) 012-3456',
-      patientName: active?.patientName || 'Jane Citizen',
-      patientPhone: active?.patientPhone || '+1 (555) 019-2834',
+      volunteerName: db.volunteerProfile?.name || 'Volunteer Responder',
+      volunteerEmail: db.volunteerProfile?.email || '',
+      volunteerPhone: db.volunteerProfile?.phone || '',
+      patientName: active?.patientName || 'Citizen',
+      patientPhone: active?.patientPhone || '',
       incidentType: active?.description || 'First Aid Intervention',
       severity: active?.severity || 'Moderate',
-      location: active ? `${active.lat?.toFixed(4)}, ${active.lng?.toFixed(4)}` : 'Downtown Area',
+      location: active ? `${active.lat?.toFixed(4)}, ${active.lng?.toFixed(4)}` : 'Field Location',
       date: new Date().toLocaleString(),
-      durationMins: 35,
+      durationMins: 30,
       status: 'Completed & Verified',
       payoutAmount: active?.severity === 'high' ? 75.00 : 45.00,
       payoutStatus: 'Pending Admin Approval',
       notes: `${reportData.interventions || 'First aid given'} | ${reportData.notes || 'Patient stabilized.'}`
     };
 
-    db.rescueLedger = [newRescueLog, ...(db.rescueLedger || defaultState.rescueLedger || [])];
+    db.rescueLedger = [newRescueLog, ...(db.rescueLedger || [])];
     db.activeSOS = null;
     saveLocalDB(db);
     return true;
@@ -658,32 +553,7 @@ export const api = {
 
   getIncidentHistory: () => {
     const db = getLocalDB();
-    return db.incidentHistory || [
-      {
-        id: 'rep-init-1',
-        date: 'Today, 14:20',
-        patientCondition: 'Stabilized / Awake',
-        firstAidProvided: 'Chest Compressions 2 Cycles & AED Shock Delivered',
-        description: 'Elderly citizen collapsed near Union Square market. Pulse regained, airway cleared, handed over to paramedics.',
-        vitals: 'BP 122/82 | HR 84 bpm | SpO2 98%'
-      },
-      {
-        id: 'rep-init-2',
-        date: 'Yesterday, 09:15',
-        patientCondition: 'Transferred to Hospital Safe',
-        firstAidProvided: 'CAT Tourniquet & Hemostatic Gauze Dressing',
-        description: 'Deep leg laceration from scooter collision. Arterial bleeding arrested in 90 seconds.',
-        vitals: 'BP 118/76 | HR 80 bpm | SpO2 99%'
-      },
-      {
-        id: 'rep-init-3',
-        date: 'Aug 29, 2026, 16:45',
-        patientCondition: 'Relieved & Conscious',
-        firstAidProvided: 'Heimlich Abdominal Thrusts (4 Repetitions)',
-        description: 'Foreign body airway obstruction (food bolus) at downtown restaurant. Complete obstruction dislodged safely.',
-        vitals: 'BP 128/84 | HR 92 bpm | SpO2 97%'
-      }
-    ];
+    return db.incidentHistory || [];
   },
 
   getRadius: () => getLocalDB().radius || 5,
@@ -698,7 +568,7 @@ export const api = {
     try {
       await client.post('/events', { ...webinarData, type: 'webinar' });
     } catch (err) {
-      console.warn('Failed to add webinar to backend, saving locally.', err);
+      console.warn('Backend event creation info:', err.message);
     }
     const db = getLocalDB();
     db.webinars = [...(db.webinars || []), { id: 'web-' + Date.now(), ...webinarData, attendees: 0 }];
@@ -712,7 +582,7 @@ export const api = {
         await client.put(`/events/${id}`, webinarData);
       }
     } catch (err) {
-      console.warn('Failed to update event on backend, updating locally.', err);
+      console.warn('Backend event update info:', err.message);
     }
     const db = getLocalDB();
     db.webinars = (db.webinars || []).map(w => w.id === id ? { ...w, ...webinarData } : w);
@@ -726,7 +596,7 @@ export const api = {
         await client.delete(`/events/${id}`);
       }
     } catch (err) {
-      console.warn('Failed to delete event on backend, deleting locally.', err);
+      console.warn('Backend event deletion info:', err.message);
     }
     const db = getLocalDB();
     db.webinars = (db.webinars || []).filter(w => w.id !== id);
@@ -738,7 +608,7 @@ export const api = {
     try {
       await client.post('/education', articleData);
     } catch (err) {
-      console.warn('Failed to add article to backend, saving locally.', err);
+      console.warn('Backend article creation info:', err.message);
     }
     const db = getLocalDB();
     db.articles = [...(db.articles || []), { id: 'art-' + Date.now(), ...articleData }];
@@ -752,7 +622,7 @@ export const api = {
         await client.put(`/education/${id}`, articleData);
       }
     } catch (err) {
-      console.warn('Failed to update article on backend, updating locally.', err);
+      console.warn('Backend article update info:', err.message);
     }
     const db = getLocalDB();
     db.articles = (db.articles || []).map(a => a.id === id ? { ...a, ...articleData } : a);
@@ -766,7 +636,7 @@ export const api = {
         await client.delete(`/education/${id}`);
       }
     } catch (err) {
-      console.warn('Failed to delete article on backend, deleting locally.', err);
+      console.warn('Backend article deletion info:', err.message);
     }
     const db = getLocalDB();
     db.articles = (db.articles || []).filter(a => a.id !== id);
@@ -774,10 +644,9 @@ export const api = {
     return db.articles;
   },
 
-  // Volunteer Rescue Work & Salary / Stipend Ledger
   getRescueLedger: () => {
     const db = getLocalDB();
-    return db.rescueLedger || defaultState.rescueLedger || [];
+    return db.rescueLedger || [];
   },
 
   recordRescueWork: (logData) => {
@@ -790,14 +659,14 @@ export const api = {
       payoutStatus: 'Pending Admin Approval',
       ...logData
     };
-    db.rescueLedger = [newLog, ...(db.rescueLedger || defaultState.rescueLedger || [])];
+    db.rescueLedger = [newLog, ...(db.rescueLedger || [])];
     saveLocalDB(db);
     return db.rescueLedger;
   },
 
   creditVolunteerPayout: (rescueId) => {
     const db = getLocalDB();
-    db.rescueLedger = (db.rescueLedger || defaultState.rescueLedger || []).map(r => {
+    db.rescueLedger = (db.rescueLedger || []).map(r => {
       if (r.id === rescueId) {
         return { ...r, payoutStatus: 'Credited to Bank Account', creditedAt: new Date().toLocaleDateString() };
       }
