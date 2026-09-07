@@ -264,14 +264,18 @@ export const api = {
           window.dispatchEvent(new Event('alertlife_storage_update'));
           return mapped;
         } else {
-          // Backend has returned list and none is active
+          // If backend has completed/resolved list, check if local activeSOS was closed
           const db = getLocalDB();
-          if (db.activeSOS && db.activeSOS.id && !db.activeSOS.id.startsWith('sos-local-only')) {
-            db.activeSOS = null;
-            saveLocalDB(db);
-            window.dispatchEvent(new Event('alertlife_storage_update'));
+          if (db.activeSOS && db.activeSOS.id && !db.activeSOS.id.startsWith('sos-')) {
+            const foundInResolved = data.emergencies.find(e => e._id === db.activeSOS.id && (e.status === 'resolved' || e.status === 'closed' || e.status === 'cancelled'));
+            if (foundInResolved) {
+              db.activeSOS = null;
+              saveLocalDB(db);
+              window.dispatchEvent(new Event('alertlife_storage_update'));
+              return null;
+            }
           }
-          return null;
+          return db.activeSOS;
         }
       }
     } catch (err) {
