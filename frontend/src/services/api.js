@@ -252,7 +252,7 @@ export const api = {
             allergies: active.allergies || "None declared",
             medicalHistory: active.medicalHistory || "None declared",
             status: active.status || "matched",
-            volunteerId: active.assignedVolunteers?.[0] ? 'vol-1' : null,
+            volunteerId: (active.status === 'accepted' || active.status === 'in_progress') ? (active.assignedVolunteers?.[0] ? 'vol-1' : null) : null,
             volunteerName: active.assignedVolunteers?.[0]?.name || (active.assignedVolunteers?.[0] ? 'Assigned Responder' : null),
             volunteerPhone: active.assignedVolunteers?.[0]?.phone || null,
             volunteerCert: 'Certified First Responder',
