@@ -3,6 +3,11 @@ const mongoose = require('mongoose');
 const emergencyRequestSchema = new mongoose.Schema({
   citizenId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   guestContact: { phone: { type: String } },
+  patientName: { type: String },
+  patientPhone: { type: String },
+  patientBlood: { type: String },
+  allergies: { type: String },
+  medicalHistory: { type: String },
   citizenProfile: { type: mongoose.Schema.Types.ObjectId, ref: 'Citizen' },
   location: {
     latitude: { type: Number, required: true },

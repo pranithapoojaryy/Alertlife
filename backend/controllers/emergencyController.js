@@ -21,12 +21,19 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 // @access Private (citizen)
 const createEmergency = async (req, res) => {
   try {
-    const { latitude, longitude, address, emergencyType, description, severity } = req.body;
+    const { latitude, longitude, address, emergencyType, description, severity, patientName, patientPhone, patientBlood, allergies, medicalHistory } = req.body;
+    const Citizen = require('../models/Citizen');
+    const citizenProf = await Citizen.findOne({ userId: req.user._id });
 
     const emergency = await EmergencyRequest.create({
       citizenId: req.user._id,
+      patientName: patientName || req.user.name || 'Citizen In Need',
+      patientPhone: patientPhone || req.user.phone || '',
+      patientBlood: patientBlood || citizenProf?.bloodGroup || 'O+',
+      allergies: allergies || (Array.isArray(citizenProf?.allergies) ? citizenProf.allergies.join(', ') : citizenProf?.allergies) || 'None',
+      medicalHistory: medicalHistory || (Array.isArray(citizenProf?.medicalHistory) ? citizenProf.medicalHistory.map(m => m.condition || m).join(', ') : citizenProf?.medicalHistory) || 'None',
       location: { latitude, longitude, address },
-      emergencyType,
+      emergencyType: emergencyType || 'other',
       description,
       severity: severity || 'high',
     });
@@ -344,14 +351,20 @@ const testEmergencySimulator = async (req, res) => {
 // @desc Create anonymous/guest emergency SOS request
 const createGuestEmergency = async (req, res) => {
   try {
-    const { latitude, longitude, emergencyType, guestPhone, description, severity, address } = req.body;
-    const phone = guestPhone || req.body.patientPhone || "+1 (555) 019-2834";
+    const { latitude, longitude, emergencyType, guestPhone, description, severity, address, patientName, patientPhone, patientBlood, allergies, medicalHistory } = req.body;
+    const phone = patientPhone || guestPhone || "+1 (555) 019-2834";
+    const name = patientName || "Citizen In Need";
     const desc = description || "Emergency SOS First Aid Assistance";
 
     const emergency = await EmergencyRequest.create({
       guestContact: { phone },
+      patientName: name,
+      patientPhone: phone,
+      patientBlood: patientBlood || 'O+',
+      allergies: allergies || 'None declared',
+      medicalHistory: medicalHistory || 'None declared',
       location: { latitude: latitude || 37.7749, longitude: longitude || -122.4194, address: address || 'Live Citizen Location' },
-      emergencyType: emergencyType || 'medical',
+      emergencyType: emergencyType || 'other',
       description: desc,
       severity: severity || 'high',
       status: 'locating'

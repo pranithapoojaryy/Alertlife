@@ -245,11 +245,11 @@ export const api = {
             severity: active.severity || "high",
             emergencyType: active.emergencyType || "medical",
             category: active.emergencyType || "General Emergency",
-            patientName: active.citizenId?.name || (typeof active.guestContact === 'object' ? active.guestContact?.phone : '') || db.profile?.name || "Citizen In Need",
-            patientPhone: active.citizenId?.phone || active.guestContact?.phone || db.profile?.phone || "",
-            patientBlood: active.citizenId?.bloodGroup || db.profile?.bloodGroup || "O+",
-            allergies: db.profile?.allergies || "None declared",
-            medicalHistory: db.profile?.medicalHistory || "None declared",
+            patientName: active.patientName || active.citizenId?.name || (typeof active.guestContact === 'object' ? active.guestContact?.phone : '') || "Citizen In Need",
+            patientPhone: active.patientPhone || active.citizenId?.phone || active.guestContact?.phone || "",
+            patientBlood: active.patientBlood || active.citizenId?.bloodGroup || "O+",
+            allergies: active.allergies || "None declared",
+            medicalHistory: active.medicalHistory || "None declared",
             status: active.status || "matched",
             volunteerId: active.assignedVolunteers?.[0] ? 'vol-1' : null,
             volunteerName: active.assignedVolunteers?.[0]?.name || (active.assignedVolunteers?.[0] ? 'Assigned Responder' : null),
@@ -273,15 +273,21 @@ export const api = {
   triggerSOS: async (sosData) => {
     let backendSOS = null;
     const finalDescription = sosData.description?.trim() || (sosData.category === 'minor_injury' ? 'Minor Injury & First Aid Support' : sosData.category === 'road_accident' ? 'Road Accident & Trauma First Aid' : 'Urgent Emergency SOS');
+    const currentProfile = sosData.patientProfile || {};
 
     try {
       const { data } = await client.post('/emergencies', {
         latitude: sosData.lat,
         longitude: sosData.lng,
         description: finalDescription,
-        emergencyType: sosData.emergencyType || sosData.category || 'medical',
+        emergencyType: sosData.emergencyType || sosData.category || 'other',
         severity: sosData.severity || 'high',
-        address: sosData.address || `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`
+        address: sosData.address || `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`,
+        patientName: currentProfile.name || '',
+        patientPhone: currentProfile.phone || '',
+        patientBlood: currentProfile.bloodGroup || 'O+',
+        allergies: currentProfile.allergies || 'None',
+        medicalHistory: currentProfile.medicalHistory || 'None'
       });
       if (data.success) backendSOS = data.emergency;
     } catch (err) {
@@ -289,7 +295,11 @@ export const api = {
     }
 
     const db = getLocalDB();
-    const currentProfile = sosData.patientProfile || db.profile || {};
+    const patientName = currentProfile.name || db.profile?.name || "Citizen In Need";
+    const patientPhone = currentProfile.phone || db.profile?.phone || "";
+    const patientBlood = currentProfile.bloodGroup || db.profile?.bloodGroup || "O+";
+    const patientAllergies = currentProfile.allergies || db.profile?.allergies || "None";
+    const patientHistory = currentProfile.medicalHistory || db.profile?.medicalHistory || "None";
 
     const newSOS = {
       id: backendSOS?._id || "sos-" + Date.now(),
@@ -300,11 +310,11 @@ export const api = {
       severity: sosData.severity || "high",
       emergencyType: sosData.emergencyType || sosData.category || "medical",
       category: sosData.category || "General Emergency",
-      patientName: currentProfile.name || db.profile?.name || "Citizen In Need",
-      patientPhone: currentProfile.phone || db.profile?.phone || "",
-      patientBlood: currentProfile.bloodGroup || db.profile?.bloodGroup || "O+",
-      allergies: currentProfile.allergies || "None",
-      medicalHistory: currentProfile.medicalHistory || "None",
+      patientName: patientName,
+      patientPhone: patientPhone,
+      patientBlood: patientBlood,
+      allergies: patientAllergies,
+      medicalHistory: patientHistory,
       status: "matched",
       volunteerId: null,
       volunteerName: null,

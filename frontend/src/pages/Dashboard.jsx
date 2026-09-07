@@ -1722,14 +1722,21 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         <button
                           className="btn btn-primary"
                           style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, var(--red), var(--red-dark))' }}
-                          onClick={() => {
-                            const newSOS = api.triggerSOS({
+                          onClick={async () => {
+                            const newSOS = await api.triggerSOS({
                               lat: 37.7749,
                               lng: -122.4194,
                               description: '🩸 Roadside Skid & Leg Injury (Citizen SOS)',
                               severity: 'high',
                               category: 'road_accident',
-                              ambulanceRequested: true
+                              ambulanceRequested: true,
+                              patientProfile: {
+                                name: 'Alex Rivera (Citizen)',
+                                phone: '+1 (555) 019-4821',
+                                bloodGroup: 'O+',
+                                allergies: 'Penicillin',
+                                medicalHistory: 'Asthma'
+                              }
                             });
                             setSosState(newSOS);
                           }}
