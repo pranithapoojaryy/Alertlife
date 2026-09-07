@@ -152,7 +152,11 @@ const createEmergency = async (req, res) => {
 const getEmergencies = async (req, res) => {
   try {
     let query = {};
-    if (req.user.role === 'citizen') query.citizenId = req.user._id;
+    // Volunteers and Admins need to see all active community emergencies to respond
+    // Only filter by citizenId if requesting citizen's own history
+    if (req.user.role === 'citizen' && req.query.self === 'true') {
+      query.citizenId = req.user._id;
+    }
 
     const emergencies = await EmergencyRequest.find(query)
       .populate('citizenId', 'name phone')
