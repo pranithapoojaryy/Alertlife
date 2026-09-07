@@ -2621,26 +2621,28 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         </td>
                         <td style={{ padding: '0.6rem' }}>{m.phone || 'N/A'}</td>
                         <td style={{ padding: '0.6rem' }}>
-                          <span className={`badge ${m.active ? 'badge-emerald' : 'badge-amber'}`}>
-                            {m.active ? '✓ Verified' : 'Pending'}
+                          <span className={`badge ${m.isVerified || m.active ? 'badge-emerald' : 'badge-amber'}`}>
+                            {m.isVerified || m.active ? '✓ Verified' : 'Pending'}
                           </span>
                         </td>
                         <td style={{ padding: '0.6rem' }}>
                           <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>🟢 On Duty (5km)</span>
                         </td>
                         <td style={{ padding: '0.6rem', display: 'flex', gap: '0.35rem' }}>
-                          <button 
-                            className="btn btn-primary" 
-                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} 
-                            onClick={() => {
-                              api.verifyVolunteer(m.id).then(() => {
-                                Swal.fire({ title: 'Approved!', text: `${m.name} has been verified and approved as active responder.`, icon: 'success', timer: 1500, showConfirmButton: false });
-                                setMembers(prev => prev.map(item => item.id === m.id ? { ...item, active: true } : item));
-                              });
-                            }}
-                          >
-                            ✓ Approve
-                          </button>
+                          {!(m.isVerified || m.active) && (
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} 
+                              onClick={() => {
+                                api.verifyVolunteer(m.id).then(() => {
+                                  Swal.fire({ title: 'Approved!', text: `${m.name} has been verified and approved as active responder.`, icon: 'success', timer: 1500, showConfirmButton: false });
+                                  setMembers(prev => prev.map(item => item.id === m.id ? { ...item, active: true, isVerified: true } : item));
+                                });
+                              }}
+                            >
+                              ✓ Approve
+                            </button>
+                          )}
                           <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => Swal.fire({ title: 'Contacting Responder', text: `Initiating direct emergency channel to ${m.name} (${m.phone || 'N/A'})...`, icon: 'info', confirmButtonColor: '#6366f1' })}>
                             📞 Ping
                           </button>

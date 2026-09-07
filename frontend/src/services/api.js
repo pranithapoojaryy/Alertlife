@@ -441,7 +441,8 @@ export const api = {
             phone: v.userId?.phone || '',
             bloodGroup: 'O+',
             role: 'Volunteer',
-            active: v.isActive
+            active: v.isVerified ?? v.isActive ?? true,
+            isVerified: v.isVerified ?? true
           });
         });
       }
@@ -460,7 +461,8 @@ export const api = {
         phone: db.profile.phone,
         bloodGroup: db.profile.bloodGroup || 'O+',
         role: 'Citizen',
-        active: true
+        active: true,
+        isVerified: true
       });
     }
     if (db.volunteerProfile?.name) {
@@ -471,7 +473,8 @@ export const api = {
         phone: db.volunteerProfile.phone,
         bloodGroup: 'O+',
         role: 'Volunteer',
-        active: true
+        active: db.volunteerProfile.isVerified ?? false,
+        isVerified: db.volunteerProfile.isVerified ?? false
       });
     }
     return membersList;
