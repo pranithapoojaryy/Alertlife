@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { api } from '../services/api';
 
 export default function Dashboard({ user = { name: 'David Miller', email: 'david@alertlife.org', role: 'volunteer' }, onLogout }) {
@@ -15,7 +16,29 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
       return null;
     }
   });
-  const [profile, setProfile] = useState({ name: '', email: '', phone: '', bloodGroup: 'O+', allergies: 'None', medicalHistory: 'None' });
+  const [profile, setProfile] = useState(() => {
+    const local = api.getProfileSync ? api.getProfileSync() : null;
+    return local || { 
+      name: 'Pranitha', 
+      email: 'pranitha@alertlife.org', 
+      phone: '+91 98450 12345', 
+      bloodGroup: 'O+', 
+      allergies: 'None', 
+      medicalHistory: 'None',
+      dateOfBirth: '2002-04-12',
+      gender: 'Female',
+      address: 'Koramangala 4th Block, Bengaluru, Karnataka 560034',
+      organDonor: true,
+      medications: 'None',
+      emergencyContacts: [
+        { id: 'c1', name: 'Anand Poojary (Father)', phone: '+91 98450 67890', relation: 'Parent' },
+        { id: 'c2', name: 'Dr. Ramesh Rao (Clinic)', phone: '+91 80 2553 1122', relation: 'Primary Physician' }
+      ]
+    };
+  });
+  const [newContact, setNewContact] = useState({ name: '', phone: '', relation: 'Parent' });
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [editingContactId, setEditingContactId] = useState(null);
   const [radius, setRadius] = useState(api.getRadius());
 
   // Volunteer Specific Extended States
@@ -99,11 +122,26 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
   const [rescueLedger, setRescueLedger] = useState(api.getRescueLedger ? api.getRescueLedger() : []);
 
   const handleCreditVolunteer = (rescueId, volName, amount) => {
-    if (window.confirm(`Confirm salary/stipend transfer of $${amount} to ${volName}?`)) {
-      const updated = api.creditVolunteerPayout(rescueId);
-      if (updated) setRescueLedger(updated);
-      alert(`✓ Payout of $${amount} successfully credited to ${volName}'s verified bank account!`);
-    }
+    Swal.fire({
+      title: 'Confirm Stipend Transfer?',
+      text: `Are you sure you want to credit $${amount} to ${volName}'s account?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Credit Funds'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const updated = api.creditVolunteerPayout(rescueId);
+        if (updated) setRescueLedger(updated);
+        Swal.fire({
+          title: 'Payout Transferred!',
+          text: `✓ Payout of $${amount} successfully credited to ${volName}'s verified bank account!`,
+          icon: 'success',
+          confirmButtonColor: '#6366f1'
+        });
+      }
+    });
   };
 
   // Sync state on intervals
@@ -183,12 +221,13 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
 
     const executeSOS = async (lat, lng) => {
       const newSOS = await api.triggerSOS({
-        lat: lat || 37.7749,
-        lng: lng || -122.4194,
+        lat: lat || 12.9352,
+        lng: lng || 77.6245,
         description: finalDesc,
         severity: finalSeverity,
         category: finalType,
-        ambulanceRequested: isAmbulance
+        ambulanceRequested: isAmbulance,
+        patientProfile: profile
       });
       setSosState(newSOS);
       simulateDispatches();
@@ -243,9 +282,34 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
 
   const handleSaveVolunteerProfile = (e) => {
     e.preventDefault();
+    if (!volProfile.name?.trim()) {
+      Swal.fire({
+        title: 'Validation Error',
+        text: 'Volunteer name is required.',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    if (volProfile.phone && !/^\+?[\d\s\-()]{7,20}$/.test(volProfile.phone)) {
+      Swal.fire({
+        title: 'Invalid Phone Number',
+        text: 'Please enter a valid phone number (e.g. +1 (555) 012-3456).',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
     api.updateVolunteerProfile(volProfile).then(updated => {
       if (updated) setVolProfile(updated);
-      alert('✓ Responder Credentials & Skills updated successfully!');
+      Swal.fire({
+        title: 'Responder Profile Updated!',
+        text: 'Your responder credentials and skills have been successfully synchronized.',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+        timer: 2000,
+        showConfirmButton: false
+      });
     });
   };
 
@@ -281,25 +345,73 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
   };
 
   const handleDeleteArticle = (id, title) => {
-    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
-      api.deleteArticle(id).then(updated => {
-        if (updated) setArticles(updated);
-      });
-    }
+    Swal.fire({
+      title: 'Delete Guide Article?',
+      text: `Are you sure you want to permanently delete "${title}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Delete'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api.deleteArticle(id).then(updated => {
+          if (updated) setArticles(updated);
+          Swal.fire({
+            title: 'Deleted!',
+            text: `Article "${title}" removed.`,
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        });
+      }
+    });
   };
 
   const handleDeleteWebinar = (id, title) => {
-    if (window.confirm(`Are you sure you want to delete camp/webinar "${title}"?`)) {
-      api.deleteWebinar(id).then(updated => {
-        if (updated) setWebinars(updated);
-      });
-    }
+    Swal.fire({
+      title: 'Delete Camp / Webinar?',
+      text: `Are you sure you want to cancel and delete "${title}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Delete'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api.deleteWebinar(id).then(updated => {
+          if (updated) setWebinars(updated);
+          Swal.fire({
+            title: 'Deleted!',
+            text: `Event "${title}" removed.`,
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        });
+      }
+    });
   };
 
   const handlePublishAwareness = (e) => {
     e.preventDefault();
-    if (!newPublish.title || (!newPublish.content && newPublish.contentType !== 'camp')) {
-      alert('Please provide a title and description.');
+    if (!newPublish.title?.trim()) {
+      Swal.fire({
+        title: 'Title Required',
+        text: 'Please provide a headline/title for this awareness publication.',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    if (!newPublish.content?.trim() && newPublish.contentType !== 'camp') {
+      Swal.fire({
+        title: 'Content Required',
+        text: 'Please provide descriptions or practical instructions for the guide.',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
       return;
     }
 
@@ -347,7 +459,14 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
       }
     }
 
-    alert(editingId ? `✓ Updated "${newPublish.title}" successfully!` : `✓ Successfully published "${newPublish.title}" to Citizen Awareness Feeds!`);
+    Swal.fire({
+      title: editingId ? 'Publication Updated!' : 'Published to Network!',
+      text: editingId ? `✓ Updated "${newPublish.title}" successfully.` : `✓ Successfully published "${newPublish.title}" to Citizen Awareness Feeds!`,
+      icon: 'success',
+      confirmButtonColor: '#10b981',
+      timer: 2200,
+      showConfirmButton: false
+    });
     setEditingId(null);
     setNewPublish({
       title: '',
@@ -409,7 +528,12 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
     });
     setSosState(null);
     setNavProgress(0);
-    alert('✓ Field Incident & Vitals Logged successfully! Rescue work recorded for Admin verification.');
+    Swal.fire({
+      title: 'Incident Logged!',
+      text: 'Field Incident & Vitals Logged successfully! Rescue work recorded for Admin verification.',
+      icon: 'success',
+      confirmButtonColor: '#10b981'
+    });
   };
 
   const submitVolunteerReport = (e) => {
@@ -423,29 +547,109 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
       ambulanceStatus: 'dispatched',
       ambulanceEta: '6 mins'
     });
+    Swal.fire({
+      title: 'Ambulance Dispatched!',
+      text: 'Emergency Unit has been notified and dispatched with an estimated arrival time of 6 mins.',
+      icon: 'success',
+      confirmButtonColor: '#ef4444'
+    });
   };
 
   // Admin Events
   const handleAddWebinar = (e) => {
     e.preventDefault();
-    if (!newWebinar.title || !newWebinar.speaker || !newWebinar.date) return;
+    if (!newWebinar.title?.trim()) {
+      Swal.fire({ title: 'Validation Error', text: 'Please provide a webinar/camp topic.', icon: 'warning', confirmButtonColor: '#6366f1' });
+      return;
+    }
+    if (!newWebinar.speaker?.trim()) {
+      Swal.fire({ title: 'Validation Error', text: 'Please enter organizer or speaker name.', icon: 'warning', confirmButtonColor: '#6366f1' });
+      return;
+    }
+    if (!newWebinar.date) {
+      Swal.fire({ title: 'Validation Error', text: 'Please select a date and time.', icon: 'warning', confirmButtonColor: '#6366f1' });
+      return;
+    }
     api.addWebinar(newWebinar);
     setNewWebinar({ title: '', speaker: '', date: '' });
-    alert('Webinar Event Scheduled!');
+    Swal.fire({
+      title: 'Event Scheduled!',
+      text: 'Webinar / Health Camp published to citizen feed.',
+      icon: 'success',
+      confirmButtonColor: '#10b981',
+      timer: 2000,
+      showConfirmButton: false
+    });
   };
 
   const handleAddArticle = (e) => {
     e.preventDefault();
-    if (!newArticle.title || !newArticle.content) return;
+    if (!newArticle.title?.trim() || !newArticle.content?.trim()) {
+      Swal.fire({ title: 'Validation Error', text: 'Please provide both title and content for the guide.', icon: 'warning', confirmButtonColor: '#6366f1' });
+      return;
+    }
     api.addArticle(newArticle);
     setNewArticle({ title: '', category: 'Guides', readTime: '5 min read', content: '' });
-    alert('First Aid Guide Published!');
+    Swal.fire({
+      title: 'Guide Published!',
+      text: 'First Aid Guide has been broadcast to community network.',
+      icon: 'success',
+      confirmButtonColor: '#10b981',
+      timer: 2000,
+      showConfirmButton: false
+    });
   };
 
   // Citizen Handlers
   const handleUpdateProfile = (e) => {
     e.preventDefault();
-    api.updateProfile(profile).then(() => alert('Profile saved!'));
+    
+    // Validation
+    if (!profile.name?.trim()) {
+      Swal.fire({
+        title: 'Validation Error',
+        text: 'Full Name is required.',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    if (!profile.phone?.trim()) {
+      Swal.fire({
+        title: 'Validation Error',
+        text: 'Phone Number is required.',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    if (!/^\+?[\d\s\-()]{7,20}$/.test(profile.phone)) {
+      Swal.fire({
+        title: 'Invalid Phone Format',
+        text: 'Please enter a valid phone number (e.g. +1 (555) 019-2834).',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+
+    api.updateProfile(profile).then(() => {
+      Swal.fire({
+        title: 'Profile Saved!',
+        text: 'Your Personal & Health Profile has been successfully updated and synced.',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+        timer: 2200,
+        showConfirmButton: false
+      });
+    }).catch(err => {
+      Swal.fire({
+        title: 'Save Failed',
+        text: 'Could not update profile. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444'
+      });
+    });
   };
 
   const handleRegisterWebinar = (webId) => {
@@ -471,8 +675,8 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
               onChange={(e) => {
                 const newRole = e.target.value;
                 const newUserData = {
-                  name: newRole === 'volunteer' ? 'David Miller' : newRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
-                  email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
+                  name: newRole === 'volunteer' ? 'David Miller' : newRole === 'admin' ? 'Dr. Sarah Desk' : (profile?.name || 'Pranitha'),
+                  email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'admin' ? 'admin@alertlife.org' : (profile?.email || 'pranitha@alertlife.org'),
                   role: newRole
                 };
                 localStorage.setItem('user_session', JSON.stringify(newUserData));
@@ -750,33 +954,403 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
               )}
 
               {activeTab === 'profile' && (
-                <div className="card">
-                  <h3 className="card-title">📋 Medical Info Card</h3>
-                  <form onSubmit={handleUpdateProfile}>
-                    <div className="form-group">
-                      <label className="form-label">Full Name</label>
-                      <input type="text" className="form-input" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} required />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {/* Digital Emergency Medical ID Banner */}
+                  <div className="citizen-id-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                        <div className="citizen-avatar">
+                          {profile.name ? profile.name.charAt(0).toUpperCase() : 'C'}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <h2 style={{ fontSize: '1.25rem', margin: 0, color: '#fff' }}>{profile.name || 'Jane Citizen'}</h2>
+                            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '0.15rem 0.5rem', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.5px' }}>
+                              EMERGENCY ID
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.78rem', opacity: 0.85, marginTop: '0.2rem' }}>
+                            📞 {profile.phone || '+1 (555) 019-2834'} • ✉️ {profile.email || 'jane@alertlife.com'}
+                          </p>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ background: 'rgba(239, 68, 68, 0.3)', border: '1px solid rgba(239, 68, 68, 0.6)', padding: '0.35rem 0.75rem', borderRadius: '10px', display: 'inline-block' }}>
+                          <span style={{ fontSize: '0.65rem', display: 'block', textTransform: 'uppercase', opacity: 0.9 }}>Blood Type</span>
+                          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fee2e2' }}>{profile.bloodGroup || 'O+'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Phone Number</label>
-                      <input type="text" className="form-input" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} required />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '12px', backdropFilter: 'blur(4px)' }}>
+                      <div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75, display: 'block' }}>Gender</span>
+                        <strong style={{ fontSize: '0.82rem' }}>{profile.gender || 'Female'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75, display: 'block' }}>Date of Birth</span>
+                        <strong style={{ fontSize: '0.82rem' }}>{profile.dateOfBirth || '1994-06-15'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75, display: 'block' }}>Organ Donor</span>
+                        <strong style={{ fontSize: '0.82rem', color: profile.organDonor ? '#34d399' : '#f87171' }}>
+                          {profile.organDonor ? '✓ Yes (Registered)' : 'No'}
+                        </strong>
+                      </div>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Blood Group</label>
-                      <select className="form-select" value={profile.bloodGroup} onChange={e => setProfile({...profile, bloodGroup: e.target.value})}>
-                        {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-                      </select>
+
+                    {profile.address && (
+                      <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', opacity: 0.85, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <span>📍 Home:</span> <span>{profile.address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Primary Medical Details Card */}
+                  <div className="card">
+                    <div className="profile-section-heading">
+                      <h4>🩺 Critical Medical Details</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <a 
+                          href="#edit-citizen-profile" 
+                          className="btn btn-outline" 
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', textDecoration: 'none' }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            document.getElementById('edit-citizen-profile')?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                        >
+                          ✏️ Edit Info
+                        </a>
+                        <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Paramedic Broadcast</span>
+                      </div>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Allergies</label>
-                      <input type="text" className="form-input" value={profile.allergies} onChange={e => setProfile({...profile, allergies: e.target.value})} />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+                      <div style={{ background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: '10px' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--red)' }}>⚠️ KNOWN ALLERGIES</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem' }}>{profile.allergies || 'None reported'}</div>
+                      </div>
+                      <div style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '0.75rem', borderRadius: '10px' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--blue)' }}>📋 MEDICAL CONDITIONS</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem' }}>{profile.medicalHistory || 'None reported'}</div>
+                      </div>
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Medical History</label>
-                      <textarea className="form-textarea" rows="2" value={profile.medicalHistory} onChange={e => setProfile({...profile, medicalHistory: e.target.value})} />
+
+                    <div style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '0.75rem', borderRadius: '10px' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--emerald)' }}>💊 CURRENT MEDICATIONS</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 500, marginTop: '0.25rem' }}>{profile.medications || 'None'}</div>
                     </div>
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Update Card</button>
-                  </form>
+                  </div>
+
+                  {/* Emergency Contacts Section */}
+                  <div className="card">
+                    <div className="profile-section-heading">
+                      <h4>🚨 Emergency Contacts ({profile.emergencyContacts?.length || 0})</h4>
+                      <button 
+                        type="button" 
+                        className="btn btn-outline" 
+                        style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem' }}
+                        onClick={() => {
+                          if (showAddContact) {
+                            setShowAddContact(false);
+                            setEditingContactId(null);
+                            setNewContact({ name: '', phone: '', relation: 'Spouse' });
+                          } else {
+                            setEditingContactId(null);
+                            setNewContact({ name: '', phone: '', relation: 'Spouse' });
+                            setShowAddContact(true);
+                          }
+                        }}
+                      >
+                        {showAddContact ? 'Cancel' : '+ Add Contact'}
+                      </button>
+                    </div>
+
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                      These trusted contacts will receive automatic SMS/Call alerts whenever you trigger an SOS.
+                    </p>
+
+                    {showAddContact && (
+                      <div style={{ background: 'rgba(99, 102, 241, 0.04)', border: '1px dashed var(--blue)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1rem' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--blue)' }}>
+                          {editingContactId ? '✏️ Edit Emergency Contact' : '➕ Add Emergency Contact'}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            placeholder="Full Name" 
+                            style={{ padding: '0.5rem', fontSize: '0.75rem' }} 
+                            value={newContact.name} 
+                            onChange={e => setNewContact({...newContact, name: e.target.value})} 
+                          />
+                          <input 
+                            type="tel" 
+                            className="form-input" 
+                            placeholder="Phone Number" 
+                            style={{ padding: '0.5rem', fontSize: '0.75rem' }} 
+                            value={newContact.phone} 
+                            onChange={e => setNewContact({...newContact, phone: e.target.value})} 
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <select 
+                            className="form-select" 
+                            style={{ padding: '0.5rem', fontSize: '0.75rem' }} 
+                            value={newContact.relation} 
+                            onChange={e => setNewContact({...newContact, relation: e.target.value})}
+                          >
+                            <option value="Spouse">Spouse / Partner</option>
+                            <option value="Parent">Parent</option>
+                            <option value="Sibling">Sibling</option>
+                            <option value="Child">Child</option>
+                            <option value="Primary Physician">Primary Physician</option>
+                            <option value="Friend">Friend / Colleague</option>
+                          </select>
+                          <button 
+                            type="button" 
+                            className="btn btn-primary" 
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                            onClick={() => {
+                              if (!newContact.name?.trim()) {
+                                Swal.fire({
+                                  title: 'Validation Error',
+                                  text: 'Please provide the contact full name.',
+                                  icon: 'warning',
+                                  confirmButtonColor: '#6366f1'
+                                });
+                                return;
+                              }
+                              if (!newContact.phone?.trim()) {
+                                Swal.fire({
+                                  title: 'Validation Error',
+                                  text: 'Please provide the contact phone number.',
+                                  icon: 'warning',
+                                  confirmButtonColor: '#6366f1'
+                                });
+                                return;
+                              }
+                              if (!/^\+?[\d\s\-()]{7,20}$/.test(newContact.phone.trim())) {
+                                Swal.fire({
+                                  title: 'Invalid Phone Number',
+                                  text: 'Please enter a valid phone number format (e.g. +1 (555) 019-2834).',
+                                  icon: 'warning',
+                                  confirmButtonColor: '#6366f1'
+                                });
+                                return;
+                              }
+
+                              let updatedContacts;
+                              if (editingContactId) {
+                                updatedContacts = (profile.emergencyContacts || []).map(c => 
+                                  (c.id === editingContactId || (!c.id && c.phone === editingContactId))
+                                    ? { ...newContact, id: c.id || editingContactId }
+                                    : c
+                                );
+                              } else {
+                                updatedContacts = [...(profile.emergencyContacts || []), { ...newContact, id: 'c-' + Date.now() }];
+                              }
+                              const updatedProfile = { ...profile, emergencyContacts: updatedContacts };
+                              setProfile(updatedProfile);
+                              api.updateProfile(updatedProfile);
+                              
+                              Swal.fire({
+                                title: editingContactId ? 'Contact Updated!' : 'Contact Added!',
+                                text: `${newContact.name} is now saved in your emergency SOS alert list.`,
+                                icon: 'success',
+                                confirmButtonColor: '#10b981',
+                                timer: 1800,
+                                showConfirmButton: false
+                              });
+
+                              setNewContact({ name: '', phone: '', relation: 'Spouse' });
+                              setEditingContactId(null);
+                              setShowAddContact(false);
+                            }}
+                          >
+                            {editingContactId ? '💾 Update Contact' : 'Save Contact'}
+                          </button>
+                          {editingContactId && (
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setEditingContactId(null);
+                                setNewContact({ name: '', phone: '', relation: 'Spouse' });
+                                setShowAddContact(false);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {profile.emergencyContacts && profile.emergencyContacts.length > 0 ? (
+                        profile.emergencyContacts.map(contact => (
+                          <div key={contact.id || contact.phone} className="contact-card-item">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <span style={{ fontSize: '1.25rem' }}>
+                                {contact.relation === 'Primary Physician' ? '🩺' : contact.relation === 'Spouse' ? '💍' : '👤'}
+                              </span>
+                              <div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{contact.name}</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                  {contact.phone} • <span style={{ color: 'var(--blue)', fontWeight: 600 }}>{contact.relation || 'Contact'}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <a 
+                                href={`tel:${contact.phone}`} 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.72rem', textDecoration: 'none', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'var(--emerald)', color: 'var(--emerald)' }}
+                              >
+                                📞 Call
+                              </a>
+                              <button 
+                                type="button" 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.72rem', color: 'var(--blue)', borderColor: 'rgba(99, 102, 241, 0.3)', background: 'rgba(99, 102, 241, 0.08)' }}
+                                title="Edit Contact"
+                                onClick={() => {
+                                  setEditingContactId(contact.id || contact.phone);
+                                  setNewContact({
+                                    name: contact.name || '',
+                                    phone: contact.phone || '',
+                                    relation: contact.relation || 'Spouse'
+                                  });
+                                  setShowAddContact(true);
+                                }}
+                              >
+                                ✏️ Edit
+                              </button>
+                              <button 
+                                type="button" 
+                                className="btn btn-outline" 
+                                style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                title="Delete Contact"
+                                onClick={() => {
+                                  Swal.fire({
+                                    title: 'Remove Contact?',
+                                    text: `Remove ${contact.name} from emergency notification list?`,
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#ef4444',
+                                    cancelButtonColor: '#6b7280',
+                                    confirmButtonText: 'Yes, Remove'
+                                  }).then((result) => {
+                                    if (result.isConfirmed) {
+                                      const updatedContacts = profile.emergencyContacts.filter(c => (c.id ? c.id !== contact.id : c.phone !== contact.phone));
+                                      const updatedProfile = { ...profile, emergencyContacts: updatedContacts };
+                                      setProfile(updatedProfile);
+                                      api.updateProfile(updatedProfile);
+                                      if (editingContactId === (contact.id || contact.phone)) {
+                                        setEditingContactId(null);
+                                        setShowAddContact(false);
+                                      }
+                                      Swal.fire({
+                                        title: 'Removed!',
+                                        text: `${contact.name} was removed from emergency contacts.`,
+                                        icon: 'success',
+                                        timer: 1500,
+                                        showConfirmButton: false
+                                      });
+                                    }
+                                  });
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.8rem', background: 'rgba(0,0,0,0.02)', borderRadius: '10px' }}>
+                          No emergency contacts added yet. Tap <strong>+ Add Contact</strong> to set up instant notify list.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Edit / Update Profile Form */}
+                  <div className="card" id="edit-citizen-profile">
+                    <h3 className="card-title">✏️ Edit Personal & Health Profile</h3>
+                    <form onSubmit={handleUpdateProfile}>
+                      <div className="grid-2">
+                        <div className="form-group">
+                          <label className="form-label">Full Name</label>
+                          <input type="text" className="form-input" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} required />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Phone Number</label>
+                          <input type="tel" className="form-input" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} required />
+                        </div>
+                      </div>
+
+                      <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                        <div className="form-group">
+                          <label className="form-label">Blood Group</label>
+                          <select className="form-select" value={profile.bloodGroup} onChange={e => setProfile({...profile, bloodGroup: e.target.value})}>
+                            {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Gender</label>
+                          <select className="form-select" value={profile.gender || 'Female'} onChange={e => setProfile({...profile, gender: e.target.value})}>
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Date of Birth</label>
+                          <input type="date" className="form-input" value={profile.dateOfBirth || '1994-06-15'} onChange={e => setProfile({...profile, dateOfBirth: e.target.value})} />
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Residential Address</label>
+                        <input type="text" className="form-input" placeholder="Street, City, State" value={profile.address || ''} onChange={e => setProfile({...profile, address: e.target.value})} />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Known Allergies (Medications, Foods, Insect Stings)</label>
+                        <input type="text" className="form-input" placeholder="e.g. Penicillin, Peanuts, Latex" value={profile.allergies} onChange={e => setProfile({...profile, allergies: e.target.value})} />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Existing Medical Conditions / Chronic Diseases</label>
+                        <textarea className="form-textarea" rows="2" placeholder="e.g. Asthma, Diabetes Type 2, Hypertension" value={profile.medicalHistory} onChange={e => setProfile({...profile, medicalHistory: e.target.value})} />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Current Routine Medications & Dosages</label>
+                        <input type="text" className="form-input" placeholder="e.g. Albuterol Inhaler (PRN), Insulin" value={profile.medications || ''} onChange={e => setProfile({...profile, medications: e.target.value})} />
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(16, 185, 129, 0.06)', padding: '0.75rem 1rem', borderRadius: '10px', marginBottom: '1.25rem', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem' }}>🫀 Organ Donor Registration</strong>
+                          <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Display official organ donor badge on digital Emergency ID card</p>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={profile.organDonor ?? true} 
+                          onChange={e => setProfile({...profile, organDonor: e.target.checked})} 
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                        💾 Save & Sync Citizen Profile
+                      </button>
+                    </form>
+                  </div>
                 </div>
               )}
 
@@ -1852,8 +2426,8 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
             {currentRole === 'volunteer' ? 'Dispatch' : 'SOS'}
           </button>
           <button className={`nav-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-            <span className="nav-tab-icon">📋</span>
-            {currentRole === 'volunteer' ? 'Credentials' : 'Medical Card'}
+            <span className="nav-tab-icon">👤</span>
+            {currentRole === 'volunteer' ? 'Credentials' : 'Profile & ID'}
           </button>
           {currentRole === 'volunteer' && (
             <button className={`nav-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
@@ -2020,7 +2594,7 @@ export default function Dashboard({ user = { name: 'David Miller', email: 'david
                           <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>🟢 On Duty (5km)</span>
                         </td>
                         <td style={{ padding: '0.6rem' }}>
-                          <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => alert(`Contacting ${m.name}...`)}>
+                          <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => Swal.fire({ title: 'Contacting Responder', text: `Initiating direct emergency channel to ${m.name} (${m.phone || 'N/A'})...`, icon: 'info', confirmButtonColor: '#6366f1' })}>
                             📞 Ping
                           </button>
                         </td>

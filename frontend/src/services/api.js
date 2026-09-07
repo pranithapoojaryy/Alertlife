@@ -17,18 +17,61 @@ client.interceptors.request.use((config) => {
 // Mock Local Storage Database Fallback
 const defaultState = {
   profile: {
-    name: "Jane Citizen",
-    email: "jane@alertlife.com",
-    phone: "+1 (555) 019-2834",
+    name: "Pranitha",
+    email: "pranitha@alertlife.org",
+    phone: "+91 98450 12345",
     bloodGroup: "O+",
     allergies: "None",
-    medicalHistory: "Asthma"
+    medicalHistory: "None",
+    dateOfBirth: "2002-04-12",
+    gender: "Female",
+    address: "Koramangala 4th Block, Bengaluru, Karnataka 560034",
+    emergencyContacts: [
+      { id: "c1", name: "Anand Poojary (Father)", phone: "+91 98450 67890", relation: "Parent" },
+      { id: "c2", name: "Dr. Ramesh Rao (Clinic)", phone: "+91 80 2553 1122", relation: "Primary Physician" },
+      { id: "c3", name: "Pooja Poojary (Sister)", phone: "+91 98450 99887", relation: "Sibling" }
+    ],
+    organDonor: true,
+    medications: "None"
   },
   activeSOS: null,
   webinars: [
-    { id: "web-1", title: "Hands-Only CPR Certification Training", speaker: "Dr. Emily Johnson", date: "2026-09-05T10:00:00", location: "Community Health Center & Online", type: "Webinar", attendees: 124 },
-    { id: "web-2", title: "Free Cardiac Health Checkup & Blood Donation Camp", speaker: "David Miller (Lead Responder)", date: "2026-09-12T09:00:00", location: "City Town Hall Ground", type: "Health Camp", attendees: 240 },
-    { id: "web-3", title: "Pediatric First Aid & Choking Workshop", speaker: "Dr. Robert Vance (Pediatric ER)", date: "2026-09-18T15:00:00", location: "Metro Medical Center", type: "Health Camp", attendees: 95 }
+    { 
+      id: "web-1", 
+      title: "Hands-Only CPR & AED Live Certification Workshop", 
+      speaker: "Dr. Emily Johnson (AHA Certified Instructor)", 
+      date: "2026-09-05T10:00:00", 
+      location: "San Francisco Community Health Center & Zoom Live", 
+      type: "Webinar", 
+      attendees: 148 
+    },
+    { 
+      id: "web-2", 
+      title: "Free Cardiac Health Checkup & Blood Donation Camp", 
+      speaker: "David Miller (Lead Paramedic Responder)", 
+      date: "2026-09-12T09:00:00", 
+      location: "City Town Hall Ground (Booth 4A)", 
+      type: "Health Camp", 
+      attendees: 310 
+    },
+    { 
+      id: "web-3", 
+      title: "Pediatric First Aid & Infant Choking Relief Clinic", 
+      speaker: "Dr. Robert Vance (Pediatric Emergency Medicine)", 
+      date: "2026-09-18T15:00:00", 
+      location: "Metro Children's Medical Center Auditorium", 
+      type: "Health Camp", 
+      attendees: 125 
+    },
+    { 
+      id: "web-4", 
+      title: "Stop the Bleed & Severe Trauma Tourniquet Training", 
+      speaker: "Captain Marcus Bell (Trauma Specialist)", 
+      date: "2026-09-24T11:00:00", 
+      location: "Bay Area Fire Department Station 7", 
+      type: "Webinar", 
+      attendees: 89 
+    }
   ],
   rescueLedger: [
     {
@@ -39,15 +82,15 @@ const defaultState = {
       volunteerPhone: "+1 (555) 012-3456",
       patientName: "Jane Citizen",
       patientPhone: "+1 (555) 019-2834",
-      incidentType: "Minor Road Accident",
+      incidentType: "Minor Roadside Scooter Skid",
       severity: "Moderate",
       location: "37.7749, -122.4194 (Market & 4th St)",
-      date: "Aug 30, 2026, 14:15",
-      durationMins: 38,
+      date: "Aug 31, 2026, 14:15",
+      durationMins: 28,
       status: "Completed & Verified",
       payoutAmount: 45.00,
       payoutStatus: "Credited to Bank",
-      notes: "Arrived in 3 mins. Controlled laceration bleeding, dressed wound with gauze, and escorted patient to ambulance."
+      notes: "Arrived in 2.5 mins. Cleaned deep gravel abrasions on forearm with saline, applied sterile pressure dressing, checked radial pulse (78 bpm), and escorted patient safely."
     },
     {
       id: "resc-2",
@@ -55,17 +98,17 @@ const defaultState = {
       volunteerName: "David Miller",
       volunteerEmail: "david.miller@alertlife.org",
       volunteerPhone: "+1 (555) 012-3456",
-      patientName: "Robert Hayes",
+      patientName: "Robert Hayes (62 yrs)",
       patientPhone: "+1 (555) 392-8812",
-      incidentType: "Cardiac Arrest / CPR",
+      incidentType: "Sudden Cardiac Arrest / Unconscious",
       severity: "Critical",
-      location: "37.7833, -122.4167 (Union Square)",
-      date: "Aug 29, 2026, 09:40",
-      durationMins: 52,
+      location: "37.7833, -122.4167 (Union Square Plaza)",
+      date: "Aug 30, 2026, 09:40",
+      durationMins: 45,
       status: "Completed & Verified",
       payoutAmount: 75.00,
       payoutStatus: "Credited to Bank",
-      notes: "Delivered 2 cycles of CPR and AED shock. Pulse regained before ambulance arrival."
+      notes: "Initiated CPR within 90 seconds. Retrieved public AED, delivered 1 biphasic shock at 200J. Normal sinus rhythm restored before SF General Ambulance arrived."
     },
     {
       id: "resc-3",
@@ -75,64 +118,92 @@ const defaultState = {
       volunteerPhone: "+1 (555) 882-9011",
       patientName: "Marcus Vance",
       patientPhone: "+1 (555) 441-2910",
-      incidentType: "Severe Bleeding & Sprain",
+      incidentType: "Deep Cut Bleeding & Ankle Sprain",
       severity: "Moderate",
-      location: "37.7650, -122.4200 (Mission District)",
-      date: "Aug 28, 2026, 18:20",
-      durationMins: 40,
-      status: "Pending Admin Credit",
+      location: "37.7650, -122.4200 (Mission District & 16th)",
+      date: "Aug 29, 2026, 18:20",
+      durationMins: 32,
+      status: "Completed & Verified",
       payoutAmount: 50.00,
+      payoutStatus: "Credited to Bank",
+      notes: "Applied hemostatic gauze pressure pack, stabilized sprained right ankle with SAM splint. Patient vitals stable (BP 124/80)."
+    },
+    {
+      id: "resc-4",
+      emergencyId: "sos-104",
+      volunteerName: "Sophia Martinez",
+      volunteerEmail: "sophia@alertlife.com",
+      volunteerPhone: "+1 (555) 012-7890",
+      patientName: "Lucas Wright",
+      patientPhone: "+1 (555) 671-8821",
+      incidentType: "Acute Asthma Attack / Wheezing",
+      severity: "High",
+      location: "37.7900, -122.4010 (Financial District)",
+      date: "Aug 28, 2026, 12:05",
+      durationMins: 24,
+      status: "Pending Admin Credit",
+      payoutAmount: 60.00,
       payoutStatus: "Pending Approval",
-      notes: "Applied splint and ice dressing. Stabilized patient until ER crew took over."
+      notes: "Assisted citizen with spacer inhaler administration, guided calm diaphragmatic breathing, oxygen saturation monitored at 96%."
     }
   ],
   articles: [
     { 
       id: "art-1", 
-      title: "Recognizing a Stroke: Think F.A.S.T.", 
+      title: "Recognizing a Stroke: Think F.A.S.T. Protocol", 
       category: "Emergency Guides", 
       contentType: "article",
       readTime: "4 min read", 
-      author: "David Miller (Volunteer)",
-      date: "Aug 28, 2026",
-      content: "Learn the signs: Face drooping on one side, Arm weakness when raised, Speech difficulty or slurring, Time to call emergency services immediately." 
+      author: "Dr. Emily Johnson (Chief Medical Officer)",
+      date: "Aug 30, 2026",
+      content: "F - Face Drooping: Ask person to smile. Does one side droop? A - Arm Weakness: Raise both arms. Does one drift downward? S - Speech Difficulty: Slurred or strange speech? T - Time to call 911 immediately. Every minute saves 1.9 million brain neurons." 
     },
     { 
       id: "art-2", 
-      title: "Hands-on CPR Video Demonstration", 
+      title: "Hands-Only CPR & AED Video Demonstration", 
       category: "CPR Training", 
       contentType: "video",
       videoUrl: "https://www.youtube.com/watch?v=M4ACYp75mjU",
       thumbnail: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80",
       readTime: "3 min video", 
-      author: "Alert Life Response Team",
+      author: "Alert Life Paramedic Team",
       date: "Aug 29, 2026",
-      content: "Step-by-step video guide explaining hand placement, posture, 2-inch chest compression depth, and 100-120 BPM tempo." 
+      content: "Watch high-yield practical demonstration: Correct interlocked palm placement on lower half of breastbone, 2 to 2.4-inch compression depth, 100-120 beats per minute tempo (Stayin' Alive beat), and seamless AED electrode pad attachment." 
     },
     { 
       id: "art-3", 
-      title: "Community Free Eye & Dental Camp Awareness Poster", 
+      title: "Citywide Free Cardiac Health Camp & Blood Drive Poster", 
       category: "Camp Awareness", 
       contentType: "image",
       imageUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80",
       readTime: "Camp Infographic", 
-      author: "David Miller (Volunteer)",
-      date: "Aug 30, 2026",
-      content: "Free general health checkup, blood pressure, sugar screening, and CPR demonstration camp open to all citizens this Saturday." 
+      author: "David Miller (Lead Responder)",
+      date: "Aug 31, 2026",
+      content: "Free comprehensive blood pressure screening, random blood glucose testing, ECG on spot for seniors, O-negative urgent blood donor registration, and live Heimlich maneuver practice." 
     },
     { 
       id: "art-4", 
-      title: "Complete First-Aid & Emergency Manual (PDF Guide)", 
+      title: "Official Citizen First-Aid & Emergency Response Pocket Manual", 
       category: "Health Documents", 
       contentType: "document",
       docUrl: "#",
-      readTime: "12 pages PDF", 
-      author: "Dr. Emily Johnson",
-      date: "Aug 25, 2026",
-      content: "Official printable medical pocket guide containing burns, choking, fracture splinting, bleeding tourniquets, and snake bite care." 
+      readTime: "16 pages PDF", 
+      author: "American Heart Association & Alert Life",
+      date: "Aug 26, 2026",
+      content: "Step-by-step practical guide covering 2nd degree burn cooling, Sam-splint fracture immobilization, EpiPen auto-injector administration, bee sting anaphylaxis management, and seizure safety protocols." 
+    },
+    {
+      id: "art-5",
+      title: "Choking Relief: Conscious Adult & Infant Heimlich Maneuver",
+      category: "Emergency Guides",
+      contentType: "article",
+      readTime: "3 min read",
+      author: "Elena Rostova (EMT-B)",
+      date: "Aug 27, 2026",
+      content: "For adults: 5 firm back blows between shoulder blades followed by 5 upward abdominal thrusts above navel. For infants under 1 yr: 5 chest thrusts with 2 fingers and 5 gentle downward back slaps over your knee."
     }
   ],
-  radius: 3.5
+  radius: 5.0
 };
 
 const getLocalDB = () => {
@@ -184,17 +255,27 @@ export const api = {
   },
 
   // Profile Card
+  getProfileSync: () => {
+    return getLocalDB().profile;
+  },
+
   getProfile: async () => {
     try {
       const { data } = await client.get('/citizens/profile');
       if (data.success && data.profile) {
         return {
-          name: data.profile.userId?.name || '',
-          email: data.profile.userId?.email || '',
-          phone: data.profile.userId?.phone || '',
-          bloodGroup: data.profile.bloodGroup || 'O+',
-          allergies: data.profile.allergies || 'None',
-          medicalHistory: data.profile.medicalHistory || 'None'
+          name: data.profile.userId?.name || getLocalDB().profile?.name || '',
+          email: data.profile.userId?.email || getLocalDB().profile?.email || '',
+          phone: data.profile.userId?.phone || getLocalDB().profile?.phone || '',
+          bloodGroup: data.profile.bloodGroup || getLocalDB().profile?.bloodGroup || 'O+',
+          allergies: Array.isArray(data.profile.allergies) ? data.profile.allergies.join(', ') : (data.profile.allergies || getLocalDB().profile?.allergies || 'None'),
+          medicalHistory: Array.isArray(data.profile.medicalHistory) ? data.profile.medicalHistory.map(m => m.condition || m).join(', ') : (data.profile.medicalHistory || getLocalDB().profile?.medicalHistory || 'None'),
+          dateOfBirth: data.profile.dateOfBirth ? data.profile.dateOfBirth.slice(0, 10) : (getLocalDB().profile?.dateOfBirth || '1994-06-15'),
+          gender: data.profile.gender || getLocalDB().profile?.gender || 'Female',
+          address: typeof data.profile.address === 'object' ? `${data.profile.address.street || ''} ${data.profile.address.city || ''} ${data.profile.address.state || ''}`.trim() : (data.profile.address || getLocalDB().profile?.address || '742 Evergreen Terrace, San Francisco, CA'),
+          emergencyContacts: data.profile.emergencyContacts?.length ? data.profile.emergencyContacts : (getLocalDB().profile?.emergencyContacts || []),
+          organDonor: data.profile.organDonor ?? (getLocalDB().profile?.organDonor ?? true),
+          medications: data.profile.medications || getLocalDB().profile?.medications || 'Albuterol Inhaler (as needed)'
         };
       }
     } catch (err) {
@@ -231,17 +312,17 @@ export const api = {
           const mapped = {
             id: active._id,
             timestamp: active.createdAt || new Date().toISOString(),
-            lat: active.location?.latitude || 37.7749,
-            lng: active.location?.longitude || -122.4194,
+            lat: active.location?.latitude || 12.9352,
+            lng: active.location?.longitude || 77.6245,
             description: active.description || "Medical Emergency",
             severity: active.severity || "high",
             emergencyType: active.emergencyType || "medical",
             category: active.emergencyType || "General Emergency",
-            patientName: active.citizenId?.name || active.guestContact?.phone || db.profile?.name || "Jane Citizen",
-            patientPhone: active.citizenId?.phone || active.guestContact?.phone || db.profile?.phone || "+1 (555) 019-2834",
+            patientName: active.citizenId?.name || db.profile?.name || "Pranitha",
+            patientPhone: active.citizenId?.phone || db.profile?.phone || "+91 98450 12345",
             patientBlood: db.profile?.bloodGroup || "O+",
             allergies: db.profile?.allergies || "None",
-            medicalHistory: db.profile?.medicalHistory || "Asthma",
+            medicalHistory: db.profile?.medicalHistory || "None",
             status: active.status || "matched",
             volunteerId: active.assignedVolunteers?.[0] ? 'vol-1' : null,
             volunteerName: active.assignedVolunteers?.[0] ? 'David Miller' : null,
@@ -271,7 +352,7 @@ export const api = {
         description: sosData.description,
         emergencyType: sosData.emergencyType || 'medical',
         severity: sosData.severity || 'high',
-        address: `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`
+        address: sosData.address || `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`
       });
       if (data.success) backendSOS = data.emergency;
     } catch (err) {
@@ -279,20 +360,22 @@ export const api = {
     }
 
     const db = getLocalDB();
+    const currentProfile = sosData.patientProfile || db.profile || {};
+
     const newSOS = {
       id: backendSOS?._id || "sos-" + Date.now(),
       timestamp: new Date().toISOString(),
-      lat: sosData.lat || 37.7749,
-      lng: sosData.lng || -122.4194,
+      lat: sosData.lat || 12.9352,
+      lng: sosData.lng || 77.6245,
       description: sosData.description || "Medical Emergency",
       severity: sosData.severity || "high",
       emergencyType: sosData.emergencyType || "medical",
       category: sosData.category || "General Emergency",
-      patientName: db.profile?.name || "Jane Citizen",
-      patientPhone: db.profile?.phone || "+1 (555) 019-2834",
-      patientBlood: db.profile?.bloodGroup || "O+",
-      allergies: db.profile?.allergies || "None",
-      medicalHistory: db.profile?.medicalHistory || "Asthma",
+      patientName: currentProfile.name || db.profile?.name || "Pranitha",
+      patientPhone: currentProfile.phone || db.profile?.phone || "+91 98450 12345",
+      patientBlood: currentProfile.bloodGroup || db.profile?.bloodGroup || "O+",
+      allergies: currentProfile.allergies || db.profile?.allergies || "None",
+      medicalHistory: currentProfile.medicalHistory || db.profile?.medicalHistory || "None",
       status: "matched",
       volunteerId: null,
       volunteerName: null,
@@ -446,9 +529,11 @@ export const api = {
     const db = getLocalDB();
     const mockMembers = [
       { id: 'curr-cit', name: db.profile.name, email: db.profile.email, phone: db.profile.phone, bloodGroup: db.profile.bloodGroup, role: 'Citizen', active: true },
-      { id: 'vol-1', name: 'David Miller', email: 'david@alertlife.com', phone: '+1 (555) 012-3456', bloodGroup: 'A+', role: 'Volunteer', active: true },
-      { id: 'vol-2', name: 'Sophia Martinez', email: 'sophia@alertlife.com', phone: '+1 (555) 012-7890', bloodGroup: 'B-', role: 'Volunteer', active: true },
-      { id: 'vol-3', name: 'Robert Chen', email: 'robert@alertlife.com', phone: '+1 (555) 012-1122', bloodGroup: 'AB+', role: 'Volunteer', active: false }
+      { id: 'vol-1', name: 'David Miller', email: 'david.miller@alertlife.org', phone: '+1 (555) 012-3456', bloodGroup: 'A+', role: 'Volunteer (Paramedic)', active: true },
+      { id: 'vol-2', name: 'Sophia Martinez', email: 'sophia@alertlife.org', phone: '+1 (555) 012-7890', bloodGroup: 'B-', role: 'Volunteer (EMT-Advanced)', active: true },
+      { id: 'vol-3', name: 'Dr. Robert Vance', email: 'robert.vance@alertlife.org', phone: '+1 (555) 304-1182', bloodGroup: 'O+', role: 'Physician Advisor', active: true },
+      { id: 'vol-4', name: 'Elena Rostova', email: 'elena@alertlife.org', phone: '+1 (555) 882-9011', bloodGroup: 'AB+', role: 'Volunteer (First Responder)', active: true },
+      { id: 'vol-5', name: 'Captain Marcus Bell', email: 'marcus.bell@sffd.org', phone: '+1 (555) 771-4402', bloodGroup: 'O-', role: 'Volunteer (Trauma EMT)', active: true }
     ];
     return mockMembers;
   },
@@ -477,25 +562,21 @@ export const api = {
       console.warn('Failed to fetch volunteer profile from backend, using local state.', err);
     }
     const db = getLocalDB();
-    if (!db.volunteerProfile) {
-      db.volunteerProfile = {
-        name: "David Miller",
-        email: "david.miller@alertlife.org",
-        phone: "+1 (555) 012-3456",
-        certification: "AHA Certified First Responder",
-        certificationNumber: "EMT-99410-X",
-        skills: ["CPR (Adult/Child)", "Automated External Defibrillator (AED)", "Severe Bleeding / Tourniquet", "EpiPen Administration", "Triage Assessment"],
-        availabilityStatus: "available",
-        serviceRadius: 5,
-        isVerified: true,
-        totalEmergenciesHandled: 18,
-        rating: 4.9,
-        experience: 3,
-        currentLocation: { latitude: 37.7749, longitude: -122.4194 }
-      };
-      saveLocalDB(db);
-    }
-    return db.volunteerProfile;
+    return db.volunteerProfile || {
+      name: "David Miller",
+      email: "david.miller@alertlife.org",
+      phone: "+1 (555) 012-3456",
+      certification: "AHA Certified Paramedic First Responder",
+      certificationNumber: "EMT-99410-X",
+      skills: ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "EpiPen / Anaphylaxis", "Airway Clearance & SAM Splinting"],
+      availabilityStatus: "available",
+      serviceRadius: 5,
+      isVerified: true,
+      totalEmergenciesHandled: 23,
+      rating: 4.96,
+      experience: 4,
+      currentLocation: { latitude: 37.7749, longitude: -122.4194 }
+    };
   },
 
   updateVolunteerProfile: async (volData) => {
@@ -580,19 +661,27 @@ export const api = {
     return db.incidentHistory || [
       {
         id: 'rep-init-1',
-        date: 'Yesterday, 14:20',
-        patientCondition: 'Stabilized',
-        firstAidProvided: 'Chest Compressions & AED Shock',
-        description: 'Citizen had collapsed near market square. Heartbeat recovered before ambulance arrival.',
-        vitals: 'BP 120/80 | HR 76'
+        date: 'Today, 14:20',
+        patientCondition: 'Stabilized / Awake',
+        firstAidProvided: 'Chest Compressions 2 Cycles & AED Shock Delivered',
+        description: 'Elderly citizen collapsed near Union Square market. Pulse regained, airway cleared, handed over to paramedics.',
+        vitals: 'BP 122/82 | HR 84 bpm | SpO2 98%'
       },
       {
         id: 'rep-init-2',
-        date: 'Aug 24, 2026, 09:15',
-        patientCondition: 'Transferred to Hospital',
-        firstAidProvided: 'Tourniquet & Pressure Dressing',
-        description: 'Laceration from road accident. Bleeding controlled.',
-        vitals: 'BP 115/75 | HR 82'
+        date: 'Yesterday, 09:15',
+        patientCondition: 'Transferred to Hospital Safe',
+        firstAidProvided: 'CAT Tourniquet & Hemostatic Gauze Dressing',
+        description: 'Deep leg laceration from scooter collision. Arterial bleeding arrested in 90 seconds.',
+        vitals: 'BP 118/76 | HR 80 bpm | SpO2 99%'
+      },
+      {
+        id: 'rep-init-3',
+        date: 'Aug 29, 2026, 16:45',
+        patientCondition: 'Relieved & Conscious',
+        firstAidProvided: 'Heimlich Abdominal Thrusts (4 Repetitions)',
+        description: 'Foreign body airway obstruction (food bolus) at downtown restaurant. Complete obstruction dislodged safely.',
+        vitals: 'BP 128/84 | HR 92 bpm | SpO2 97%'
       }
     ];
   },

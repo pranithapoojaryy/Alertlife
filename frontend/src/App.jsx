@@ -32,8 +32,8 @@ function App() {
       return { ...parsed, role: currentRole };
     }
     return {
-      name: currentRole === 'volunteer' ? 'David Miller' : currentRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
-      email: currentRole === 'volunteer' ? 'david@alertlife.org' : currentRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
+      name: currentRole === 'volunteer' ? 'David Miller' : currentRole === 'admin' ? 'Dr. Sarah Desk' : 'Pranitha',
+      email: currentRole === 'volunteer' ? 'david@alertlife.org' : currentRole === 'admin' ? 'admin@alertlife.org' : 'pranitha@alertlife.org',
       role: currentRole
     };
   });
@@ -43,8 +43,8 @@ function App() {
     const handleLocationChange = () => {
       const activeRole = getPortalRole();
       setUser(prev => ({
-        name: activeRole === 'volunteer' ? 'David Miller' : activeRole === 'admin' ? 'Dr. Sarah Desk' : (prev?.name || 'Jane Citizen'),
-        email: activeRole === 'volunteer' ? 'david@alertlife.org' : activeRole === 'admin' ? 'admin@alertlife.org' : (prev?.email || 'jane@alertlife.com'),
+        name: activeRole === 'volunteer' ? 'David Miller' : activeRole === 'admin' ? 'Dr. Sarah Desk' : (prev?.name && prev.name !== 'Jane Citizen' ? prev.name : 'Pranitha'),
+        email: activeRole === 'volunteer' ? 'david@alertlife.org' : activeRole === 'admin' ? 'admin@alertlife.org' : (prev?.email && prev.email !== 'jane@alertlife.com' ? prev.email : 'pranitha@alertlife.org'),
         role: activeRole
       }));
     };
