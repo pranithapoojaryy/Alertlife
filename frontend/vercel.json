@@ -6,6 +6,8 @@
   "rewrites": [
     { "source": "/volunteer/(.*)", "destination": "/index.html" },
     { "source": "/volunteer", "destination": "/index.html" },
+    { "source": "/hospital/(.*)", "destination": "/index.html" },
+    { "source": "/hospital", "destination": "/index.html" },
     { "source": "/admin/(.*)", "destination": "/index.html" },
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }

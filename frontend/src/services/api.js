@@ -1005,6 +1005,68 @@ export const api = {
     return true;
   },
 
+  getHospitalProfile: async () => {
+    try {
+      const { data } = await client.get('/hospitals/profile');
+      if (data.success && data.hospital) {
+        return data.hospital;
+      }
+    } catch (err) {
+      console.warn('Backend hospital profile lookup:', err.message);
+    }
+    const db = getLocalDB();
+    return db.hospitalProfile || {
+      hospitalName: db.profile?.name || 'City General Hospital',
+      registrationNumber: 'HOSP-KA-8832',
+      contactNumber: db.profile?.phone || '108',
+      address: { street: 'Outer Ring Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560034' },
+      ambulances: [
+        { id: 'amb-1', vehicleNumber: 'KA-01-ER-1088', driverName: 'Sunil Gowda (EMT-P)', driverPhone: '+91 98450 11223', status: 'available' },
+        { id: 'amb-2', vehicleNumber: 'KA-05-ER-2044', driverName: 'Manjunath R (EMT-B)', driverPhone: '+91 98450 44556', status: 'available' }
+      ]
+    };
+  },
+
+  updateHospitalProfile: async (profileData) => {
+    try {
+      const { data } = await client.put('/hospitals/profile', profileData);
+      if (data.success && data.hospital) {
+        return data.hospital;
+      }
+    } catch (err) {
+      console.warn('Backend hospital update error:', err.message);
+    }
+    const db = getLocalDB();
+    db.hospitalProfile = { ...db.hospitalProfile, ...profileData };
+    saveLocalDB(db);
+    return db.hospitalProfile;
+  },
+
+  addAmbulanceToFleet: async (ambulanceData) => {
+    try {
+      const { data } = await client.post('/hospitals/ambulances', ambulanceData);
+      if (data.success && data.ambulances) {
+        return data.ambulances;
+      }
+    } catch (err) {
+      console.warn('Backend ambulance creation error:', err.message);
+    }
+    const db = getLocalDB();
+    if (!db.hospitalProfile) {
+      db.hospitalProfile = { ambulances: [] };
+    }
+    if (!db.hospitalProfile.ambulances) {
+      db.hospitalProfile.ambulances = [];
+    }
+    db.hospitalProfile.ambulances.push({
+      id: 'amb-' + Date.now(),
+      ...ambulanceData,
+      status: ambulanceData.status || 'available'
+    });
+    saveLocalDB(db);
+    return db.hospitalProfile.ambulances;
+  },
+
   getRescueLedger: () => {
     const db = getLocalDB();
     return db.rescueLedger || [];

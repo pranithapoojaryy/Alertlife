@@ -7,8 +7,17 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
   const isMobile = currentRole === 'citizen' || currentRole === 'volunteer';
 
   // State Management
-  const [activeTab, setActiveTab] = useState('sos');
+  const [activeTab, setActiveTab] = useState(() => currentRole === 'hospital' ? 'ambulance' : 'sos');
   const [sosDescription, setSosDescription] = useState('');
+  const [hospitalProfile, setHospitalProfile] = useState({
+    hospitalName: user.name || 'City Medical Center',
+    registrationNumber: 'HOSP-KA-8832',
+    contactNumber: user.phone || '108',
+    ambulances: [
+      { id: 'amb-1', vehicleNumber: 'KA-01-ER-1088', driverName: 'Sunil Gowda (EMT-P)', driverPhone: '+91 98450 11223', status: 'available' },
+      { id: 'amb-2', vehicleNumber: 'KA-05-ER-2044', driverName: 'Manjunath R (EMT-B)', driverPhone: '+91 98450 44556', status: 'available' }
+    ]
+  });
   const [sosState, setSosState] = useState(() => {
     try {
       return api.getActiveSOS();
@@ -333,8 +342,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       if (api.getRescueLedger) {
         setRescueLedger(api.getRescueLedger() || []);
       }
-      if (api.getAmbulanceRequests) {
-        api.getAmbulanceRequests().then(data => setAmbulanceRequests(data || []));
+      if (api.getHospitalProfile && (currentRole === 'hospital' || currentRole === 'admin')) {
+        api.getHospitalProfile().then(data => {
+          if (data) setHospitalProfile(data);
+        });
       }
     };
 
@@ -2798,30 +2809,46 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="logo">
-          <span>🚨</span> Alert Life Desk
+          <span>{currentRole === 'hospital' ? '🏥' : '🚨'}</span> {currentRole === 'hospital' ? 'Hospital ER Portal' : 'Alert Life Desk'}
         </div>
         <div className="sidebar-menu">
-          <button className={`menu-item ${activeTab === 'monitor' ? 'active' : ''}`} onClick={() => setActiveTab('monitor')}>
-            👑 Active Monitor
-          </button>
-          <button className={`menu-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
-            💰 Volunteer Payouts & Rescues
-          </button>
-          <button className={`menu-item ${activeTab === 'ambulance' ? 'active' : ''}`} onClick={() => setActiveTab('ambulance')}>
-            🚑 Ambulance Desk
-          </button>
-          <button className={`menu-item ${activeTab === 'telehealth' ? 'active' : ''}`} onClick={() => setActiveTab('telehealth')}>
-            🥼 Doctor Consults
-          </button>
-          <button className={`menu-item ${activeTab === 'content' ? 'active' : ''}`} onClick={() => setActiveTab('content')}>
-            📅 Content & Events
-          </button>
-          <button className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            ⚙️ System Config
-          </button>
+          {currentRole === 'hospital' ? (
+            <>
+              <button className={`menu-item ${activeTab === 'ambulance' ? 'active' : ''}`} onClick={() => setActiveTab('ambulance')}>
+                🚑 Live Emergency & Dispatch
+              </button>
+              <button className={`menu-item ${activeTab === 'fleet' ? 'active' : ''}`} onClick={() => setActiveTab('fleet')}>
+                🚐 Ambulance Fleet Manager
+              </button>
+              <button className={`menu-item ${activeTab === 'hospital_profile' ? 'active' : ''}`} onClick={() => setActiveTab('hospital_profile')}>
+                🏥 Hospital Profile & ER Info
+              </button>
+            </>
+          ) : (
+            <>
+              <button className={`menu-item ${activeTab === 'monitor' ? 'active' : ''}`} onClick={() => setActiveTab('monitor')}>
+                👑 Active Monitor
+              </button>
+              <button className={`menu-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
+                💰 Volunteer Payouts & Rescues
+              </button>
+              <button className={`menu-item ${activeTab === 'ambulance' ? 'active' : ''}`} onClick={() => setActiveTab('ambulance')}>
+                🚑 Ambulance Desk
+              </button>
+              <button className={`menu-item ${activeTab === 'telehealth' ? 'active' : ''}`} onClick={() => setActiveTab('telehealth')}>
+                🥼 Doctor Consults
+              </button>
+              <button className={`menu-item ${activeTab === 'content' ? 'active' : ''}`} onClick={() => setActiveTab('content')}>
+                📅 Content & Events
+              </button>
+              <button className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+                ⚙️ System Config
+              </button>
+            </>
+          )}
         </div>
         <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-          <p>Logged in: <strong>{user.name}</strong> ({user.role})</p>
+          <p>Logged in: <strong>{user.name}</strong> ({currentRole === 'hospital' ? 'Hospital Official' : user.role})</p>
           <button className="btn btn-outline" style={{ width: '100%', marginTop: '0.5rem', padding: '0.35rem' }} onClick={onLogout}>
             Logout
           </button>
@@ -3191,33 +3218,191 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           </div>
         )}
 
-        {activeTab === 'telehealth' && (
-          <div className="card">
-            <h3 className="card-title">🥼 Telehealth Doctor Console</h3>
-            {sosState && sosState.consultationActive ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem', marginTop: '1rem' }}>
-                <div className="call-simulator" style={{ height: '350px' }}>
-                  <div className="video-feed" style={{ height: '100%', position: 'relative' }}>
-                    <span style={{ fontSize: '1rem', color: 'white', position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(0,0,0,0.6)', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
-                      🟢 Live Telehealth Call: {sosState.patientName}
-                    </span>
-                  </div>
+        {/* TAB: Ambulance Fleet Manager (Hospital Role) */}
+        {activeTab === 'fleet' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 className="card-title" style={{ margin: 0 }}>🚐 Hospital Ambulance Fleet & Paramedic Crew</h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    Manage your hospital's registered emergency vehicles, designated drivers, and live readiness status.
+                  </p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div className="card" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)' }}>
-                    <h4>📊 Live Vitals Stream</h4>
-                    <p style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>Heart Rate: <strong>88 bpm</strong></p>
-                    <p style={{ fontSize: '0.85rem' }}>Blood Oxygen: <strong>97%</strong></p>
-                    <p style={{ fontSize: '0.85rem' }}>Blood Group: <strong>{sosState.patientBlood}</strong></p>
-                  </div>
-                  <button className="btn btn-danger" style={{ width: '100%' }} onClick={endDoctorConsult}>
-                    End Telehealth Call
-                  </button>
-                </div>
+                <button 
+                  className="btn btn-primary"
+                  style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+                  onClick={async () => {
+                    const { value: newAmb } = await Swal.fire({
+                      title: '➕ Register New Ambulance Unit',
+                      html: `
+                        <div style="display:flex; flex-direction:column; gap:0.75rem; text-align:left; font-size:0.85rem;">
+                          <div>
+                            <label style="font-weight:600; display:block; margin-bottom:0.25rem;">Vehicle License Plate Number</label>
+                            <input id="swal-new-veh" class="swal2-input" style="margin:0; width:100%; font-size:0.85rem;" placeholder="e.g. KA-04-ER-9911">
+                          </div>
+                          <div>
+                            <label style="font-weight:600; display:block; margin-bottom:0.25rem;">Lead Driver / Paramedic Name</label>
+                            <input id="swal-new-driver" class="swal2-input" style="margin:0; width:100%; font-size:0.85rem;" placeholder="e.g. Ramesh Kumar (EMT)">
+                          </div>
+                          <div>
+                            <label style="font-weight:600; display:block; margin-bottom:0.25rem;">Driver Phone / Contact Number</label>
+                            <input id="swal-new-phone" class="swal2-input" style="margin:0; width:100%; font-size:0.85rem;" placeholder="e.g. 9845012345">
+                          </div>
+                        </div>
+                      `,
+                      focusConfirm: false,
+                      showCancelButton: true,
+                      confirmButtonText: '✓ Add Ambulance',
+                      confirmButtonColor: '#10b981',
+                      preConfirm: () => {
+                        const v = document.getElementById('swal-new-veh').value;
+                        const d = document.getElementById('swal-new-driver').value;
+                        const p = document.getElementById('swal-new-phone').value;
+                        if (!v || !d || !p) {
+                          Swal.showValidationMessage('Please fill all ambulance vehicle and driver fields.');
+                          return false;
+                        }
+                        return { vehicleNumber: v, driverName: d, driverPhone: p, status: 'available' };
+                      }
+                    });
+
+                    if (newAmb) {
+                      const updatedFleet = await api.addAmbulanceToFleet(newAmb);
+                      setHospitalProfile(prev => ({ ...prev, ambulances: updatedFleet }));
+                      Swal.fire({ title: 'Ambulance Added!', text: `Unit ${newAmb.vehicleNumber} is now registered in your hospital fleet.`, icon: 'success', timer: 1500, showConfirmButton: false });
+                    }
+                  }}
+                >
+                  + Add Ambulance Vehicle
+                </button>
               </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>No active telehealth consultations requested.</p>
-            )}
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(0,0,0,0.03)', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
+                      <th style={{ padding: '0.6rem' }}>Vehicle Number</th>
+                      <th style={{ padding: '0.6rem' }}>Driver / Paramedic</th>
+                      <th style={{ padding: '0.6rem' }}>Contact Phone</th>
+                      <th style={{ padding: '0.6rem' }}>Readiness</th>
+                      <th style={{ padding: '0.6rem' }}>Quick Dispatch Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hospitalProfile.ambulances && hospitalProfile.ambulances.length > 0 ? (
+                      hospitalProfile.ambulances.map((amb, idx) => (
+                        <tr key={amb.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.6rem' }}>
+                            <strong style={{ fontSize: '0.9rem' }}>🚑 {amb.vehicleNumber}</strong>
+                          </td>
+                          <td style={{ padding: '0.6rem' }}>{amb.driverName}</td>
+                          <td style={{ padding: '0.6rem' }}>{amb.driverPhone}</td>
+                          <td style={{ padding: '0.6rem' }}>
+                            <span className={`badge ${amb.status === 'dispatched' ? 'badge-amber' : 'badge-emerald'}`}>
+                              {amb.status === 'dispatched' ? '🟡 Dispatched' : '🟢 Ready / On Standby'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.6rem' }}>
+                            {sosState ? (
+                              <button 
+                                className="btn btn-primary"
+                                style={{ padding: '0.25rem 0.65rem', fontSize: '0.72rem', background: 'var(--red)' }}
+                                onClick={async () => {
+                                  await api.dispatchAmbulanceUnit(sosState.id, {
+                                    vehicleNumber: amb.vehicleNumber,
+                                    driverName: amb.driverName,
+                                    driverPhone: amb.driverPhone,
+                                    eta: '5 mins'
+                                  });
+                                  Swal.fire({ title: 'Unit Dispatched!', text: `Dispatched ${amb.vehicleNumber} (${amb.driverName}) to ${sosState.patientName}.`, icon: 'success' });
+                                }}
+                              >
+                                🚀 Dispatch This Unit
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Standby (No active SOS)</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                          No ambulances added yet. Click <strong>+ Add Ambulance Vehicle</strong> above.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: Hospital Profile & ER Info (Hospital Role) */}
+        {activeTab === 'hospital_profile' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="card">
+              <h3 className="card-title">🏥 Hospital Emergency Profile & Verification</h3>
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await api.updateHospitalProfile(hospitalProfile);
+                  Swal.fire({ title: 'Profile Updated!', text: 'Hospital emergency credentials updated successfully.', icon: 'success', timer: 1500, showConfirmButton: false });
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}
+              >
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Hospital Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={hospitalProfile.hospitalName || ''} 
+                      onChange={e => setHospitalProfile({ ...hospitalProfile, hospitalName: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Registration / Medical License No.</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={hospitalProfile.registrationNumber || ''} 
+                      onChange={e => setHospitalProfile({ ...hospitalProfile, registrationNumber: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">24/7 ER Helpline Phone Number</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={hospitalProfile.contactNumber || ''} 
+                      onChange={e => setHospitalProfile({ ...hospitalProfile, contactNumber: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Available ER Beds</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      value={hospitalProfile.availableBeds || 12} 
+                      onChange={e => setHospitalProfile({ ...hospitalProfile, availableBeds: Number(e.target.value) })} 
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.6rem 1.5rem' }}>
+                  ✓ Save Hospital Details
+                </button>
+              </form>
+            </div>
           </div>
         )}
 

@@ -7,18 +7,20 @@ function App() {
     // 1. Check Vite Environment Variable (for separate Vercel project deployments)
     if (import.meta.env.VITE_PORTAL) {
       const envRole = import.meta.env.VITE_PORTAL.toLowerCase();
-      if (envRole === 'volunteer' || envRole === 'admin' || envRole === 'citizen') {
+      if (envRole === 'volunteer' || envRole === 'hospital' || envRole === 'admin' || envRole === 'citizen') {
         return envRole;
       }
     }
-    // 2. Check URL pathname (e.g. /volunteer or /admin)
+    // 2. Check URL pathname (e.g. /volunteer, /hospital or /admin)
     const pathname = window.location.pathname.toLowerCase();
     if (pathname.includes('volunteer')) return 'volunteer';
+    if (pathname.includes('hospital')) return 'hospital';
     if (pathname.includes('admin')) return 'admin';
-    // 3. Fallback to URL search query (?portal=volunteer or ?portal=admin)
+    // 3. Fallback to URL search query (?portal=volunteer, ?portal=hospital, ?portal=admin)
     const params = new URLSearchParams(window.location.search);
     const portal = params.get('portal') || '';
     if (portal.toLowerCase() === 'volunteer') return 'volunteer';
+    if (portal.toLowerCase() === 'hospital') return 'hospital';
     if (portal.toLowerCase() === 'admin') return 'admin';
     return 'citizen'; // Default portal
   };
@@ -56,11 +58,12 @@ function App() {
   // Dynamically update Tab Icon, Apple Touch Icon, and Title in React DOM
   useEffect(() => {
     const isVol = user?.role === 'volunteer';
-    const iconHref = isVol ? '/volunteer-icon.svg' : '/favicon.svg';
+    const isHosp = user?.role === 'hospital';
+    const iconHref = isVol ? '/volunteer-icon.svg' : isHosp ? '/favicon.svg' : '/favicon.svg';
     const manifestHref = isVol ? '/manifest-volunteer.json' : '/manifest.json';
-    const themeColor = isVol ? '#10b981' : '#6366f1';
+    const themeColor = isVol ? '#10b981' : isHosp ? '#ef4444' : '#6366f1';
     
-    document.title = isVol ? 'Alert Responder - Volunteer First Responder' : 'Alert Life - Emergency SOS';
+    document.title = isVol ? 'Alert Responder - Volunteer First Responder' : isHosp ? 'Alert ER - Hospital & Ambulance Dispatch Console' : 'Alert Life - Emergency SOS';
 
     const favicons = document.querySelectorAll("link[rel*='icon']");
     favicons.forEach(el => el.setAttribute('href', iconHref));
@@ -79,6 +82,8 @@ function App() {
     name: '', 
     email: '', 
     phone: '', 
+    hospitalName: '',
+    registrationNumber: '',
     bloodGroup: 'O+', 
     password: '' 
   });
@@ -87,8 +92,8 @@ function App() {
 
   const switchPortal = (newRole) => {
     const newUserData = {
-      name: newRole === 'volunteer' ? 'David Miller' : newRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
-      email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
+      name: newRole === 'volunteer' ? 'David Miller' : newRole === 'hospital' ? 'City Care Medical Center' : newRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
+      email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'hospital' ? 'er@citycare.org' : newRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
       role: newRole
     };
     localStorage.setItem('user_session', JSON.stringify(newUserData));
@@ -149,11 +154,11 @@ function App() {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!regForm.name?.trim()) {
-      setError('Please enter your full name.');
+      setError(currentRole === 'hospital' ? 'Please enter Hospital Name.' : 'Please enter your full name.');
       return;
     }
     if (!regForm.email?.trim() || !regForm.email.includes('@')) {
-      setError('Please enter a valid email address.');
+      setError('Please enter a valid official email address.');
       return;
     }
     
@@ -179,6 +184,8 @@ function App() {
         phone: phoneDigits,
         password: regForm.password,
         role: currentRole,
+        hospitalName: currentRole === 'hospital' ? regForm.name.trim() : undefined,
+        registrationNumber: currentRole === 'hospital' ? (regForm.registrationNumber || `HOSP-REG-${Date.now().toString().slice(-6)}`) : undefined,
         bloodGroup: regForm.bloodGroup || 'O+'
       };
 
@@ -187,9 +194,9 @@ function App() {
       // Do NOT auto-login. Pre-fill login credentials and switch to Login view
       setLoginEmail(regPayload.email);
       setLoginPassword('');
-      setRegForm({ name: '', email: '', phone: '', bloodGroup: 'O+', password: '' });
+      setRegForm({ name: '', email: '', phone: '', hospitalName: '', registrationNumber: '', bloodGroup: 'O+', password: '' });
       setError('');
-      setSuccessMsg(`Registration successful! Please sign in with your email (${regPayload.email}) or phone number to open the ${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} app.`);
+      setSuccessMsg(`Registration successful! Please sign in with your email (${regPayload.email}) or phone number to open the ${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} portal.`);
       setAuthView('login');
     } catch (err) {
       setError(err.message || 'Registration failed. Please check your data.');
@@ -208,6 +215,9 @@ function App() {
   const getPortalInfo = () => {
     if (user?.role === 'volunteer' || currentRole === 'volunteer') {
       return { title: 'Volunteer Network', subtitle: 'First Responder Dispatch App' };
+    }
+    if (user?.role === 'hospital' || currentRole === 'hospital') {
+      return { title: 'Hospital ER Desk', subtitle: 'Ambulance & Emergency Response Dispatch Portal' };
     }
     if (user?.role === 'admin' || currentRole === 'admin') {
       return { title: 'Admin Console', subtitle: 'Emergency Response Management Site' };
@@ -281,15 +291,34 @@ function App() {
           ) : (
             <form onSubmit={handleRegister}>
               <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input type="text" className="form-input" placeholder="Rahul Sharma" value={regForm.name} onChange={e => setRegForm({...regForm, name: e.target.value})} required />
+                <label className="form-label">{currentRole === 'hospital' ? 'Hospital / Clinic Official Name' : 'Full Name'}</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder={currentRole === 'hospital' ? "e.g. Apollo Super Specialty Hospital" : "Rahul Sharma"} 
+                  value={regForm.name} 
+                  onChange={e => setRegForm({...regForm, name: e.target.value})} 
+                  required 
+                />
+              </div>
+              {currentRole === 'hospital' && (
+                <div className="form-group">
+                  <label className="form-label">Medical Registration / License Number</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. HOSP-KA-2024-8842" 
+                    value={regForm.registrationNumber} 
+                    onChange={e => setRegForm({...regForm, registrationNumber: e.target.value})} 
+                  />
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">{currentRole === 'hospital' ? 'Official Hospital ER Email' : 'Email Address'}</label>
+                <input type="email" className="form-input" placeholder={currentRole === 'hospital' ? "er-desk@apollo.org" : "rahul@example.in"} value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input type="email" className="form-input" placeholder="rahul@example.in" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">10-Digit Mobile Number</label>
+                <label className="form-label">{currentRole === 'hospital' ? '24/7 Emergency Dispatch Helpline Phone' : '10-Digit Mobile Number'}</label>
                 <input 
                   type="tel" 
                   className="form-input" 
@@ -318,7 +347,7 @@ function App() {
                   </select>
                 </div>
               )}
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem', background: currentRole === 'hospital' ? 'var(--red)' : undefined }}>
                 Register as {currentRole.charAt(0).toUpperCase() + currentRole.slice(1)}
               </button>
               <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>

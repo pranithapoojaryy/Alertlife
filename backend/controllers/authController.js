@@ -39,7 +39,18 @@ const register = async (req, res) => {
       });
       await User.findByIdAndUpdate(user._id, { isVerified: false });
     } else if (role === 'hospital') {
-      await Hospital.create({ userId: user._id, ...roleData });
+      await Hospital.create({
+        userId: user._id,
+        hospitalName: roleData.hospitalName || name || 'City Medical Center',
+        registrationNumber: roleData.registrationNumber || `HOSP-REG-${Date.now().toString().slice(-6)}`,
+        contactNumber: phone || roleData.contactNumber || '108',
+        isVerified: true,
+        isActive: true,
+        ambulances: roleData.ambulances || [
+          { vehicleNumber: 'KA-01-ER-1088', driverName: 'Sunil Paramedic', driverPhone: phone || '+91 98450 11223', status: 'available' }
+        ],
+        ...roleData
+      });
     } else if (role === 'doctor') {
       await Doctor.create({ userId: user._id, ...roleData });
     }
