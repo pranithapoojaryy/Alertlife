@@ -323,6 +323,15 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     const defaultLng = 77.6245;
     const defaultAddress = 'Koramangala, Bengaluru, Karnataka';
 
+    // Combine user session with profile data to ensure authentic registered citizen identity
+    const activePatient = {
+      name: profile.name || user.name || user.email?.split('@')[0] || 'Citizen In Need',
+      phone: profile.phone || user.phone || '',
+      bloodGroup: profile.bloodGroup || 'O+',
+      allergies: profile.allergies || 'None declared',
+      medicalHistory: profile.medicalHistory || 'None declared'
+    };
+
     // 1. Immediately trigger and activate SOS locally & on backend
     api.triggerSOS({
       lat: defaultLat,
@@ -332,7 +341,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       severity: finalSeverity,
       category: finalType,
       ambulanceRequested: isAmbulance,
-      patientProfile: profile
+      patientProfile: activePatient
     }).then(newSOS => {
       setSosState(newSOS);
       simulateDispatches();
@@ -1934,36 +1943,12 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                       <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.5rem', animation: 'pulse-avatar 2s infinite' }}>📡</span>
                       <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Emergency Dispatch Radar Active</h3>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-                        Scanning for citizen SOS alerts, roadside accidents, and minor injuries within your <strong>{volProfile.serviceRadius || 5} km</strong> coverage zone.
+                        Scanning for registered citizen SOS alerts, roadside accidents, and medical emergencies in real-time.
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                        <span className="badge badge-emerald">
-                          🟢 Ready for Instant Dispatch
+                        <span className="badge badge-emerald" style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', fontWeight: 700 }}>
+                          🟢 Ready & Standing By for Citizen SOS
                         </span>
-                        <button
-                          className="btn btn-primary"
-                          style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, var(--red), var(--red-dark))' }}
-                          onClick={async () => {
-                            const newSOS = await api.triggerSOS({
-                              lat: 37.7749,
-                              lng: -122.4194,
-                              description: '🩸 Roadside Skid & Leg Injury (Citizen SOS)',
-                              severity: 'high',
-                              category: 'road_accident',
-                              ambulanceRequested: true,
-                              patientProfile: {
-                                name: 'Alex Rivera (Citizen)',
-                                phone: '+1 (555) 019-4821',
-                                bloodGroup: 'O+',
-                                allergies: 'Penicillin',
-                                medicalHistory: 'Asthma'
-                              }
-                            });
-                            setSosState(newSOS);
-                          }}
-                        >
-                          ⚡ Simulate Incoming Citizen SOS
-                        </button>
                       </div>
                     </div>
                   )}
