@@ -338,6 +338,8 @@ export const api = {
         const db = getLocalDB();
 
         if (active) {
+          const isAccepted = active.status === 'assigned' || active.status === 'accepted' || active.status === 'in_progress' || active.status === 'arrived';
+          const assignedVolObj = (active.assignedVolunteers && active.assignedVolunteers[0]) ? active.assignedVolunteers[0] : null;
           const mapped = {
             id: active._id,
             timestamp: active.createdAt || new Date().toISOString(),
@@ -356,9 +358,9 @@ export const api = {
             status: active.status || "matched",
             currentVolunteerId: active.currentVolunteer?._id || active.currentVolunteer || null,
             declinedVolunteers: active.declinedVolunteers || [],
-            volunteerId: (active.status === 'accepted' || active.status === 'in_progress') ? (active.assignedVolunteers?.[0] ? 'vol-1' : null) : null,
-            volunteerName: active.assignedVolunteers?.[0]?.name || (active.assignedVolunteers?.[0] ? 'Assigned Responder' : null),
-            volunteerPhone: active.assignedVolunteers?.[0]?.phone || null,
+            volunteerId: isAccepted ? (active.currentVolunteer || assignedVolObj?.volunteerId || db.activeSOS?.volunteerId || 'vol-active') : null,
+            volunteerName: assignedVolObj?.name || db.activeSOS?.volunteerName || 'Assigned Responder',
+            volunteerPhone: assignedVolObj?.phone || db.activeSOS?.volunteerPhone || '',
             volunteerCert: 'Certified First Responder',
             ambulanceStatus: active.ambulanceRequest ? "Dispatched" : null,
             ambulanceEta: active.ambulanceRequest ? "6 mins" : null,
@@ -510,7 +512,13 @@ export const api = {
 
       if (db.activeSOS.id && !db.activeSOS.id.startsWith('sos-')) {
         try {
-          if (updates.status) {
+          if (updates.status === 'accepted') {
+            await client.put(`/emergencies/${db.activeSOS.id}/accept`, {
+              volunteerName: updates.volunteerName,
+              volunteerPhone: updates.volunteerPhone,
+              volunteerCert: updates.volunteerCert
+            });
+          } else if (updates.status) {
             await client.put(`/emergencies/${db.activeSOS.id}/status`, { status: updates.status });
           }
         } catch (e) {

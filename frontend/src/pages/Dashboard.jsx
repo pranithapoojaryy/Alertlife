@@ -170,28 +170,42 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       });
     }
 
-    // Track continuous emergency alarm siren & vibration for volunteer
-    let alarmInterval = null;
-
-    const playSirenPulse = () => {
+    // Track continuous telephone ringing & vibration for incoming emergency
+    const playTelephoneRing = () => {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') {
           audioCtx.resume();
         }
-        const osc = audioCtx.createOscillator();
+        // Classic US/North American Telephone Ring: Dual Tone 440Hz + 480Hz
+        const now = audioCtx.currentTime;
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sawtooth';
-        // European / US Two-Tone Ambulance Siren Pulse (700Hz to 950Hz)
-        osc.frequency.setValueAtTime(750, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(950, audioCtx.currentTime + 0.25);
-        osc.frequency.linearRampToValueAtTime(750, audioCtx.currentTime + 0.5);
-        gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.55);
-        osc.connect(gain);
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(440, now);
+        osc2.frequency.setValueAtTime(480, now);
+
+        // Ring pulse 1 (0.4s)
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.setValueAtTime(0.3, now + 0.35);
+        gain.gain.setValueAtTime(0, now + 0.4);
+
+        // Ring pulse 2 (0.4s)
+        gain.gain.setValueAtTime(0.3, now + 0.5);
+        gain.gain.setValueAtTime(0.3, now + 0.85);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.55);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.95);
+        osc2.stop(now + 0.95);
       } catch {
         // audio context handling
       }
@@ -199,16 +213,16 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
     const startContinuousAlarm = () => {
       if (!window._alertlife_siren_interval) {
-        playSirenPulse();
+        playTelephoneRing();
         if (navigator.vibrate) {
-          navigator.vibrate([400, 200, 400, 200, 600]);
+          navigator.vibrate([400, 100, 400, 1000]);
         }
         window._alertlife_siren_interval = setInterval(() => {
-          playSirenPulse();
+          playTelephoneRing();
           if (navigator.vibrate) {
-            navigator.vibrate([400, 200, 400, 200, 600]);
+            navigator.vibrate([400, 100, 400, 1000]);
           }
-        }, 1200);
+        }, 2200);
       }
     };
 
@@ -230,8 +244,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         liveSos = api.getActiveSOS();
       }
       
-      // Continuous siren & vibration loop until volunteer accepts, passes, or emergency resolves
-      if (liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'closed' && liveSos.status !== 'resolved' && currentRole === 'volunteer') {
+      // Ring ONLY when emergency is active, unaccepted, and not already responded to
+      const isUnaccepted = liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'assigned' && liveSos.status !== 'accepted' && liveSos.status !== 'in_progress' && liveSos.status !== 'arrived' && liveSos.status !== 'closed' && liveSos.status !== 'resolved';
+      
+      if (isUnaccepted && currentRole === 'volunteer') {
         startContinuousAlarm();
       } else {
         stopContinuousAlarm();

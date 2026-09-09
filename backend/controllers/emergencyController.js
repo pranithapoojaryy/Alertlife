@@ -245,21 +245,37 @@ const updateEmergencyStatus = async (req, res) => {
   }
 };
 
-// @desc Volunteer accepts emergency
-// @route PUT /api/emergencies/:id/accept
-// @access Private (volunteer)
 const acceptEmergency = async (req, res) => {
   try {
-    const assignment = await VolunteerAssignment.findOneAndUpdate(
-      { emergencyId: req.params.id, volunteerId: req.user._id },
-      { status: 'accepted', acceptedAt: new Date() },
+    const { volunteerName, volunteerPhone, volunteerCert } = req.body;
+    const volunteerId = req.user ? req.user._id : (req.body.volunteerId || null);
+
+    const emergency = await EmergencyRequest.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'assigned',
+        currentVolunteer: volunteerId,
+        $push: {
+          notes: {
+            author: volunteerName || 'Volunteer',
+            content: `Accepted by ${volunteerName || 'Volunteer Responder'}`
+          }
+        }
+      },
       { new: true }
     );
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
 
-    await EmergencyRequest.findByIdAndUpdate(req.params.id, { status: 'assigned' });
+    if (!emergency) return res.status(404).json({ success: false, message: 'Emergency not found' });
 
-    res.json({ success: true, message: 'Emergency accepted', assignment });
+    if (volunteerId) {
+      await VolunteerAssignment.findOneAndUpdate(
+        { emergencyId: req.params.id, volunteerId: volunteerId },
+        { status: 'accepted', acceptedAt: new Date() },
+        { new: true, upsert: true }
+      );
+    }
+
+    res.json({ success: true, message: 'Emergency accepted', emergency });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
