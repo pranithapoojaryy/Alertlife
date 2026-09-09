@@ -3177,7 +3177,44 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           </div>
         )}
 
-        {activeTab === 'ambulance' && (
+        {activeTab === 'ambulance' && (() => {
+          const activeEmergency = sosState || (ambulanceRequests.length > 0 ? (
+            ambulanceRequests[0].emergencyId && typeof ambulanceRequests[0].emergencyId === 'object' 
+              ? {
+                  id: ambulanceRequests[0].emergencyId._id || ambulanceRequests[0]._id,
+                  patientName: ambulanceRequests[0].emergencyId.patientName || ambulanceRequests[0].requestedBy?.name || 'Citizen In Need',
+                  patientPhone: ambulanceRequests[0].emergencyId.patientPhone || ambulanceRequests[0].requestedBy?.phone || 'N/A',
+                  patientBlood: ambulanceRequests[0].emergencyId.patientBlood || 'O+',
+                  allergies: ambulanceRequests[0].emergencyId.allergies || 'None declared',
+                  medicalHistory: ambulanceRequests[0].emergencyId.medicalHistory || 'None declared',
+                  lat: ambulanceRequests[0].pickupLocation?.latitude || 12.9352,
+                  lng: ambulanceRequests[0].pickupLocation?.longitude || 77.6245,
+                  address: ambulanceRequests[0].pickupLocation?.address || 'Pickup Location',
+                  ambulanceStatus: ambulanceRequests[0].status === 'dispatched' ? 'Dispatched' : 'requested',
+                  ambulanceEta: ambulanceRequests[0].ambulanceDetails?.eta || '6 mins',
+                  ambulanceDetails: ambulanceRequests[0].ambulanceDetails || null,
+                  volunteerName: 'Dispatched Volunteer'
+                }
+              : {
+                  id: ambulanceRequests[0]._id,
+                  patientName: ambulanceRequests[0].requestedBy?.name || 'Citizen In Need',
+                  patientPhone: ambulanceRequests[0].requestedBy?.phone || 'N/A',
+                  patientBlood: 'O+',
+                  allergies: 'None declared',
+                  medicalHistory: 'None declared',
+                  lat: ambulanceRequests[0].pickupLocation?.latitude || 12.9352,
+                  lng: ambulanceRequests[0].pickupLocation?.longitude || 77.6245,
+                  address: ambulanceRequests[0].pickupLocation?.address || 'Pickup Location',
+                  ambulanceStatus: ambulanceRequests[0].status === 'dispatched' ? 'Dispatched' : 'requested',
+                  ambulanceEta: ambulanceRequests[0].ambulanceDetails?.eta || '6 mins',
+                  ambulanceDetails: ambulanceRequests[0].ambulanceDetails || null,
+                  volunteerName: 'Dispatched Volunteer'
+                }
+          ) : null);
+
+          const hasActiveCall = Boolean(activeEmergency);
+
+          return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="grid-3">
               <div className="card">
@@ -3187,7 +3224,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
               <div className="card">
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Active Ambulance Calls</p>
                 <h2 style={{ color: 'var(--red)' }}>
-                  {sosState && (sosState.ambulanceStatus === 'requested' || sosState.ambulanceStatus === 'Dispatched') ? 1 : ambulanceRequests.length}
+                  {hasActiveCall ? 1 : ambulanceRequests.length}
                 </h2>
               </div>
               <div className="card">
@@ -3197,41 +3234,41 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
             </div>
 
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div>
                   <h3 className="card-title" style={{ margin: 0 }}>🚑 Hospital ER & Ambulance Dispatch Control Room</h3>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
                     Incoming emergency requests automatically routed by proximity to your medical center.
                   </p>
                 </div>
-                {sosState && (
+                {hasActiveCall && (
                   <span className="badge badge-red" style={{ animation: 'pulse-avatar 1.5s infinite', fontSize: '0.75rem' }}>
                     🚨 LIVE EMERGENCY IN SECTOR
                   </span>
                 )}
               </div>
 
-              {sosState ? (
-                <div style={{ border: '2px solid var(--red)', padding: '1.5rem', borderRadius: '14px', background: 'rgba(244, 63, 94, 0.03)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {hasActiveCall ? (
+                <div style={{ border: '2px solid var(--red)', padding: '1.5rem', borderRadius: '14px', background: 'rgba(244, 63, 94, 0.03)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
                       <span className="badge badge-red" style={{ fontSize: '0.75rem', marginBottom: '0.35rem' }}>
                         CRITICAL MEDICAL EMERGENCY
                       </span>
                       <h3 style={{ margin: '0.2rem 0', fontSize: '1.25rem' }}>
-                        Patient: {sosState.patientName || 'Citizen In Need'}
+                        Patient: {activeEmergency.patientName || 'Citizen In Need'}
                       </h3>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                        📞 Phone: <strong style={{ color: 'var(--blue)' }}>{sosState.patientPhone || 'N/A'}</strong>
+                        📞 Phone: <strong style={{ color: 'var(--blue)' }}>{activeEmergency.patientPhone || 'N/A'}</strong>
                       </p>
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      <span className={`badge ${sosState.ambulanceStatus === 'Dispatched' ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
-                        {sosState.ambulanceStatus === 'Dispatched' ? `✓ AMBULANCE DISPATCHED (${sosState.ambulanceEta || '6 mins'})` : '⚠️ AMBULANCE REQUEST PENDING'}
+                      <span className={`badge ${activeEmergency.ambulanceStatus === 'Dispatched' ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}>
+                        {activeEmergency.ambulanceStatus === 'Dispatched' ? `✓ AMBULANCE DISPATCHED (${activeEmergency.ambulanceEta || '6 mins'})` : '⚠️ AMBULANCE REQUEST PENDING'}
                       </span>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                        Location: {sosState.address || `${sosState.lat?.toFixed(4)}, ${sosState.lng?.toFixed(4)}`}
+                        Location: {activeEmergency.address || `${activeEmergency.lat?.toFixed(4)}, ${activeEmergency.lng?.toFixed(4)}`}
                       </p>
                     </div>
                   </div>
@@ -3240,36 +3277,121 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', background: '#fff', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.8rem' }}>
                     <div>
                       <span style={{ color: 'var(--text-secondary)', display: 'block' }}>🩸 Blood Group:</span>
-                      <strong>{sosState.patientBlood || 'O+'}</strong>
+                      <strong>{activeEmergency.patientBlood || 'O+'}</strong>
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-secondary)', display: 'block' }}>⚠️ Allergies:</span>
-                      <strong style={{ color: 'var(--red)' }}>{sosState.allergies || 'None'}</strong>
+                      <strong style={{ color: 'var(--red)' }}>{activeEmergency.allergies || 'None'}</strong>
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-secondary)', display: 'block' }}>📜 Medical History:</span>
-                      <strong>{sosState.medicalHistory || 'None'}</strong>
+                      <strong>{activeEmergency.medicalHistory || 'None'}</strong>
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-secondary)', display: 'block' }}>🏃 First Responder:</span>
-                      <strong style={{ color: 'var(--emerald)' }}>{sosState.volunteerName ? `${sosState.volunteerName} (On Scene)` : 'Dispatched'}</strong>
+                      <strong style={{ color: 'var(--emerald)' }}>{activeEmergency.volunteerName ? `${activeEmergency.volunteerName} (On Scene)` : 'Dispatched'}</strong>
                     </div>
                   </div>
 
-                  {/* Dispatch Controls */}
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ padding: '0.65rem 1.25rem', fontSize: '0.88rem', background: 'var(--red)', borderColor: 'var(--red)' }}
-                      onClick={() => dispatchAmbulance(sosState.id)}
-                    >
-                      {sosState.ambulanceStatus === 'Dispatched' ? '🔄 Re-assign / Update Ambulance Unit' : '🚀 Dispatch ER Ambulance Unit Immediately'}
-                    </button>
-                    {sosState.ambulanceDetails && (
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        Assigned: <strong>{sosState.ambulanceDetails.vehicleNumber}</strong> • Driver: <strong>{sosState.ambulanceDetails.driverName}</strong> ({sosState.ambulanceDetails.driverPhone})
+                  {/* LIVE HOSPITAL GPS AMBULANCE TRACKING RADAR MAP */}
+                  <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.25rem' }}>🛰️</span>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Hospital Live Ambulance Dispatch & Patient GPS Radar</h4>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                            Real-time transit telemetry streaming between Hospital ER Base and Patient
+                          </p>
+                        </div>
                       </div>
-                    )}
+                      <span className="badge badge-emerald" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                        GPS Satellite Stream Active
+                      </span>
+                    </div>
+
+                    <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', height: '240px', border: '1px solid var(--border)' }}>
+                      <iframe
+                        title="Hospital Ambulance Live Radar"
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        scrolling="no"
+                        marginHeight="0"
+                        marginWidth="0"
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${(activeEmergency.lng || 77.6245) - 0.015}%2C${(activeEmergency.lat || 12.9352) - 0.015}%2C${(activeEmergency.lng || 77.6245) + 0.015}%2C${(activeEmergency.lat || 12.9352) + 0.015}&layer=mapnik&marker=${activeEmergency.lat || 12.9352}%2C${activeEmergency.lng || 77.6245}`}
+                        style={{ filter: 'contrast(1.05) saturate(1.15)', border: 0 }}
+                      />
+                      
+                      {/* Live HUD Badges on Map */}
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(239, 68, 68, 0.95)', color: '#fff', padding: '0.3rem 0.65rem', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800, zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                        📍 Patient GPS: {activeEmergency.lat ? activeEmergency.lat.toFixed(4) : '12.9352'}°, {activeEmergency.lng ? activeEmergency.lng.toFixed(4) : '77.6245'}°
+                      </div>
+
+                      <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(15, 23, 42, 0.9)', color: '#fff', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 700, zIndex: 10, display: 'flex', alignItems: 'center', gap: '0.4rem', backdropFilter: 'blur(4px)' }}>
+                        <span>🚑</span>
+                        <span>{activeEmergency.ambulanceDetails?.vehicleNumber || 'ER Ambulance'}</span>
+                        <span style={{ color: 'var(--emerald)' }}>({100 - ambulanceNavProgress}% Distance Remaining)</span>
+                      </div>
+
+                      <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(99, 102, 241, 0.95)', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 700, zIndex: 10 }}>
+                        🏥 Hospital ER Control Center
+                      </div>
+                    </div>
+
+                    {/* Progress Bar & Telemetry Status */}
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                        <span>
+                          <strong>Ambulance Unit:</strong> {activeEmergency.ambulanceDetails?.vehicleNumber || 'KA-01-ER-1088'} • <strong>Driver:</strong> {activeEmergency.ambulanceDetails?.driverName || 'Sunil Gowda (EMT-P)'}
+                        </span>
+                        <span style={{ color: 'var(--red)', fontWeight: 800 }}>
+                          ETA to Patient: {Math.max(1, Math.round((100 - ambulanceNavProgress) / 16))} mins
+                        </span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div style={{ width: `${ambulanceNavProgress}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #10b981)', transition: 'width 0.4s ease' }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                        <span>Hospital ER Departure</span>
+                        <span><strong>{ambulanceNavProgress}% of journey covered</strong></span>
+                        <span>Patient Scene Arrival</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dispatch Controls & Paramedic Hotline */}
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ padding: '0.65rem 1.25rem', fontSize: '0.88rem', background: 'var(--red)', borderColor: 'var(--red)' }}
+                        onClick={() => dispatchAmbulance(activeEmergency.id || sosState?.id)}
+                      >
+                        {activeEmergency.ambulanceStatus === 'Dispatched' ? '🔄 Re-assign / Update Ambulance Unit' : '🚀 Dispatch ER Ambulance Unit Immediately'}
+                      </button>
+
+                      {activeEmergency.ambulanceDetails?.driverPhone && (
+                        <a 
+                          href={`tel:${activeEmergency.ambulanceDetails.driverPhone}`}
+                          className="btn btn-outline"
+                          style={{ padding: '0.6rem 1rem', fontSize: '0.82rem', textDecoration: 'none', color: 'var(--emerald)', borderColor: 'var(--emerald)', background: 'rgba(16, 185, 129, 0.08)' }}
+                        >
+                          📞 Call Driver ({activeEmergency.ambulanceDetails.driverPhone})
+                        </a>
+                      )}
+                    </div>
+
+                    <button
+                      className="btn btn-outline"
+                      style={{ padding: '0.6rem 1rem', fontSize: '0.82rem', color: 'var(--blue)', borderColor: 'var(--blue)', background: 'rgba(99, 102, 241, 0.08)' }}
+                      onClick={() => {
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${activeEmergency.lat || 12.9352},${activeEmergency.lng || 77.6245}`, '_blank');
+                      }}
+                    >
+                      🗺️ Open Navigation in Google Maps
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -3277,13 +3399,14 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                   <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.75rem' }}>🟢</span>
                   <h4 style={{ fontSize: '1.1rem', margin: '0 0 0.25rem 0' }}>Hospital Emergency Channel Active & Clear</h4>
                   <p style={{ fontSize: '0.82rem', margin: 0 }}>
-                    When a citizen triggers an SOS near this hospital, this control room will instantly ring and display the patient's coordinates and medical profile.
+                    When a citizen triggers an SOS near this hospital, this control room will instantly ring and display the patient's coordinates, live GPS tracking, and medical profile.
                   </p>
                 </div>
               )}
             </div>
           </div>
-        )}
+        );
+        })()}
 
         {/* TAB: Ambulance Fleet Manager (Hospital Role) */}
         {activeTab === 'fleet' && (

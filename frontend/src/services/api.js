@@ -340,6 +340,11 @@ export const api = {
         if (active) {
           const isAccepted = active.status === 'assigned' || active.status === 'accepted' || active.status === 'in_progress' || active.status === 'arrived';
           const assignedVolObj = (active.assignedVolunteers && active.assignedVolunteers[0]) ? active.assignedVolunteers[0] : null;
+          const ambReq = active.ambulanceRequest;
+          const ambStatus = ambReq ? (ambReq.status === 'dispatched' || active.ambulanceStatus === 'Dispatched' ? 'Dispatched' : 'requested') : (active.ambulanceStatus || 'requested');
+          const ambEta = ambReq?.ambulanceDetails?.eta || active.ambulanceEta || '6 mins';
+          const ambDetails = ambReq?.ambulanceDetails || active.ambulanceDetails || null;
+
           const mapped = {
             id: active._id,
             timestamp: active.createdAt || new Date().toISOString(),
@@ -362,8 +367,9 @@ export const api = {
             volunteerName: assignedVolObj?.name || db.activeSOS?.volunteerName || 'Assigned Responder',
             volunteerPhone: assignedVolObj?.phone || db.activeSOS?.volunteerPhone || '',
             volunteerCert: 'Certified First Responder',
-            ambulanceStatus: active.ambulanceRequest ? "Dispatched" : null,
-            ambulanceEta: active.ambulanceRequest ? "6 mins" : null,
+            ambulanceStatus: ambStatus,
+            ambulanceEta: ambEta,
+            ambulanceDetails: ambDetails,
             hospitalAlerted: true
           };
 

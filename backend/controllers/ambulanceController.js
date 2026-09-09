@@ -36,7 +36,7 @@ const requestAmbulance = async (req, res) => {
 const getAmbulanceRequests = async (req, res) => {
   try {
     let query = {};
-    if (req.user.role === 'hospital') {
+    if (req.user && req.user.role === 'hospital') {
       const hospital = await Hospital.findOne({ userId: req.user._id });
       if (hospital) query.hospitalId = hospital._id;
     }
@@ -51,13 +51,25 @@ const getAmbulanceRequests = async (req, res) => {
 
 const assignAmbulance = async (req, res) => {
   try {
-    const { vehicleNumber, driverName, driverPhone } = req.body;
+    const { vehicleNumber, driverName, driverPhone, eta } = req.body;
+    const AmbulanceRequest = require('../models/AmbulanceRequest');
+    const EmergencyRequest = require('../models/EmergencyRequest');
+
     const req_ = await AmbulanceRequest.findByIdAndUpdate(
       req.params.id,
-      { status: 'dispatched', ambulanceDetails: { vehicleNumber, driverName, driverPhone }, dispatchedAt: new Date() },
+      { status: 'dispatched', ambulanceDetails: { vehicleNumber, driverName, driverPhone, eta: eta || '6 mins' }, dispatchedAt: new Date() },
       { new: true }
     );
     if (!req_) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    if (req_.emergencyId) {
+      await EmergencyRequest.findByIdAndUpdate(req_.emergencyId, {
+        ambulanceStatus: 'Dispatched',
+        ambulanceEta: eta || '6 mins',
+        ambulanceDetails: { vehicleNumber, driverName, driverPhone }
+      });
+    }
+
     res.json({ success: true, message: 'Ambulance dispatched', request: req_ });
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
