@@ -598,29 +598,16 @@ export const api = {
 
   getMembers: async () => {
     try {
-      const { data: citData } = await client.get('/citizens');
       const { data: volData } = await client.get('/volunteers');
-      const combined = [];
-      if (citData.success && citData.citizens) {
-        citData.citizens.forEach(c => {
-          combined.push({
-            id: c._id,
-            name: c.userId?.name || 'Citizen',
-            email: c.userId?.email || '',
-            phone: c.userId?.phone || '',
-            bloodGroup: c.bloodGroup || 'O+',
-            role: 'Citizen',
-            active: c.userId?.isActive !== false
-          });
-        });
-      }
+      const volunteersList = [];
       if (volData.success && volData.volunteers) {
         volData.volunteers.forEach(v => {
-          combined.push({
+          volunteersList.push({
             id: v._id,
             name: v.userId?.name || 'Volunteer',
             email: v.userId?.email || '',
             phone: v.userId?.phone || '',
+            certification: v.certification || 'Certified First Responder',
             bloodGroup: 'O+',
             role: 'Volunteer',
             active: v.isVerified === true,
@@ -628,7 +615,7 @@ export const api = {
           });
         });
       }
-      return combined;
+      return volunteersList;
     } catch (err) {
       console.warn('Backend members fetch info:', err.message);
     }
@@ -636,19 +623,19 @@ export const api = {
     const db = getLocalDB();
     const membersList = [];
     
-    // Check localStorage registered users pool
+    // Check localStorage registered users pool for volunteers ONLY
     try {
       const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
-      regUsers.forEach((u, idx) => {
+      regUsers.filter(u => u.role === 'volunteer').forEach((u, idx) => {
         membersList.push({
           id: `reg-${idx}-${u.email}`,
-          name: u.name || 'User',
+          name: u.name || 'Volunteer',
           email: u.email || '',
           phone: u.phone || '',
           bloodGroup: u.bloodGroup || 'O+',
-          role: u.role === 'volunteer' ? 'Volunteer' : 'Citizen',
-          active: u.role === 'volunteer' ? (u.isVerified === true) : true,
-          isVerified: u.role === 'volunteer' ? (u.isVerified === true) : true
+          role: 'Volunteer',
+          active: u.isVerified === true,
+          isVerified: u.isVerified === true
         });
       });
     } catch {
@@ -656,18 +643,6 @@ export const api = {
     }
 
     if (membersList.length === 0) {
-      if (db.profile?.name && db.profile?.name.trim()) {
-        membersList.push({
-          id: 'curr-cit',
-          name: db.profile.name,
-          email: db.profile.email,
-          phone: db.profile.phone,
-          bloodGroup: db.profile.bloodGroup || 'O+',
-          role: 'Citizen',
-          active: true,
-          isVerified: true
-        });
-      }
       if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim()) {
         membersList.push({
           id: 'curr-vol',

@@ -2777,14 +2777,14 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                     </tr>
                   </thead>
                   <tbody>
-                    {members && members.length > 0 ? (
-                      members.map((m) => (
+                    {members && members.filter(m => m.role === 'Volunteer').length > 0 ? (
+                      members.filter(m => m.role === 'Volunteer').map((m) => (
                         <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '0.6rem' }}>
                             <strong>{m.name}</strong>
                           </td>
                           <td style={{ padding: '0.6rem' }}>
-                            <span className={`badge ${m.role === 'Volunteer' ? 'badge-blue' : 'badge-emerald'}`}>{m.role}</span>
+                            <span className="badge badge-blue">Volunteer</span>
                           </td>
                           <td style={{ padding: '0.6rem' }}>{m.phone || 'N/A'}</td>
                           <td style={{ padding: '0.6rem' }}>
@@ -2798,7 +2798,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                             </span>
                           </td>
                           <td style={{ padding: '0.6rem', display: 'flex', gap: '0.35rem' }}>
-                            {!m.isVerified && m.role === 'Volunteer' && (
+                            {!m.isVerified && (
                               <button 
                                 className="btn btn-primary" 
                                 style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} 
@@ -2822,7 +2822,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                       <tr>
                         <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
                           <span style={{ fontSize: '1.8rem', display: 'block', marginBottom: '0.4rem' }}>📭</span>
-                          No responders registered yet. All new registered volunteers and citizens will appear here.
+                          No volunteer responders registered yet. All newly registered field volunteers will appear here for admin verification.
                         </td>
                       </tr>
                     )}
