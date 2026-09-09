@@ -181,22 +181,23 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
+        // Authentic emergency ambulance siren (pitch sweep / dual-tone hi-lo horn)
         osc.type = 'sawtooth';
-
-        // Classic Ambulance High-Low / Wail Siren (650Hz to 950Hz)
+        
+        // Wail from 650Hz to 1100Hz and back to create a piercing emergency ambulance siren
         osc.frequency.setValueAtTime(650, now);
-        osc.frequency.linearRampToValueAtTime(950, now + 0.35);
-        osc.frequency.linearRampToValueAtTime(650, now + 0.7);
+        osc.frequency.linearRampToValueAtTime(1150, now + 0.35);
+        osc.frequency.linearRampToValueAtTime(650, now + 0.70);
 
-        gain.gain.setValueAtTime(0.35, now);
-        gain.gain.setValueAtTime(0.35, now + 0.65);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.75);
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.setValueAtTime(0.6, now + 0.70);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.78);
 
         osc.connect(gain);
         gain.connect(audioCtx.destination);
 
         osc.start(now);
-        osc.stop(now + 0.75);
+        osc.stop(now + 0.78);
       } catch {
         // audio context handling
       }
@@ -206,14 +207,14 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       if (!window._alertlife_siren_interval) {
         playAmbulanceSiren();
         if (navigator.vibrate) {
-          navigator.vibrate([400, 200, 400, 200, 600]);
+          navigator.vibrate([350, 150, 350, 250]);
         }
         window._alertlife_siren_interval = setInterval(() => {
           playAmbulanceSiren();
           if (navigator.vibrate) {
-            navigator.vibrate([400, 200, 400, 200, 600]);
+            navigator.vibrate([350, 150, 350, 250]);
           }
-        }, 900);
+        }, 800);
       }
     };
 
