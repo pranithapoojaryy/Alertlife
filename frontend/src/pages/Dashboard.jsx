@@ -170,42 +170,33 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       });
     }
 
-    // Track continuous telephone ringing & vibration for incoming emergency
-    const playTelephoneRing = () => {
+    // Track continuous emergency ambulance siren & vibration for incoming emergency
+    const playAmbulanceSiren = () => {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') {
           audioCtx.resume();
         }
-        // Classic US/North American Telephone Ring: Dual Tone 440Hz + 480Hz
         const now = audioCtx.currentTime;
-        const osc1 = audioCtx.createOscillator();
-        const osc2 = audioCtx.createOscillator();
+        const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
-        osc1.type = 'sine';
-        osc2.type = 'sine';
-        osc1.frequency.setValueAtTime(440, now);
-        osc2.frequency.setValueAtTime(480, now);
+        osc.type = 'sawtooth';
 
-        // Ring pulse 1 (0.4s)
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.setValueAtTime(0.3, now + 0.35);
-        gain.gain.setValueAtTime(0, now + 0.4);
+        // Classic Ambulance High-Low / Wail Siren (650Hz to 950Hz)
+        osc.frequency.setValueAtTime(650, now);
+        osc.frequency.linearRampToValueAtTime(950, now + 0.35);
+        osc.frequency.linearRampToValueAtTime(650, now + 0.7);
 
-        // Ring pulse 2 (0.4s)
-        gain.gain.setValueAtTime(0.3, now + 0.5);
-        gain.gain.setValueAtTime(0.3, now + 0.85);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.setValueAtTime(0.35, now + 0.65);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.75);
 
-        osc1.connect(gain);
-        osc2.connect(gain);
+        osc.connect(gain);
         gain.connect(audioCtx.destination);
 
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + 0.95);
-        osc2.stop(now + 0.95);
+        osc.start(now);
+        osc.stop(now + 0.75);
       } catch {
         // audio context handling
       }
@@ -213,16 +204,16 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
     const startContinuousAlarm = () => {
       if (!window._alertlife_siren_interval) {
-        playTelephoneRing();
+        playAmbulanceSiren();
         if (navigator.vibrate) {
-          navigator.vibrate([400, 100, 400, 1000]);
+          navigator.vibrate([400, 200, 400, 200, 600]);
         }
         window._alertlife_siren_interval = setInterval(() => {
-          playTelephoneRing();
+          playAmbulanceSiren();
           if (navigator.vibrate) {
-            navigator.vibrate([400, 100, 400, 1000]);
+            navigator.vibrate([400, 200, 400, 200, 600]);
           }
-        }, 2200);
+        }, 900);
       }
     };
 
