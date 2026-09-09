@@ -26,6 +26,8 @@ const emergencyRequestSchema = new mongoose.Schema({
     enum: ['pending', 'assigned', 'in_progress', 'resolved', 'cancelled'],
     default: 'pending',
   },
+  currentVolunteer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  declinedVolunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   assignedVolunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'VolunteerAssignment' }],
   ambulanceRequest: { type: mongoose.Schema.Types.ObjectId, ref: 'AmbulanceRequest' },
   doctorConsultation: { type: mongoose.Schema.Types.ObjectId, ref: 'DoctorConsultation' },

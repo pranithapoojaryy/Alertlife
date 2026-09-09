@@ -97,16 +97,30 @@ function App() {
     window.history.pushState({}, '', url);
   };
 
+  // Validate Indian Phone Number Helper (+91 / 0 / 10 digits starting with 6, 7, 8, 9)
+  const isValidIndianPhone = (input) => {
+    if (!input) return false;
+    const clean = input.replace(/[\s\-()]/g, '');
+    const indianRegex = /^(?:(?:\+|0{0,2})91(\s*[\-]\s*)?|[0]?)?[6789]\d{9}$/;
+    return indianRegex.test(clean);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginEmail) {
-      setError('Please enter your email address.');
+    const trimmedInput = loginEmail.trim();
+
+    if (!trimmedInput) {
+      setError('Please enter your email or Indian mobile number.');
       return;
     }
     
-    if (!loginEmail.includes('@')) {
-      setError('Please enter a valid email address.');
-      return;
+    const isEmail = trimmedInput.includes('@');
+    if (!isEmail) {
+      // Validate as Indian Phone Number
+      if (!isValidIndianPhone(trimmedInput)) {
+        setError('Please enter a valid 10-digit Indian mobile number (e.g. +91 9876543210 or 9876543210).');
+        return;
+      }
     }
 
     if (!loginPassword) {
@@ -116,11 +130,12 @@ function App() {
 
     try {
       const { api } = await import('./services/api');
-      const loggedUser = await api.login(loginEmail, loginPassword);
+      const loggedUser = await api.login(trimmedInput, loginPassword);
       
       const userData = {
-        email: loggedUser.email || loginEmail,
-        name: loggedUser.name || loginEmail.split('@')[0],
+        email: loggedUser.email || (isEmail ? trimmedInput : `${trimmedInput.replace(/\D/g, '')}@alertlife.in`),
+        phone: loggedUser.phone || (!isEmail ? trimmedInput : ''),
+        name: loggedUser.name || trimmedInput.split('@')[0],
         role: loggedUser.role || currentRole
       };
       localStorage.setItem('user_session', JSON.stringify(userData));
@@ -142,11 +157,11 @@ function App() {
       return;
     }
     if (!regForm.phone?.trim()) {
-      setError('Please enter your phone number.');
+      setError('Please enter your Indian phone number.');
       return;
     }
-    if (!/^\+?[\d\s\-()]{7,20}$/.test(regForm.phone.trim())) {
-      setError('Please enter a valid phone number format (e.g. +1 555-0123).');
+    if (!isValidIndianPhone(regForm.phone.trim())) {
+      setError('Please enter a valid 10-digit Indian phone number (e.g. +91 9876543210 or 9876543210 starting with 6, 7, 8, or 9).');
       return;
     }
     if (!regForm.password || regForm.password.length < 6) {
@@ -165,17 +180,17 @@ function App() {
         bloodGroup: regForm.bloodGroup || 'O+'
       };
 
-      const resUser = await api.register(regPayload);
+      const registeredUser = await api.register(regPayload);
       const userData = {
-        email: resUser?.email || regPayload.email,
-        name: resUser?.name || regPayload.name,
+        email: registeredUser.email || regPayload.email,
+        name: registeredUser.name || regPayload.name,
         role: currentRole
       };
       localStorage.setItem('user_session', JSON.stringify(userData));
       setUser(userData);
       setError('');
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError(err.message || 'Registration failed. Please check your data.');
     }
   };
 
@@ -216,8 +231,15 @@ function App() {
           {authView === 'login' ? (
             <form onSubmit={handleLogin}>
               <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input type="email" className="form-input" placeholder="Enter your email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
+                <label className="form-label">Email or Indian Mobile Number</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="name@email.com or +91 9876543210" 
+                  value={loginEmail} 
+                  onChange={e => setLoginEmail(e.target.value)} 
+                  required 
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Password</label>
@@ -237,15 +259,25 @@ function App() {
             <form onSubmit={handleRegister}>
               <div className="form-group">
                 <label className="form-label">Full Name</label>
-                <input type="text" className="form-input" placeholder="John Doe" value={regForm.name} onChange={e => setRegForm({...regForm, name: e.target.value})} required />
+                <input type="text" className="form-input" placeholder="Rahul Sharma" value={regForm.name} onChange={e => setRegForm({...regForm, name: e.target.value})} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Email Address</label>
-                <input type="email" className="form-input" placeholder="john@example.com" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} required />
+                <input type="email" className="form-input" placeholder="rahul@example.in" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Phone Number</label>
-                <input type="tel" className="form-input" placeholder="+1 (555) 000-0000" value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} required />
+                <label className="form-label">Indian Mobile Number (+91)</label>
+                <input 
+                  type="tel" 
+                  className="form-input" 
+                  placeholder="+91 98765 43210" 
+                  value={regForm.phone} 
+                  onChange={e => setRegForm({...regForm, phone: e.target.value})} 
+                  required 
+                />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem', display: 'block' }}>
+                  Valid 10-digit Indian number starting with 6, 7, 8, or 9
+                </span>
               </div>
               <div className="form-group">
                 <label className="form-label">Password</label>

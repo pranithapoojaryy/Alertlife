@@ -64,20 +64,43 @@ const register = async (req, res) => {
   }
 };
 
-// @desc Login user
+// @desc Login user with Email or Indian Phone Number
 // @route POST /api/auth/login
 // @access Public
 const login = async (req, res) => {
   try {
-    let { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    let { email, identifier, phone, password } = req.body;
+    const loginIdentifier = (identifier || email || phone || '').trim();
+
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide email or phone number and password' });
     }
 
-    email = email.toLowerCase().trim();
-    const user = await User.findOne({ email });
+    // Check if loginIdentifier is email or phone number
+    const isEmail = loginIdentifier.includes('@');
+    let user;
+
+    if (isEmail) {
+      user = await User.findOne({ email: loginIdentifier.toLowerCase() });
+    } else {
+      // Clean Indian phone number (strip +91, 0, spaces, dashes)
+      const digitsOnly = loginIdentifier.replace(/\D/g, '');
+      const last10Digits = digitsOnly.slice(-10);
+
+      user = await User.findOne({
+        $or: [
+          { phone: loginIdentifier },
+          { phone: `+91${last10Digits}` },
+          { phone: `+91 ${last10Digits}` },
+          { phone: `0${last10Digits}` },
+          { phone: last10Digits },
+          { phone: new RegExp(last10Digits + '$') }
+        ]
+      });
+    }
+
     if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials. Please check your email/phone and password.' });
     }
 
     if (!user.isActive) {

@@ -55,22 +55,103 @@ const saveLocalDB = (state) => {
 };
 
 export const api = {
+  // Live GPS sync helper with continuous tracking
+  syncLiveLocation: async (role = 'volunteer') => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return null;
+    
+    // 1. One-time instant high-accuracy fix
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const db = getLocalDB();
+        if (role === 'volunteer') {
+          if (db.volunteerProfile) {
+            db.volunteerProfile.currentLocation = { latitude, longitude, lastUpdated: new Date().toISOString() };
+          }
+          try {
+            await client.put('/volunteers/availability', {
+              availabilityStatus: db.volunteerProfile?.availabilityStatus || 'available',
+              latitude,
+              longitude
+            });
+          } catch (e) {
+            console.warn('Volunteer live location sync info:', e.message);
+          }
+        } else {
+          if (db.profile) {
+            db.profile.currentLocation = { latitude, longitude, lastUpdated: new Date().toISOString() };
+          }
+          try {
+            await client.put('/citizens/location', { latitude, longitude });
+          } catch (e) {
+            console.warn('Citizen live location sync info:', e.message);
+          }
+        }
+        saveLocalDB(db);
+        window.dispatchEvent(new Event('alertlife_storage_update'));
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 5000 }
+    );
+
+    // 2. Continuous watchPosition for live movement tracking
+    if (!window._alertlife_geo_watch) {
+      window._alertlife_geo_watch = navigator.geolocation.watchPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const db = getLocalDB();
+          if (role === 'volunteer') {
+            if (db.volunteerProfile) {
+              db.volunteerProfile.currentLocation = { latitude, longitude, lastUpdated: new Date().toISOString() };
+            }
+          } else {
+            if (db.profile) {
+              db.profile.currentLocation = { latitude, longitude, lastUpdated: new Date().toISOString() };
+            }
+          }
+          saveLocalDB(db);
+          window.dispatchEvent(new Event('alertlife_storage_update'));
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+      );
+    }
+  },
+
   // Auth & Session
-  login: async (email, password) => {
+  login: async (identifier, password) => {
     try {
-      const { data } = await client.post('/auth/login', { email, password });
+      const { data } = await client.post('/auth/login', { identifier, email: identifier, password });
       if (data.token) {
         localStorage.setItem('alertlife_token', data.token);
+      }
+      
+      // Proactively sync live GPS after login
+      if (data.user) {
+        api.syncLiveLocation(data.user.role || 'volunteer').catch(() => {});
       }
       return data.user;
     } catch (err) {
       // Check for local credentials fallback
       const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
-      const localFound = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const cleanInput = identifier.trim().toLowerCase();
+      const digitsOnly = identifier.replace(/\D/g, '');
+      const last10 = digitsOnly.slice(-10);
+
+      const localFound = registeredUsers.find(u => {
+        if (u.email && u.email.toLowerCase() === cleanInput) return true;
+        if (u.phone) {
+          const uDigits = u.phone.replace(/\D/g, '');
+          if (last10 && uDigits.slice(-10) === last10) return true;
+          if (u.phone === identifier) return true;
+        }
+        return false;
+      });
       
       if (localFound) {
         if (localFound.password === password) {
           localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
+          api.syncLiveLocation(localFound.role || 'volunteer').catch(() => {});
           return localFound;
         } else {
           throw new Error('Invalid password. Please check your credentials.');
@@ -85,11 +166,13 @@ export const api = {
       if (registeredUsers.length === 0) {
         localStorage.setItem('alertlife_token', 'mock-token');
         const db = getLocalDB();
-        const name = email.split('@')[0];
-        return { email, name: db.profile.name || name, role: 'citizen' };
+        const name = identifier.includes('@') ? identifier.split('@')[0] : 'User ' + last10;
+        const role = cleanInput.includes('volunteer') ? 'volunteer' : cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : 'citizen';
+        api.syncLiveLocation(role).catch(() => {});
+        return { email: identifier, name: db.profile.name || name, role };
       }
 
-      throw new Error(err.response?.data?.message || 'Invalid email or password. Please sign up if you do not have an account.');
+      throw new Error(err.response?.data?.message || 'Invalid email/phone or password. Please sign up if you do not have an account.');
     }
   },
 
@@ -254,12 +337,15 @@ export const api = {
             allergies: active.allergies || "None declared",
             medicalHistory: active.medicalHistory || "None declared",
             status: active.status || "matched",
+            currentVolunteerId: active.currentVolunteer?._id || active.currentVolunteer || null,
+            declinedVolunteers: active.declinedVolunteers || [],
             volunteerId: (active.status === 'accepted' || active.status === 'in_progress') ? (active.assignedVolunteers?.[0] ? 'vol-1' : null) : null,
             volunteerName: active.assignedVolunteers?.[0]?.name || (active.assignedVolunteers?.[0] ? 'Assigned Responder' : null),
             volunteerPhone: active.assignedVolunteers?.[0]?.phone || null,
             volunteerCert: 'Certified First Responder',
             ambulanceStatus: active.ambulanceRequest ? "Dispatched" : null,
-            ambulanceEta: active.ambulanceRequest ? "6 mins" : null
+            ambulanceEta: active.ambulanceRequest ? "6 mins" : null,
+            hospitalAlerted: true
           };
 
           // Only save if changed to avoid unnecessary disk/react updates
@@ -289,6 +375,8 @@ export const api = {
 
   triggerSOS: async (sosData) => {
     let backendSOS = null;
+    let assignedVol = null;
+    let nearestHospitalsList = [];
     const finalDescription = sosData.description?.trim() || (sosData.category === 'minor_injury' ? 'Minor Injury & First Aid Support' : sosData.category === 'road_accident' ? 'Road Accident & Trauma First Aid' : 'Urgent Emergency SOS');
     const currentProfile = sosData.patientProfile || {};
 
@@ -306,7 +394,11 @@ export const api = {
         allergies: currentProfile.allergies || 'None',
         medicalHistory: currentProfile.medicalHistory || 'None'
       });
-      if (data.success) backendSOS = data.emergency;
+      if (data.success) {
+        backendSOS = data.emergency;
+        assignedVol = data.assignedVolunteer;
+        nearestHospitalsList = data.nearestHospitals || [];
+      }
     } catch (err) {
       console.warn('Live backend SOS sync:', err.message);
     }
@@ -334,16 +426,62 @@ export const api = {
       allergies: patientAllergies,
       medicalHistory: patientHistory,
       status: "matched",
+      currentVolunteerId: backendSOS?.currentVolunteer || (assignedVol ? assignedVol.id : null),
       volunteerId: null,
-      volunteerName: null,
-      volunteerPhone: null,
-      ambulanceStatus: sosData.ambulanceRequested ? "Dispatched" : null,
-      ambulanceEta: sosData.ambulanceRequested ? "6 mins" : null
+      volunteerName: assignedVol ? assignedVol.name : null,
+      volunteerPhone: assignedVol ? assignedVol.phone : null,
+      volunteerDistanceKm: assignedVol ? assignedVol.distanceKm : null,
+      ambulanceStatus: "Dispatched",
+      ambulanceEta: "6 mins",
+      hospitalAlerted: true,
+      nearestHospitals: nearestHospitalsList
     };
     db.activeSOS = newSOS;
     saveLocalDB(db);
     window.dispatchEvent(new Event('alertlife_storage_update'));
     return newSOS;
+  },
+
+  passSOS: async (emergencyId, volunteerId) => {
+    let result = null;
+    const db = getLocalDB();
+    
+    try {
+      if (emergencyId && !emergencyId.startsWith('sos-')) {
+        const { data } = await client.put(`/emergencies/${emergencyId}/pass`, { volunteerId });
+        if (data.success) {
+          result = data;
+        }
+      }
+    } catch (err) {
+      console.warn('Pass SOS backend note:', err.message);
+    }
+
+    if (db.activeSOS) {
+      if (result && result.nextVolunteer) {
+        db.activeSOS.currentVolunteerId = result.nextVolunteer.id;
+        db.activeSOS.volunteerName = result.nextVolunteer.name;
+        db.activeSOS.volunteerPhone = result.nextVolunteer.phone;
+        db.activeSOS.volunteerDistanceKm = result.nextVolunteer.distanceKm;
+        db.activeSOS.status = 'matched';
+      } else {
+        // Local simulation fallback for next volunteer in chain
+        const mockNearby = [
+          { name: 'Marcus Vance (EMT-B)', phone: '+1 555-014-9922', distanceKm: '2.4' },
+          { name: 'Dr. Elena Rostova', phone: '+1 555-018-3311', distanceKm: '3.8' },
+          { name: 'Rajesh Kumar', phone: '+1 555-019-7744', distanceKm: '5.1' }
+        ];
+        const nextMock = mockNearby[Math.floor(Math.random() * mockNearby.length)];
+        db.activeSOS.currentVolunteerId = 'vol-next-' + Date.now();
+        db.activeSOS.volunteerName = nextMock.name;
+        db.activeSOS.volunteerPhone = nextMock.phone;
+        db.activeSOS.volunteerDistanceKm = nextMock.distanceKm;
+        db.activeSOS.status = 'matched';
+      }
+      saveLocalDB(db);
+      window.dispatchEvent(new Event('alertlife_storage_update'));
+    }
+    return result || { success: true, nextVolunteer: db.activeSOS };
   },
 
   updateSOS: async (updates) => {

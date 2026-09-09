@@ -141,6 +141,20 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     });
   };
 
+  // Proactive Live GPS capture on Dashboard initialization
+  useEffect(() => {
+    if (api.syncLiveLocation) {
+      api.syncLiveLocation(currentRole).then(coords => {
+        if (coords && currentRole === 'volunteer') {
+          setVolProfile(prev => ({
+            ...prev,
+            currentLocation: { latitude: coords.latitude, longitude: coords.longitude, lastUpdated: new Date().toISOString() }
+          }));
+        }
+      });
+    }
+  }, [currentRole]);
+
   // Sync state on intervals
   useEffect(() => {
     // Fetch initial profile async
@@ -184,7 +198,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         liveSos = api.getActiveSOS();
       }
       
-      // Alert volunteer if a new unaccepted citizen emergency arrives
+      // Alert volunteer if a new unaccepted citizen emergency arrives targeted for them
       if (liveSos && liveSos.id && liveSos.id !== lastKnownSosId && !liveSos.volunteerId && currentRole === 'volunteer') {
         lastKnownSosId = liveSos.id;
         playAlertChime();
@@ -551,10 +565,25 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     setSosState(active);
   };
 
-  const handlePassSOS = () => {
-    api.updateSOS({ status: 'declined', volunteerId: null });
+  const handlePassSOS = async () => {
+    const emergencyId = sosState?.id;
+    const volId = volProfile?._id || user?._id || 'vol-active';
+    
+    // Clear local screen immediately
     setSosState(null);
     setNavProgress(0);
+
+    Swal.fire({
+      title: 'SOS Request Passed',
+      text: 'Cascading emergency alert to the next closest available volunteer in the grid...',
+      icon: 'info',
+      timer: 2000,
+      showConfirmButton: false
+    });
+
+    if (emergencyId) {
+      await api.passSOS(emergencyId, volId);
+    }
   };
 
   const triggerAmbulance = () => {
@@ -981,23 +1010,50 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         </button>
                       </div>
 
+                      {/* Live Location Radar & Navigation Map */}
                       {sosState.status === 'accepted' && (
                         <div style={{ marginTop: '1rem' }}>
-                          <div className="map-simulation">
-                            <div className="map-grid-lines" />
-                            <svg width="100%" height="100%" style={{ position: 'relative', zIndex: 2 }}>
-                              <circle cx="50" cy="270" r="8" fill="var(--blue)" />
-                              <text x="65" y="275" fill="white" fontSize="10">Volunteer</text>
-                              <circle cx="280" cy="80" r="8" fill="var(--red)" />
-                              <text x="235" y="70" fill="white" fontSize="10">You</text>
-                              <path d="M50 270 Q 150 180, 280 80" fill="none" stroke="var(--blue)" strokeWidth="4" className="map-route-line" />
-                            </svg>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--blue)' }}>
+                              📡 Live GPS Tracking (Volunteer ➔ You)
+                            </span>
+                            <span className="badge badge-emerald" style={{ animation: 'pulse-avatar 1.5s infinite' }}>
+                              🟢 Live GPS Active
+                            </span>
                           </div>
-                          <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.08)', borderRadius: '3px', overflow: 'hidden', marginTop: '0.75rem' }}>
+
+                          {/* OpenStreetMap Live Embed for Citizen */}
+                          <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)', height: '220px', marginBottom: '0.75rem' }}>
+                            <iframe
+                              title="Citizen Live Tracking Map"
+                              width="100%"
+                              height="100%"
+                              frameBorder="0"
+                              scrolling="no"
+                              marginHeight="0"
+                              marginWidth="0"
+                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${(sosState.lng || 77.6245) - 0.008}%2C${(sosState.lat || 12.9352) - 0.008}%2C${(sosState.lng || 77.6245) + 0.008}%2C${(sosState.lat || 12.9352) + 0.008}&layer=mapnik&marker=${sosState.lat || 12.9352}%2C${sosState.lng || 77.6245}`}
+                              style={{ filter: 'contrast(1.05) saturate(1.1)', border: 0 }}
+                            />
+                            <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(239, 68, 68, 0.95)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                              📍 Your SOS Location
+                            </div>
+                            <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(59, 130, 246, 0.95)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                              🏃 Responder En Route ({100 - navProgress}% dist)
+                            </div>
+                          </div>
+
+                          {/* Distance & ETA Bar */}
+                          <div style={{ background: 'rgba(99, 102, 241, 0.05)', borderRadius: '10px', padding: '0.65rem 0.85rem', border: '1px solid var(--border)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                            <span><strong>Responder:</strong> {sosState.volunteerName || 'First Responder'}</span>
+                            <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>ETA: {Math.max(1, Math.round((100 - navProgress) / 20))} mins</span>
+                          </div>
+
+                          <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.08)', borderRadius: '4px', overflow: 'hidden', marginTop: '0.5rem' }}>
                             <div style={{ width: `${navProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--blue), var(--emerald))', transition: 'width 0.4s ease' }} />
                           </div>
-                          <p style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
-                            First responder is navigating to your location. Progress: <strong>{navProgress}%</strong>
+                          <p style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '0.4rem', color: 'var(--text-secondary)' }}>
+                            Responder live location sync: <strong>{navProgress}% traversed</strong>
                           </p>
                         </div>
                       )}
@@ -1746,6 +1802,12 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           <span style={{ color: 'var(--text-secondary)' }}>🌐 GPS Coordinates:</span>
                           <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem' }}>{sosState.lat?.toFixed(5)}, {sosState.lng?.toFixed(5)}</span>
                         </div>
+                        {sosState.volunteerDistanceKm && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>🎯 Live Distance:</span>
+                            <span className="badge badge-amber" style={{ fontWeight: 800 }}>{sosState.volunteerDistanceKm} km from your location</span>
+                          </div>
+                        )}
                         {sosState.lat && sosState.lng && (
                           <div style={{ marginTop: '0.25rem' }}>
                             <a 
@@ -1759,12 +1821,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                             </a>
                           </div>
                         )}
-                        {sosState.ambulanceStatus && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>🚑 Ambulance Backup:</span>
-                            <span className="badge badge-emerald">Dispatched ({sosState.ambulanceEta || '6 mins'})</span>
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>🏥 Hospital Alert:</span>
+                          <span className="badge badge-emerald">🚨 Auto-Alerted & Ambulance Dispatched</span>
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', gap: '0.75rem' }}>

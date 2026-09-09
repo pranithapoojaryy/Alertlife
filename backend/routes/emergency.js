@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createEmergency, getEmergencies, getEmergency, updateEmergencyStatus, acceptEmergency, getVolunteerEmergencies, submitReport, testEmergencySimulator, createGuestEmergency } = require('../controllers/emergencyController');
+const { createEmergency, getEmergencies, getEmergency, updateEmergencyStatus, acceptEmergency, getVolunteerEmergencies, submitReport, testEmergencySimulator, createGuestEmergency, passEmergency } = require('../controllers/emergencyController');
 const { protect } = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
@@ -36,6 +36,12 @@ router.get('/volunteer/assigned', protect, roleCheck('volunteer'), getVolunteerE
 router.get('/:id', getEmergency);
 router.put('/:id/status', updateEmergencyStatus);
 router.put('/:id/accept', acceptEmergency);
+router.put('/:id/pass', async (req, res, next) => {
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer') && !req.headers.authorization.includes('mock-token')) {
+    return protect(req, res, () => passEmergency(req, res));
+  }
+  return passEmergency(req, res);
+});
 router.post('/:id/report', submitReport);
 
 module.exports = router;
