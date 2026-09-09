@@ -29,7 +29,7 @@ const register = async (req, res) => {
       await Volunteer.create({ 
         userId: user._id, 
         availabilityStatus: 'available',
-        isVerified: true,
+        isVerified: false,
         currentLocation: {
           latitude: 12.9352,
           longitude: 77.6245,
@@ -37,7 +37,7 @@ const register = async (req, res) => {
         },
         ...roleData 
       });
-      await User.findByIdAndUpdate(user._id, { isVerified: true });
+      await User.findByIdAndUpdate(user._id, { isVerified: false });
     } else if (role === 'hospital') {
       await Hospital.create({ userId: user._id, ...roleData });
     } else if (role === 'doctor') {

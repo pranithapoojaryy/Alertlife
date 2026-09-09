@@ -73,17 +73,16 @@ const createEmergency = async (req, res) => {
       });
     }
 
-    // Find available active volunteers
+    // Find available verified active volunteers
     let volunteers = await Volunteer.find({
-      $or: [
-        { availabilityStatus: 'available' },
-        { availabilityStatus: { $exists: false } },
-        { isVerified: true }
-      ]
+      isVerified: true,
+      availabilityStatus: { $ne: 'offline' }
     }).populate('userId', 'name phone');
 
     if (!volunteers || volunteers.length === 0) {
-      volunteers = await Volunteer.find({}).populate('userId', 'name phone');
+      volunteers = await Volunteer.find({
+        availabilityStatus: { $ne: 'offline' }
+      }).populate('userId', 'name phone');
     }
 
     // Sort volunteers by proximity to citizen's live GPS coordinates
@@ -556,12 +555,15 @@ const passEmergency = async (req, res) => {
     // Find active volunteers excluding those who already declined
     const excludedIds = emergency.declinedVolunteers || [];
     let volunteers = await Volunteer.find({
-      $or: [
-        { availabilityStatus: 'available' },
-        { availabilityStatus: { $exists: false } },
-        { isVerified: true }
-      ]
+      isVerified: true,
+      availabilityStatus: { $ne: 'offline' }
     }).populate('userId', 'name phone email');
+
+    if (!volunteers || volunteers.length === 0) {
+      volunteers = await Volunteer.find({
+        availabilityStatus: { $ne: 'offline' }
+      }).populate('userId', 'name phone email');
+    }
 
     // Filter out declined volunteers
     const eligibleVolunteers = volunteers.filter(v => {

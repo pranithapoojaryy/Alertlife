@@ -2788,15 +2788,17 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           </td>
                           <td style={{ padding: '0.6rem' }}>{m.phone || 'N/A'}</td>
                           <td style={{ padding: '0.6rem' }}>
-                            <span className={`badge ${m.isVerified || m.active ? 'badge-emerald' : 'badge-amber'}`}>
-                              {m.isVerified || m.active ? '✓ Verified' : 'Pending'}
+                            <span className={`badge ${m.isVerified ? 'badge-emerald' : 'badge-amber'}`}>
+                              {m.isVerified ? '✓ Verified' : '⚠️ Pending Admin Verification'}
                             </span>
                           </td>
                           <td style={{ padding: '0.6rem' }}>
-                            <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>🟢 On Duty</span>
+                            <span style={{ color: m.isVerified ? 'var(--emerald)' : 'var(--amber)', fontWeight: 700 }}>
+                              {m.isVerified ? '🟢 On Duty' : '⏳ Pending Review'}
+                            </span>
                           </td>
                           <td style={{ padding: '0.6rem', display: 'flex', gap: '0.35rem' }}>
-                            {!(m.isVerified || m.active) && (
+                            {!m.isVerified && m.role === 'Volunteer' && (
                               <button 
                                 className="btn btn-primary" 
                                 style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} 

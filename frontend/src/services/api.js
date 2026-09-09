@@ -39,7 +39,7 @@ const defaultState = {
     skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'Choking Relief'],
     availabilityStatus: "available",
     serviceRadius: 5,
-    isVerified: true,
+    isVerified: false,
     totalEmergenciesHandled: 0,
     rating: 5.0,
     experience: 1,
@@ -625,8 +625,8 @@ export const api = {
             phone: v.userId?.phone || '',
             bloodGroup: 'O+',
             role: 'Volunteer',
-            active: v.isVerified ?? v.isActive ?? true,
-            isVerified: v.isVerified ?? true
+            active: v.isVerified === true,
+            isVerified: v.isVerified === true
           });
         });
       }
@@ -637,29 +637,51 @@ export const api = {
     
     const db = getLocalDB();
     const membersList = [];
-    if (db.profile?.name && db.profile?.name.trim()) {
-      membersList.push({
-        id: 'curr-cit',
-        name: db.profile.name,
-        email: db.profile.email,
-        phone: db.profile.phone,
-        bloodGroup: db.profile.bloodGroup || 'O+',
-        role: 'Citizen',
-        active: true,
-        isVerified: true
+    
+    // Check localStorage registered users pool
+    try {
+      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+      regUsers.forEach((u, idx) => {
+        membersList.push({
+          id: `reg-${idx}-${u.email}`,
+          name: u.name || 'User',
+          email: u.email || '',
+          phone: u.phone || '',
+          bloodGroup: u.bloodGroup || 'O+',
+          role: u.role === 'volunteer' ? 'Volunteer' : 'Citizen',
+          active: u.role === 'volunteer' ? (u.isVerified === true) : true,
+          isVerified: u.role === 'volunteer' ? (u.isVerified === true) : true
+        });
       });
+    } catch {
+      // ignore
     }
-    if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim()) {
-      membersList.push({
-        id: 'curr-vol',
-        name: db.volunteerProfile.name,
-        email: db.volunteerProfile.email,
-        phone: db.volunteerProfile.phone,
-        bloodGroup: 'O+',
-        role: 'Volunteer',
-        active: db.volunteerProfile.isVerified ?? false,
-        isVerified: db.volunteerProfile.isVerified ?? false
-      });
+
+    if (membersList.length === 0) {
+      if (db.profile?.name && db.profile?.name.trim()) {
+        membersList.push({
+          id: 'curr-cit',
+          name: db.profile.name,
+          email: db.profile.email,
+          phone: db.profile.phone,
+          bloodGroup: db.profile.bloodGroup || 'O+',
+          role: 'Citizen',
+          active: true,
+          isVerified: true
+        });
+      }
+      if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim()) {
+        membersList.push({
+          id: 'curr-vol',
+          name: db.volunteerProfile.name,
+          email: db.volunteerProfile.email,
+          phone: db.volunteerProfile.phone,
+          bloodGroup: 'O+',
+          role: 'Volunteer',
+          active: db.volunteerProfile.isVerified === true,
+          isVerified: db.volunteerProfile.isVerified === true
+        });
+      }
     }
     return membersList;
   },
@@ -697,7 +719,7 @@ export const api = {
       skills: ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "Choking Relief"],
       availabilityStatus: "available",
       serviceRadius: 5,
-      isVerified: true,
+      isVerified: false,
       totalEmergenciesHandled: 0,
       rating: 5.0,
       experience: 1,
@@ -742,7 +764,7 @@ export const api = {
 
   verifyVolunteer: async (volId) => {
     try {
-      if (volId && !volId.startsWith('curr-')) {
+      if (volId && !volId.startsWith('curr-') && !volId.startsWith('reg-')) {
         await client.put(`/volunteers/${volId}/verify`);
       }
     } catch (err) {
@@ -751,6 +773,23 @@ export const api = {
     const db = getLocalDB();
     if (db.volunteerProfile) {
       db.volunteerProfile.isVerified = true;
+    }
+    // Update matching user in alertlife_registered_users
+    try {
+      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+      let updated = false;
+      regUsers.forEach(u => {
+        if (volId && (volId.includes(u.email) || volId === 'curr-vol' || volId === u.id)) {
+          u.isVerified = true;
+          updated = true;
+        }
+      });
+      if (!updated && volId === 'curr-vol') {
+        regUsers.forEach(u => { if (u.role === 'volunteer') u.isVerified = true; });
+      }
+      localStorage.setItem('alertlife_registered_users', JSON.stringify(regUsers));
+    } catch {
+      // ignore
     }
     saveLocalDB(db);
     window.dispatchEvent(new Event('alertlife_storage_update'));
