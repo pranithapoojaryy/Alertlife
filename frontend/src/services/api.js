@@ -204,9 +204,6 @@ export const api = {
 
     try {
       const { data } = await client.post('/auth/register', formData);
-      if (data.token) {
-        localStorage.setItem('alertlife_token', data.token);
-      }
       
       const newLocalUser = {
         name: formData.name,
@@ -214,7 +211,8 @@ export const api = {
         phone: formData.phone,
         password: formData.password,
         role: formData.role || 'citizen',
-        bloodGroup: formData.bloodGroup || 'O+'
+        bloodGroup: formData.bloodGroup || 'O+',
+        isVerified: formData.role === 'volunteer' ? false : true
       };
       registeredUsers.push(newLocalUser);
       localStorage.setItem('alertlife_registered_users', JSON.stringify(registeredUsers));
@@ -249,11 +247,11 @@ export const api = {
         phone: formData.phone,
         password: formData.password,
         role: formData.role || 'citizen',
-        bloodGroup: formData.bloodGroup || 'O+'
+        bloodGroup: formData.bloodGroup || 'O+',
+        isVerified: formData.role === 'volunteer' ? false : true
       };
       registeredUsers.push(newLocalUser);
       localStorage.setItem('alertlife_registered_users', JSON.stringify(registeredUsers));
-      localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
 
       const db = getLocalDB();
       db.profile = {

@@ -83,6 +83,7 @@ function App() {
     password: '' 
   });
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const switchPortal = (newRole) => {
     const newUserData = {
@@ -181,23 +182,26 @@ function App() {
         bloodGroup: regForm.bloodGroup || 'O+'
       };
 
-      const registeredUser = await api.register(regPayload);
-      const userData = {
-        email: registeredUser.email || regPayload.email,
-        name: registeredUser.name || regPayload.name,
-        role: currentRole
-      };
-      localStorage.setItem('user_session', JSON.stringify(userData));
-      setUser(userData);
+      await api.register(regPayload);
+      
+      // Do NOT auto-login. Pre-fill login credentials and switch to Login view
+      setLoginEmail(regPayload.email);
+      setLoginPassword('');
+      setRegForm({ name: '', email: '', phone: '', bloodGroup: 'O+', password: '' });
       setError('');
+      setSuccessMsg(`Registration successful! Please sign in with your email (${regPayload.email}) or phone number to open the ${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} app.`);
+      setAuthView('login');
     } catch (err) {
       setError(err.message || 'Registration failed. Please check your data.');
+      setSuccessMsg('');
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('user_session');
     setUser(null);
+    setSuccessMsg('');
+    setError('');
   };
 
   // Helper for text headers based on the active portal URL
@@ -222,6 +226,12 @@ function App() {
             <h2 style={{ fontSize: '1.75rem', marginTop: '0.5rem' }}>{portalInfo.title}</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{portalInfo.subtitle}</p>
           </div>
+
+          {successMsg && (
+            <div style={{ padding: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--emerald)', borderRadius: '10px', fontSize: '0.85rem', color: 'var(--emerald)', marginBottom: '1rem' }}>
+              ✓ {successMsg}
+            </div>
+          )}
 
           {error && (
             <div style={{ padding: '0.75rem', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--red)', borderRadius: '10px', fontSize: '0.85rem', color: 'var(--red)', marginBottom: '1rem' }}>
@@ -259,7 +269,11 @@ function App() {
               </button>
               <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Don't have an account?{' '}
-                <button type="button" onClick={() => setAuthView('register')} style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: 600, cursor: 'pointer' }}>
+                <button 
+                  type="button" 
+                  onClick={() => { setAuthView('register'); setError(''); setSuccessMsg(''); }} 
+                  style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: 600, cursor: 'pointer' }}
+                >
                   Sign Up
                 </button>
               </p>
@@ -309,7 +323,11 @@ function App() {
               </button>
               <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Already have an account?{' '}
-                <button type="button" onClick={() => setAuthView('login')} style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: 600, cursor: 'pointer' }}>
+                <button 
+                  type="button" 
+                  onClick={() => { setAuthView('login'); setError(''); setSuccessMsg(''); }} 
+                  style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: 600, cursor: 'pointer' }}
+                >
                   Sign In
                 </button>
               </p>
