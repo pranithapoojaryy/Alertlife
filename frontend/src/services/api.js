@@ -630,14 +630,14 @@ export const api = {
           });
         });
       }
-      if (combined.length > 0) return combined;
+      return combined;
     } catch (err) {
       console.warn('Backend members fetch info:', err.message);
     }
     
     const db = getLocalDB();
     const membersList = [];
-    if (db.profile?.name) {
+    if (db.profile?.name && db.profile?.name.trim()) {
       membersList.push({
         id: 'curr-cit',
         name: db.profile.name,
@@ -649,7 +649,7 @@ export const api = {
         isVerified: true
       });
     }
-    if (db.volunteerProfile?.name) {
+    if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim()) {
       membersList.push({
         id: 'curr-vol',
         name: db.volunteerProfile.name,
