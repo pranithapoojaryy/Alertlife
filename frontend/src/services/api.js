@@ -151,7 +151,7 @@ export const api = {
       return data.user;
     } catch (err) {
       // Check for local credentials fallback
-      const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+      const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
       const cleanInput = identifier.trim().toLowerCase();
       const digitsOnly = identifier.replace(/\D/g, '');
       const last10 = digitsOnly.slice(-10);
@@ -195,8 +195,8 @@ export const api = {
   },
 
   register: async (formData) => {
-    // Store in local registered users pool for guaranteed credential check
-    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+    // Store in clean registered users pool for guaranteed credential check
+    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
     const existing = registeredUsers.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
     if (existing) {
       throw new Error('This email is already registered. Please sign in.');
@@ -212,10 +212,10 @@ export const api = {
         password: formData.password,
         role: formData.role || 'citizen',
         bloodGroup: formData.bloodGroup || 'O+',
-        isVerified: formData.role === 'volunteer' ? false : true
+        isVerified: false
       };
       registeredUsers.push(newLocalUser);
-      localStorage.setItem('alertlife_registered_users', JSON.stringify(registeredUsers));
+      localStorage.setItem('alertlife_registered_users_v5', JSON.stringify(registeredUsers));
 
       const db = getLocalDB();
       db.profile = {
@@ -231,7 +231,8 @@ export const api = {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          certification: formData.certification || 'Certified First Responder'
+          certification: formData.certification || 'Certified First Responder',
+          isVerified: false
         };
       }
       saveLocalDB(db);
@@ -248,10 +249,10 @@ export const api = {
         password: formData.password,
         role: formData.role || 'citizen',
         bloodGroup: formData.bloodGroup || 'O+',
-        isVerified: formData.role === 'volunteer' ? false : true
+        isVerified: false
       };
       registeredUsers.push(newLocalUser);
-      localStorage.setItem('alertlife_registered_users', JSON.stringify(registeredUsers));
+      localStorage.setItem('alertlife_registered_users_v5', JSON.stringify(registeredUsers));
 
       const db = getLocalDB();
       db.profile = {
@@ -623,9 +624,9 @@ export const api = {
     const db = getLocalDB();
     const membersList = [];
     
-    // Check localStorage registered users pool for volunteers ONLY
+    // Check registered volunteers pool
     try {
-      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
       regUsers.filter(u => u.role === 'volunteer').forEach((u, idx) => {
         membersList.push({
           id: `reg-${idx}-${u.email}`,
@@ -643,7 +644,7 @@ export const api = {
     }
 
     if (membersList.length === 0) {
-      if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim()) {
+      if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim() && db.volunteerProfile?.email) {
         membersList.push({
           id: 'curr-vol',
           name: db.volunteerProfile.name,
@@ -747,9 +748,9 @@ export const api = {
     if (db.volunteerProfile) {
       db.volunteerProfile.isVerified = true;
     }
-    // Update matching user in alertlife_registered_users
+    // Update matching user in alertlife_registered_users_v5
     try {
-      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users') || '[]');
+      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
       let updated = false;
       regUsers.forEach(u => {
         if (volId && (volId.includes(u.email) || volId === 'curr-vol' || volId === u.id)) {
@@ -760,7 +761,7 @@ export const api = {
       if (!updated && volId === 'curr-vol') {
         regUsers.forEach(u => { if (u.role === 'volunteer') u.isVerified = true; });
       }
-      localStorage.setItem('alertlife_registered_users', JSON.stringify(regUsers));
+      localStorage.setItem('alertlife_registered_users_v5', JSON.stringify(regUsers));
     } catch {
       // ignore
     }

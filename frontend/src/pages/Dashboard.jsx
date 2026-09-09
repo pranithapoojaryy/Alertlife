@@ -215,6 +215,15 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         }
         return liveSos;
       });
+
+      // Keep volunteer profile verification status synced
+      if (currentRole === 'volunteer' && api.getVolunteerProfile) {
+        api.getVolunteerProfile().then(vp => {
+          if (vp) {
+            setVolProfile(prev => ({ ...prev, ...vp, isVerified: vp.isVerified === true }));
+          }
+        });
+      }
     };
 
     const fetchStaticData = () => {
@@ -1691,37 +1700,27 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                             onClick={() => {
                               if (!volProfile.isVerified) {
                                 Swal.fire({
-                                  title: 'First Responder Verification',
-                                  text: 'Click below to verify your credentials with the Alert Life network or test immediate activation.',
+                                  title: '⚠️ Verification Pending Admin Review',
+                                  text: 'Your registration is submitted. An Alert Life Administrator must review and approve your responder profile in the Admin Console before live emergency dispatches are assigned.',
                                   icon: 'info',
-                                  showCancelButton: true,
-                                  confirmButtonColor: '#10b981',
-                                  confirmButtonText: '✓ Verify Credentials Now',
-                                  cancelButtonText: 'Close'
-                                }).then((result) => {
-                                  if (result.isConfirmed) {
-                                    api.verifyVolunteer(volProfile.id || 'curr-vol').then(() => {
-                                      setVolProfile(prev => ({ ...prev, isVerified: true }));
-                                      Swal.fire({
-                                        title: 'Verified Responder Activated!',
-                                        text: 'Your first responder certification has been approved and activated.',
-                                        icon: 'success',
-                                        confirmButtonColor: '#10b981',
-                                        timer: 2000,
-                                        showConfirmButton: false
-                                      });
-                                    });
-                                  }
+                                  confirmButtonColor: '#6366f1',
+                                  confirmButtonText: 'Understood'
                                 });
                               }
                             }}
                           >
-                            {volProfile.isVerified ? '✓ Verified Responder' : '⚠️ Pending Verification (Tap to Verify)'}
+                            {volProfile.isVerified ? '✓ Verified Responder' : '⚠️ Pending Admin Verification (Locked)'}
                           </span>
                         </div>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                           Cert: <strong>{volProfile.certification || 'Certified First Responder'}</strong> {volProfile.certificationNumber ? `(#${volProfile.certificationNumber})` : ''}
                         </p>
+                        {!volProfile.isVerified && (
+                          <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid var(--amber)', borderRadius: '8px', fontSize: '0.75rem', color: 'var(--amber-dark, #b45309)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>⏳</span>
+                            <span><strong>Pending Admin Approval:</strong> You will gain full responder access once the System Admin approves your registration in the Admin Console.</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Online/Offline Status Switcher */}
@@ -1756,8 +1755,8 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                     </div>
                   </div>
 
-                  {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) */}
-                  {sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && sosState.status !== 'declined' && !sosState.volunteerId && (
+                  {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) - Only for Verified Volunteers */}
+                  {volProfile.isVerified && sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && sosState.status !== 'declined' && !sosState.volunteerId && (
                     <div className="card" style={{ border: '2px solid var(--red)', background: 'rgba(244, 63, 94, 0.05)', animation: 'pulse-border 1.5s infinite' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>🚨 INCOMING CITIZEN EMERGENCY DISPATCH</span>
