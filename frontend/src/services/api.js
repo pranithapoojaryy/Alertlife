@@ -660,11 +660,11 @@ export const api = {
     return membersList;
   },
 
-  // Volunteer Profile & Location
   getVolunteerProfile: async () => {
     try {
       const { data } = await client.get('/volunteers/profile');
       if (data.success && data.profile) {
+        const isVer = data.profile.isVerified === true || data.profile.userId?.isVerified === true;
         return {
           name: data.profile.userId?.name || '',
           email: data.profile.userId?.email || '',
@@ -674,7 +674,7 @@ export const api = {
           skills: data.profile.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
           availabilityStatus: data.profile.availabilityStatus || 'available',
           serviceRadius: data.profile.serviceRadius || 5,
-          isVerified: data.profile.isVerified ?? false,
+          isVerified: isVer,
           totalEmergenciesHandled: data.profile.totalEmergenciesHandled || 0,
           rating: data.profile.rating || 5.0,
           experience: data.profile.experience || 1
@@ -684,20 +684,25 @@ export const api = {
       console.warn('Backend volunteer profile fetch info:', err.message);
     }
     const db = getLocalDB();
-    return db.volunteerProfile || {
-      name: db.profile?.name || "",
-      email: db.profile?.email || "",
-      phone: db.profile?.phone || "",
-      certification: "Certified First Responder",
-      certificationNumber: "",
-      skills: ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "Choking Relief"],
-      availabilityStatus: "available",
-      serviceRadius: 5,
-      isVerified: false,
-      totalEmergenciesHandled: 0,
-      rating: 5.0,
-      experience: 1,
-      currentLocation: { latitude: 12.9352, longitude: 77.6245 }
+    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
+    const matchingUser = registeredUsers.find(u => u.email === session.email || u.phone === session.phone);
+    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? false;
+
+    return {
+      name: session.name || db.volunteerProfile?.name || db.profile?.name || "",
+      email: session.email || db.volunteerProfile?.email || db.profile?.email || "",
+      phone: session.phone || db.volunteerProfile?.phone || db.profile?.phone || "",
+      certification: db.volunteerProfile?.certification || "Certified First Responder",
+      certificationNumber: db.volunteerProfile?.certificationNumber || "",
+      skills: db.volunteerProfile?.skills || ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "Choking Relief"],
+      availabilityStatus: db.volunteerProfile?.availabilityStatus || "available",
+      serviceRadius: db.volunteerProfile?.serviceRadius || 5,
+      isVerified: verifiedStatus,
+      totalEmergenciesHandled: db.volunteerProfile?.totalEmergenciesHandled || 0,
+      rating: db.volunteerProfile?.rating || 5.0,
+      experience: db.volunteerProfile?.experience || 1,
+      currentLocation: db.volunteerProfile?.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
     };
   },
 
