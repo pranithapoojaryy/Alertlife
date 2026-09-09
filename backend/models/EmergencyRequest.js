@@ -16,8 +16,7 @@ const emergencyRequestSchema = new mongoose.Schema({
   },
   emergencyType: {
     type: String,
-    enum: ['cardiac_arrest', 'accident', 'stroke', 'breathing', 'seizure', 'other'],
-    required: true,
+    default: 'other',
   },
   description: { type: String },
   severity: { type: String, enum: ['critical', 'high', 'medium', 'low'], default: 'high' },

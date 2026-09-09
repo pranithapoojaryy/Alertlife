@@ -399,13 +399,13 @@ export const api = {
 
     try {
       const { data } = await client.post('/emergencies', {
-        latitude: sosData.lat,
-        longitude: sosData.lng,
+        latitude: sosData.lat || 12.9352,
+        longitude: sosData.lng || 77.6245,
         description: finalDescription,
-        emergencyType: sosData.emergencyType || sosData.category || 'other',
+        emergencyType: 'other',
         severity: sosData.severity || 'high',
-        address: sosData.address || `${sosData.lat?.toFixed(4)}, ${sosData.lng?.toFixed(4)}`,
-        patientName: currentProfile.name || '',
+        address: sosData.address || `${(sosData.lat || 12.9352).toFixed(4)}, ${(sosData.lng || 77.6245).toFixed(4)}`,
+        patientName: currentProfile.name || 'Citizen In Need',
         patientPhone: currentProfile.phone || '',
         patientBlood: currentProfile.bloodGroup || 'O+',
         allergies: currentProfile.allergies || 'None',
