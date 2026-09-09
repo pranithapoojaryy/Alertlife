@@ -97,12 +97,19 @@ function App() {
     window.history.pushState({}, '', url);
   };
 
-  // Validate Indian Phone Number Helper (+91 / 0 / 10 digits starting with 6, 7, 8, 9)
-  const isValidIndianPhone = (input) => {
+  // Validate Strict 10-Digit Indian Phone Number (exactly 10 digits, or +91 / 0 prefixed with 10 digits starting 6,7,8,9)
+  const isValidTenDigitPhone = (input) => {
     if (!input) return false;
     const clean = input.replace(/[\s\-()]/g, '');
-    const indianRegex = /^(?:(?:\+|0{0,2})91(\s*[\-]\s*)?|[0]?)?[6789]\d{9}$/;
-    return indianRegex.test(clean);
+    
+    // If entered as pure digits without country code, must be exactly 10 digits starting with 6,7,8,9
+    if (/^\d+$/.test(clean)) {
+      return /^[6789]\d{9}$/.test(clean);
+    }
+    
+    // If entered with +91 or 0 prefix, the core number must be exactly 10 digits starting with 6,7,8,9
+    const match = clean.match(/^(?:\+91|91|0)?([6789]\d{9})$/);
+    return !!match;
   };
 
   const handleLogin = async (e) => {
@@ -110,15 +117,15 @@ function App() {
     const trimmedInput = loginEmail.trim();
 
     if (!trimmedInput) {
-      setError('Please enter your email or Indian mobile number.');
+      setError('Please enter your email or 10-digit mobile number.');
       return;
     }
     
     const isEmail = trimmedInput.includes('@');
     if (!isEmail) {
-      // Validate as Indian Phone Number
-      if (!isValidIndianPhone(trimmedInput)) {
-        setError('Please enter a valid 10-digit Indian mobile number (e.g. +91 9876543210 or 9876543210).');
+      // Validate as 10-Digit Mobile Number
+      if (!isValidTenDigitPhone(trimmedInput)) {
+        setError('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210).');
         return;
       }
     }
@@ -157,11 +164,11 @@ function App() {
       return;
     }
     if (!regForm.phone?.trim()) {
-      setError('Please enter your Indian phone number.');
+      setError('Please enter your 10-digit phone number.');
       return;
     }
-    if (!isValidIndianPhone(regForm.phone.trim())) {
-      setError('Please enter a valid 10-digit Indian phone number (e.g. +91 9876543210 or 9876543210 starting with 6, 7, 8, or 9).');
+    if (!isValidTenDigitPhone(regForm.phone.trim())) {
+      setError('Phone number must be exactly 10 digits starting with 6, 7, 8, or 9 (e.g. 9876543210).');
       return;
     }
     if (!regForm.password || regForm.password.length < 6) {
@@ -231,11 +238,11 @@ function App() {
           {authView === 'login' ? (
             <form onSubmit={handleLogin}>
               <div className="form-group">
-                <label className="form-label">Email or Indian Mobile Number</label>
+                <label className="form-label">Email or 10-Digit Mobile Number</label>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="name@email.com or +91 9876543210" 
+                  placeholder="name@email.com or 9876543210" 
                   value={loginEmail} 
                   onChange={e => setLoginEmail(e.target.value)} 
                   required 
@@ -266,17 +273,18 @@ function App() {
                 <input type="email" className="form-input" placeholder="rahul@example.in" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Indian Mobile Number (+91)</label>
+                <label className="form-label">10-Digit Mobile Number</label>
                 <input 
                   type="tel" 
                   className="form-input" 
-                  placeholder="+91 98765 43210" 
+                  placeholder="9876543210" 
+                  maxLength={13}
                   value={regForm.phone} 
                   onChange={e => setRegForm({...regForm, phone: e.target.value})} 
                   required 
                 />
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem', display: 'block' }}>
-                  Valid 10-digit Indian number starting with 6, 7, 8, or 9
+                  Must be exactly 10 digits (starting with 6, 7, 8, or 9)
                 </span>
               </div>
               <div className="form-group">
