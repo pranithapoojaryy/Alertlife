@@ -224,6 +224,11 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           }
         });
       }
+
+      // Sync members list for Admin
+      if (currentRole === 'admin' || currentRole === 'hospital') {
+        api.getMembers().then(data => setMembers(data || []));
+      }
     };
 
     const fetchStaticData = () => {
