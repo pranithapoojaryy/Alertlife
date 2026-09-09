@@ -386,6 +386,26 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     }
   }, [sosState?.status]);
 
+  // Handle hospital ambulance unit navigation progress
+  const [ambulanceNavProgress, setAmbulanceNavProgress] = useState(0);
+
+  useEffect(() => {
+    if (sosState && (sosState.ambulanceStatus === 'Dispatched' || sosState.ambulanceStatus === 'dispatched')) {
+      const interval = setInterval(() => {
+        setAmbulanceNavProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 15;
+        });
+      }, 2500);
+      return () => clearInterval(interval);
+    } else if (!sosState) {
+      setAmbulanceNavProgress(0);
+    }
+  }, [sosState?.ambulanceStatus]);
+
   // Citizen Emergency Action Trigger (Urgent SOS, Minor Injuries, Small Road Accidents, Ambulance Dispatch)
   const [selectedIncidentType, setSelectedIncidentType] = useState('critical'); // critical, minor_injury, road_accident, first_aid
   const [requestAmbulance, setRequestAmbulance] = useState(false);
@@ -1183,53 +1203,100 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         </button>
                       </div>
 
-                      {/* Live Location Radar & Navigation Map */}
-                      {sosState.status === 'accepted' && (
-                        <div style={{ marginTop: '1rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--blue)' }}>
-                              📡 Live GPS Tracking (Volunteer ➔ You)
-                            </span>
-                            <span className="badge badge-emerald" style={{ animation: 'pulse-avatar 1.5s infinite' }}>
-                              🟢 Live GPS Active
-                            </span>
-                          </div>
-
-                          {/* OpenStreetMap Live Embed for Citizen */}
-                          <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)', height: '220px', marginBottom: '0.75rem' }}>
-                            <iframe
-                              title="Citizen Live Tracking Map"
-                              width="100%"
-                              height="100%"
-                              frameBorder="0"
-                              scrolling="no"
-                              marginHeight="0"
-                              marginWidth="0"
-                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${(sosState.lng || 77.6245) - 0.008}%2C${(sosState.lat || 12.9352) - 0.008}%2C${(sosState.lng || 77.6245) + 0.008}%2C${(sosState.lat || 12.9352) + 0.008}&layer=mapnik&marker=${sosState.lat || 12.9352}%2C${sosState.lng || 77.6245}`}
-                              style={{ filter: 'contrast(1.05) saturate(1.1)', border: 0 }}
-                            />
-                            <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(239, 68, 68, 0.95)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-                              📍 Your SOS Location
+                      {/* DUAL LIVE GPS TRACKING MAPS (Volunteer First Responder + Hospital Ambulance) */}
+                      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        
+                        {/* MAP 1: First Responder Volunteer Live GPS Map */}
+                        {sosState.status === 'accepted' && (
+                          <div style={{ background: 'rgba(99, 102, 241, 0.04)', border: '1px solid var(--border)', borderRadius: '14px', padding: '0.85rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--blue)' }}>
+                                🏃 MAP 1: Volunteer First Responder Live GPS
+                              </span>
+                              <span className="badge badge-emerald" style={{ animation: 'pulse-avatar 1.5s infinite', fontSize: '0.68rem' }}>
+                                🟢 Volunteer En Route
+                              </span>
                             </div>
-                            <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(59, 130, 246, 0.95)', color: '#fff', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-                              🏃 Responder En Route ({100 - navProgress}% dist)
+
+                            {/* OpenStreetMap Live Embed for Volunteer */}
+                            <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)', height: '190px', marginBottom: '0.65rem' }}>
+                              <iframe
+                                title="Volunteer Live Tracking Map"
+                                width="100%"
+                                height="100%"
+                                frameBorder="0"
+                                scrolling="no"
+                                marginHeight="0"
+                                marginWidth="0"
+                                src={`https://www.openstreetmap.org/export/embed.html?bbox=${(sosState.lng || 77.6245) - 0.008}%2C${(sosState.lat || 12.9352) - 0.008}%2C${(sosState.lng || 77.6245) + 0.008}%2C${(sosState.lat || 12.9352) + 0.008}&layer=mapnik&marker=${sosState.lat || 12.9352}%2C${sosState.lng || 77.6245}`}
+                                style={{ filter: 'contrast(1.05) saturate(1.1)', border: 0 }}
+                              />
+                              <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(239, 68, 68, 0.95)', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '14px', fontSize: '0.65rem', fontWeight: 800, zIndex: 10 }}>
+                                📍 Your Location
+                              </div>
+                              <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(59, 130, 246, 0.95)', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '14px', fontSize: '0.65rem', fontWeight: 800, zIndex: 10 }}>
+                                🏃 {sosState.volunteerName || 'Volunteer'} ({100 - navProgress}% dist)
+                              </div>
+                            </div>
+
+                            {/* Distance & ETA Bar */}
+                            <div style={{ background: '#fff', borderRadius: '8px', padding: '0.5rem 0.75rem', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                              <span><strong>Responder:</strong> {sosState.volunteerName || 'First Responder'}</span>
+                              <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>ETA: {Math.max(1, Math.round((100 - navProgress) / 20))} mins</span>
+                            </div>
+                            <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.08)', borderRadius: '4px', overflow: 'hidden', marginTop: '0.4rem' }}>
+                              <div style={{ width: `${navProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--blue), var(--emerald))', transition: 'width 0.4s ease' }} />
                             </div>
                           </div>
+                        )}
 
-                          {/* Distance & ETA Bar */}
-                          <div style={{ background: 'rgba(99, 102, 241, 0.05)', borderRadius: '10px', padding: '0.65rem 0.85rem', border: '1px solid var(--border)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                            <span><strong>Responder:</strong> {sosState.volunteerName || 'First Responder'}</span>
-                            <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>ETA: {Math.max(1, Math.round((100 - navProgress) / 20))} mins</span>
-                          </div>
+                        {/* MAP 2: Hospital ER Ambulance Unit Live GPS Map */}
+                        {(sosState.ambulanceStatus === 'Dispatched' || sosState.ambulanceStatus === 'dispatched') && (
+                          <div style={{ background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '14px', padding: '0.85rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--red)' }}>
+                                🚑 MAP 2: Hospital Emergency Ambulance Live GPS
+                              </span>
+                              <span className="badge badge-red" style={{ animation: 'pulse-avatar 1.5s infinite', fontSize: '0.68rem' }}>
+                                🚨 Unit En Route
+                              </span>
+                            </div>
 
-                          <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.08)', borderRadius: '4px', overflow: 'hidden', marginTop: '0.5rem' }}>
-                            <div style={{ width: `${navProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--blue), var(--emerald))', transition: 'width 0.4s ease' }} />
+                            {/* OpenStreetMap Live Embed for Hospital Ambulance */}
+                            <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(239, 68, 68, 0.3)', height: '190px', marginBottom: '0.65rem' }}>
+                              <iframe
+                                title="Ambulance Live Tracking Map"
+                                width="100%"
+                                height="100%"
+                                frameBorder="0"
+                                scrolling="no"
+                                marginHeight="0"
+                                marginWidth="0"
+                                src={`https://www.openstreetmap.org/export/embed.html?bbox=${(sosState.lng || 77.6245) - 0.012}%2C${(sosState.lat || 12.9352) - 0.012}%2C${(sosState.lng || 77.6245) + 0.012}%2C${(sosState.lat || 12.9352) + 0.012}&layer=mapnik&marker=${sosState.lat || 12.9352}%2C${sosState.lng || 77.6245}`}
+                                style={{ filter: 'contrast(1.05) saturate(1.1)', border: 0 }}
+                              />
+                              <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(239, 68, 68, 0.95)', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '14px', fontSize: '0.65rem', fontWeight: 800, zIndex: 10 }}>
+                                📍 Patient Pickup Pin
+                              </div>
+                              <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(225, 29, 72, 0.95)', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '14px', fontSize: '0.65rem', fontWeight: 800, zIndex: 10 }}>
+                                🚑 {sosState.ambulanceDetails?.vehicleNumber || 'Ambulance'} ({100 - ambulanceNavProgress}% dist)
+                              </div>
+                            </div>
+
+                            {/* Ambulance ETA & Vehicle Bar */}
+                            <div style={{ background: '#fff', borderRadius: '8px', padding: '0.5rem 0.75rem', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                              <span><strong>Unit:</strong> {sosState.ambulanceDetails?.vehicleNumber || 'ER Ambulance'} ({sosState.ambulanceDetails?.driverName || 'Lead Paramedic'})</span>
+                              <span style={{ color: 'var(--red)', fontWeight: 800 }}>ETA: {Math.max(1, Math.round((100 - ambulanceNavProgress) / 16))} mins</span>
+                            </div>
+                            <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.08)', borderRadius: '4px', overflow: 'hidden', marginTop: '0.4rem' }}>
+                              <div style={{ width: `${ambulanceNavProgress}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b, #e11d48)', transition: 'width 0.4s ease' }} />
+                            </div>
+                            <p style={{ fontSize: '0.72rem', textAlign: 'center', marginTop: '0.35rem', color: 'var(--text-secondary)' }}>
+                              Hospital Ambulance transit sync: <strong>{ambulanceNavProgress}% journey completed</strong>
+                            </p>
                           </div>
-                          <p style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '0.4rem', color: 'var(--text-secondary)' }}>
-                            Responder live location sync: <strong>{navProgress}% traversed</strong>
-                          </p>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
