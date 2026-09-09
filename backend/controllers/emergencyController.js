@@ -39,11 +39,14 @@ const createEmergency = async (req, res) => {
     });
 
     // Alert nearest hospital immediately for every SOS request
-    const hospitals = await Hospital.find({ isVerified: true, isActive: true });
+    let hospitals = await Hospital.find({ isActive: { $ne: false } });
+    if (!hospitals || hospitals.length === 0) {
+      hospitals = await Hospital.find({});
+    }
     
     // Sort hospitals by distance from citizen's live location
     const hospitalsWithDist = hospitals.map(h => {
-      let dist = Infinity;
+      let dist = 3.5; // default reasonable city distance
       if (h.location && h.location.latitude && h.location.longitude) {
         dist = getDistance(latitude, longitude, h.location.latitude, h.location.longitude);
       }
@@ -51,7 +54,7 @@ const createEmergency = async (req, res) => {
     }).sort((a, b) => a.distance - b.distance);
 
     const nearestHospitalObj = hospitalsWithDist[0];
-    if (nearestHospitalObj && nearestHospitalObj.hospital && nearestHospitalObj.distance < Infinity) {
+    if (nearestHospitalObj && nearestHospitalObj.hospital) {
       const hospital = nearestHospitalObj.hospital;
       const ambulanceReq = await AmbulanceRequest.create({
         emergencyId: emergency._id,
@@ -428,11 +431,14 @@ const createGuestEmergency = async (req, res) => {
     });
 
     // Alert nearest hospital
-    const hospitals = await Hospital.find({ isVerified: true, isActive: true });
+    let hospitals = await Hospital.find({ isActive: { $ne: false } });
+    if (!hospitals || hospitals.length === 0) {
+      hospitals = await Hospital.find({});
+    }
     
     // Sort hospitals by distance
     const hospitalsWithDist = hospitals.map(h => {
-      let dist = Infinity;
+      let dist = 3.5;
       if (h.location && h.location.latitude && h.location.longitude) {
         dist = getDistance(latitude, longitude, h.location.latitude, h.location.longitude);
       }
@@ -440,7 +446,7 @@ const createGuestEmergency = async (req, res) => {
     }).sort((a, b) => a.distance - b.distance);
 
     const nearestHospitalObj = hospitalsWithDist[0];
-    if (nearestHospitalObj && nearestHospitalObj.hospital && nearestHospitalObj.distance < Infinity) {
+    if (nearestHospitalObj && nearestHospitalObj.hospital) {
       const hospital = nearestHospitalObj.hospital;
       const ambulanceReq = await AmbulanceRequest.create({
         emergencyId: emergency._id,

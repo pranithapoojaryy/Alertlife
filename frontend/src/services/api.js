@@ -956,6 +956,55 @@ export const api = {
     return db.articles;
   },
 
+  getAmbulanceRequests: async () => {
+    try {
+      const { data } = await client.get('/ambulance');
+      if (data.success && data.requests) {
+        return data.requests;
+      }
+    } catch (err) {
+      console.warn('Backend ambulance requests lookup:', err.message);
+    }
+    const db = getLocalDB();
+    if (db.activeSOS && (db.activeSOS.ambulanceStatus === 'requested' || db.activeSOS.ambulanceStatus === 'Dispatched')) {
+      return [{
+        _id: 'amb-' + (db.activeSOS.id || '1'),
+        emergencyId: db.activeSOS,
+        pickupLocation: { latitude: db.activeSOS.lat, longitude: db.activeSOS.lng, address: db.activeSOS.address },
+        status: db.activeSOS.ambulanceStatus === 'Dispatched' ? 'dispatched' : 'pending',
+        ambulanceDetails: db.activeSOS.ambulanceDetails || { vehicleNumber: 'KA-01-ER-1088', driverName: 'Sunil Gowda', driverPhone: '+91 98450 11223' },
+        createdAt: db.activeSOS.timestamp || new Date().toISOString()
+      }];
+    }
+    return [];
+  },
+
+  dispatchAmbulanceUnit: async (requestId, dispatchData) => {
+    try {
+      if (requestId && !requestId.startsWith('amb-')) {
+        const { data } = await client.put(`/ambulance/${requestId}/assign`, dispatchData);
+        if (data.success) {
+          // Backend updated
+        }
+      }
+    } catch (err) {
+      console.warn('Ambulance assign backend note:', err.message);
+    }
+    const db = getLocalDB();
+    if (db.activeSOS) {
+      db.activeSOS.ambulanceStatus = 'Dispatched';
+      db.activeSOS.ambulanceEta = dispatchData.eta || '6 mins';
+      db.activeSOS.ambulanceDetails = {
+        vehicleNumber: dispatchData.vehicleNumber || 'KA-01-ER-1088',
+        driverName: dispatchData.driverName || 'Sunil Gowda',
+        driverPhone: dispatchData.driverPhone || '+91 98450 11223'
+      };
+      saveLocalDB(db);
+      window.dispatchEvent(new Event('alertlife_storage_update'));
+    }
+    return true;
+  },
+
   getRescueLedger: () => {
     const db = getLocalDB();
     return db.rescueLedger || [];
