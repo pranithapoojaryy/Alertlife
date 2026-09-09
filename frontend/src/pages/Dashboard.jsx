@@ -231,7 +231,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
       
       // Continuous siren & vibration loop until volunteer accepts, passes, or emergency resolves
-      if (liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'closed' && liveSos.status !== 'resolved' && currentRole === 'volunteer' && volProfile.isVerified) {
+      if (liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'closed' && liveSos.status !== 'resolved' && currentRole === 'volunteer') {
         startContinuousAlarm();
       } else {
         stopContinuousAlarm();
@@ -1836,8 +1836,8 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                     </div>
                   </div>
 
-                  {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) - Only for Verified Volunteers */}
-                  {volProfile.isVerified && sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && sosState.status !== 'declined' && !sosState.volunteerId && (
+                  {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) */}
+                  {sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && sosState.status !== 'declined' && !sosState.volunteerId && (
                     <div className="card" style={{ border: '3px solid var(--red)', background: 'linear-gradient(180deg, rgba(244, 63, 94, 0.08) 0%, rgba(255,255,255,0.95) 100%)', boxShadow: '0 8px 30px rgba(244, 63, 94, 0.25)', animation: 'pulse-border 1.5s infinite' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

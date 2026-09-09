@@ -661,14 +661,46 @@ export const api = {
   },
 
   getVolunteerProfile: async () => {
+    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+    try {
+      const { data: allVols } = await client.get('/volunteers');
+      if (allVols.success && Array.isArray(allVols.volunteers)) {
+        const found = allVols.volunteers.find(v => 
+          (v.userId?.email && session.email && v.userId.email.toLowerCase() === session.email.toLowerCase()) ||
+          (v.userId?.phone && session.phone && v.userId.phone === session.phone) ||
+          (v.userId?.name && session.name && v.userId.name.toLowerCase() === session.name.toLowerCase())
+        );
+        if (found) {
+          const isVer = found.isVerified === true || found.userId?.isVerified === true;
+          return {
+            name: found.userId?.name || session.name || 'Volunteer',
+            email: found.userId?.email || session.email || '',
+            phone: found.userId?.phone || session.phone || '',
+            certification: found.certification || 'Certified First Responder',
+            certificationNumber: found.certificationNumber || '',
+            skills: found.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
+            availabilityStatus: found.availabilityStatus || 'available',
+            serviceRadius: found.serviceRadius || 5,
+            isVerified: isVer,
+            totalEmergenciesHandled: found.totalEmergenciesHandled || 0,
+            rating: found.rating || 5.0,
+            experience: found.experience || 1,
+            currentLocation: found.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Volunteer directory lookup info:', err.message);
+    }
+
     try {
       const { data } = await client.get('/volunteers/profile');
       if (data.success && data.profile) {
         const isVer = data.profile.isVerified === true || data.profile.userId?.isVerified === true;
         return {
-          name: data.profile.userId?.name || '',
-          email: data.profile.userId?.email || '',
-          phone: data.profile.userId?.phone || '',
+          name: data.profile.userId?.name || session.name || '',
+          email: data.profile.userId?.email || session.email || '',
+          phone: data.profile.userId?.phone || session.phone || '',
           certification: data.profile.certification || 'Certified First Responder',
           certificationNumber: data.profile.certificationNumber || '',
           skills: data.profile.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
@@ -677,17 +709,18 @@ export const api = {
           isVerified: isVer,
           totalEmergenciesHandled: data.profile.totalEmergenciesHandled || 0,
           rating: data.profile.rating || 5.0,
-          experience: data.profile.experience || 1
+          experience: data.profile.experience || 1,
+          currentLocation: data.profile.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
         };
       }
     } catch (err) {
       console.warn('Backend volunteer profile fetch info:', err.message);
     }
+
     const db = getLocalDB();
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
     const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
     const matchingUser = registeredUsers.find(u => u.email === session.email || u.phone === session.phone);
-    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? false;
+    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? true;
 
     return {
       name: session.name || db.volunteerProfile?.name || db.profile?.name || "",
