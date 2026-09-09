@@ -1197,10 +1197,11 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           <input 
                             type="tel" 
                             className="form-input" 
-                            placeholder="Phone Number" 
+                            placeholder="10-Digit Mobile" 
+                            maxLength={10}
                             style={{ padding: '0.5rem', fontSize: '0.75rem' }} 
                             value={newContact.phone} 
-                            onChange={e => setNewContact({...newContact, phone: e.target.value})} 
+                            onChange={e => setNewContact({...newContact, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
                           />
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1231,19 +1232,20 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                                 });
                                 return;
                               }
-                              if (!newContact.phone?.trim()) {
+                              const digits = (newContact.phone || '').replace(/\D/g, '');
+                              if (digits.length !== 10) {
                                 Swal.fire({
-                                  title: 'Validation Error',
-                                  text: 'Please provide the contact phone number.',
+                                  title: 'Invalid Mobile Number',
+                                  text: 'Phone number must be EXACTLY 10 digits.',
                                   icon: 'warning',
                                   confirmButtonColor: '#6366f1'
                                 });
                                 return;
                               }
-                              if (!/^\+?[\d\s\-()]{7,20}$/.test(newContact.phone.trim())) {
+                              if (!/^[6789]\d{9}$/.test(digits)) {
                                 Swal.fire({
-                                  title: 'Invalid Phone Number',
-                                  text: 'Please enter a valid phone number format (e.g. +1 (555) 019-2834).',
+                                  title: 'Invalid Mobile Number',
+                                  text: '10-digit mobile number must start with 6, 7, 8, or 9.',
                                   icon: 'warning',
                                   confirmButtonColor: '#6366f1'
                                 });

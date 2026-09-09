@@ -97,19 +97,11 @@ function App() {
     window.history.pushState({}, '', url);
   };
 
-  // Validate Strict 10-Digit Indian Phone Number (exactly 10 digits, or +91 / 0 prefixed with 10 digits starting 6,7,8,9)
+  // Strictly Validate Exactly 10-Digit Mobile Number (starting with 6, 7, 8, 9)
   const isValidTenDigitPhone = (input) => {
     if (!input) return false;
-    const clean = input.replace(/[\s\-()]/g, '');
-    
-    // If entered as pure digits without country code, must be exactly 10 digits starting with 6,7,8,9
-    if (/^\d+$/.test(clean)) {
-      return /^[6789]\d{9}$/.test(clean);
-    }
-    
-    // If entered with +91 or 0 prefix, the core number must be exactly 10 digits starting with 6,7,8,9
-    const match = clean.match(/^(?:\+91|91|0)?([6789]\d{9})$/);
-    return !!match;
+    const digitsOnly = input.replace(/\D/g, '');
+    return /^[6789]\d{9}$/.test(digitsOnly) && digitsOnly.length === 10;
   };
 
   const handleLogin = async (e) => {
@@ -123,9 +115,9 @@ function App() {
     
     const isEmail = trimmedInput.includes('@');
     if (!isEmail) {
-      // Validate as 10-Digit Mobile Number
-      if (!isValidTenDigitPhone(trimmedInput)) {
-        setError('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210).');
+      const digitsOnly = trimmedInput.replace(/\D/g, '');
+      if (digitsOnly.length !== 10 || !/^[6789]\d{9}$/.test(digitsOnly)) {
+        setError('Mobile number must be EXACTLY 10 digits starting with 6, 7, 8, or 9.');
         return;
       }
     }
@@ -163,12 +155,14 @@ function App() {
       setError('Please enter a valid email address.');
       return;
     }
-    if (!regForm.phone?.trim()) {
-      setError('Please enter your 10-digit phone number.');
+    
+    const phoneDigits = (regForm.phone || '').replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      setError('Phone number must be EXACTLY 10 digits.');
       return;
     }
-    if (!isValidTenDigitPhone(regForm.phone.trim())) {
-      setError('Phone number must be exactly 10 digits starting with 6, 7, 8, or 9 (e.g. 9876543210).');
+    if (!/^[6789]\d{9}$/.test(phoneDigits)) {
+      setError('10-digit mobile number must start with 6, 7, 8, or 9.');
       return;
     }
     if (!regForm.password || regForm.password.length < 6) {
@@ -181,7 +175,7 @@ function App() {
       const regPayload = {
         name: regForm.name.trim(),
         email: regForm.email.toLowerCase().trim(),
-        phone: regForm.phone.trim(),
+        phone: phoneDigits,
         password: regForm.password,
         role: currentRole,
         bloodGroup: regForm.bloodGroup || 'O+'
@@ -244,7 +238,15 @@ function App() {
                   className="form-input" 
                   placeholder="name@email.com or 9876543210" 
                   value={loginEmail} 
-                  onChange={e => setLoginEmail(e.target.value)} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    // If typing pure digits, strictly cap at 10 numbers
+                    if (/^\d+$/.test(val)) {
+                      setLoginEmail(val.slice(0, 10));
+                    } else {
+                      setLoginEmail(val);
+                    }
+                  }} 
                   required 
                 />
               </div>
@@ -278,13 +280,16 @@ function App() {
                   type="tel" 
                   className="form-input" 
                   placeholder="9876543210" 
-                  maxLength={13}
+                  maxLength={10}
                   value={regForm.phone} 
-                  onChange={e => setRegForm({...regForm, phone: e.target.value})} 
+                  onChange={e => {
+                    const onlyNums = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setRegForm({...regForm, phone: onlyNums});
+                  }} 
                   required 
                 />
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem', display: 'block' }}>
-                  Must be exactly 10 digits (starting with 6, 7, 8, or 9)
+                  {regForm.phone ? `${regForm.phone.length}/10 digits` : 'Exactly 10 digits (starts with 6, 7, 8, 9)'}
                 </span>
               </div>
               <div className="form-group">
