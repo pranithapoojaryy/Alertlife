@@ -170,25 +170,55 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       });
     }
 
-    // Track previous SOS id to trigger audio & vibration alert on new emergency
-    let lastKnownSosId = null;
+    // Track continuous emergency alarm siren & vibration for volunteer
+    let alarmInterval = null;
 
-    const playAlertChime = () => {
+    const playSirenPulse = () => {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
-        osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        // European / US Two-Tone Ambulance Siren Pulse (700Hz to 950Hz)
+        osc.frequency.setValueAtTime(750, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(950, audioCtx.currentTime + 0.25);
+        osc.frequency.linearRampToValueAtTime(750, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.55);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.5);
+        osc.stop(audioCtx.currentTime + 0.55);
       } catch {
-        // AudioContext not allowed before user gesture
+        // audio context handling
+      }
+    };
+
+    const startContinuousAlarm = () => {
+      if (!window._alertlife_siren_interval) {
+        playSirenPulse();
+        if (navigator.vibrate) {
+          navigator.vibrate([400, 200, 400, 200, 600]);
+        }
+        window._alertlife_siren_interval = setInterval(() => {
+          playSirenPulse();
+          if (navigator.vibrate) {
+            navigator.vibrate([400, 200, 400, 200, 600]);
+          }
+        }, 1200);
+      }
+    };
+
+    const stopContinuousAlarm = () => {
+      if (window._alertlife_siren_interval) {
+        clearInterval(window._alertlife_siren_interval);
+        window._alertlife_siren_interval = null;
+      }
+      if (navigator.vibrate) {
+        navigator.vibrate(0);
       }
     };
 
@@ -200,13 +230,11 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         liveSos = api.getActiveSOS();
       }
       
-      // Alert volunteer if a new unaccepted citizen emergency arrives targeted for them
-      if (liveSos && liveSos.id && liveSos.id !== lastKnownSosId && !liveSos.volunteerId && currentRole === 'volunteer') {
-        lastKnownSosId = liveSos.id;
-        playAlertChime();
-        if (navigator.vibrate) {
-          navigator.vibrate([300, 100, 300, 100, 400]);
-        }
+      // Continuous siren & vibration loop until volunteer accepts, passes, or emergency resolves
+      if (liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'closed' && liveSos.status !== 'resolved' && currentRole === 'volunteer' && volProfile.isVerified) {
+        startContinuousAlarm();
+      } else {
+        stopContinuousAlarm();
       }
 
       setSosState(prev => {
@@ -247,7 +275,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     fetchStaticData();
 
     // High frequency sync interval (polls live Render cloud backend)
-    const interval = setInterval(fetchData, 2500);
+    const interval = setInterval(fetchData, 2000);
 
     // Instant cross-tab and in-tab event listeners
     window.addEventListener('storage', fetchData);
@@ -255,6 +283,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
     return () => {
       clearInterval(interval);
+      stopContinuousAlarm();
       window.removeEventListener('storage', fetchData);
       window.removeEventListener('alertlife_storage_update', fetchData);
     };
@@ -573,7 +602,38 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     setShowPublishModal(false);
   };
 
+  // Volunteer SOS Auto-pass Countdown (30 seconds)
+  const [sosCountdown, setSosCountdown] = useState(30);
+
+  useEffect(() => {
+    let timer = null;
+    if (currentRole === 'volunteer' && sosState && !sosState.volunteerId && sosState.status !== 'closed' && sosState.status !== 'resolved') {
+      setSosCountdown(30);
+      timer = setInterval(() => {
+        setSosCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            // Automatically cascade/pass to next nearby volunteer if no response in 30 seconds
+            handlePassSOS(true);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setSosCountdown(30);
+    }
+    return () => clearInterval(timer);
+  }, [sosState?.id, sosState?.volunteerId, currentRole]);
+
   const acceptSOS = () => {
+    // Immediately silence siren
+    if (window._alertlife_siren_interval) {
+      clearInterval(window._alertlife_siren_interval);
+      window._alertlife_siren_interval = null;
+    }
+    if (navigator.vibrate) navigator.vibrate(0);
+
     const active = api.updateSOS({
       status: 'accepted',
       volunteerId: 'vol-active',
@@ -584,7 +644,14 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     setSosState(active);
   };
 
-  const handlePassSOS = async () => {
+  const handlePassSOS = async (autoPass = false) => {
+    // Immediately silence siren
+    if (window._alertlife_siren_interval) {
+      clearInterval(window._alertlife_siren_interval);
+      window._alertlife_siren_interval = null;
+    }
+    if (navigator.vibrate) navigator.vibrate(0);
+
     const emergencyId = sosState?.id;
     const volId = volProfile?._id || user?._id || 'vol-active';
     
@@ -593,10 +660,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     setNavProgress(0);
 
     Swal.fire({
-      title: 'SOS Request Passed',
-      text: 'Cascading emergency alert to the next closest available volunteer in the grid...',
+      title: autoPass ? '⏰ Time Expired: SOS Re-routed' : 'SOS Request Passed',
+      text: autoPass ? 'No response in 30s. Emergency alert automatically routed to next closest volunteer in the grid...' : 'Cascading emergency alert to the next closest available volunteer in the grid...',
       icon: 'info',
-      timer: 2000,
+      timer: 2500,
       showConfirmButton: false
     });
 
@@ -1762,12 +1829,24 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
                   {/* Incoming Emergency Dispatch Card (Pending Volunteer Acceptance) - Only for Verified Volunteers */}
                   {volProfile.isVerified && sosState && sosState.status !== 'completed' && sosState.status !== 'closed' && sosState.status !== 'declined' && !sosState.volunteerId && (
-                    <div className="card" style={{ border: '2px solid var(--red)', background: 'rgba(244, 63, 94, 0.05)', animation: 'pulse-border 1.5s infinite' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>🚨 INCOMING CITIZEN EMERGENCY DISPATCH</span>
-                        <span className={`badge ${sosState.severity === 'high' ? 'badge-red' : 'badge-amber'}`}>
-                          {sosState.severity === 'high' ? 'HIGH PRIORITY' : 'MODERATE TRIAGE'}
-                        </span>
+                    <div className="card" style={{ border: '3px solid var(--red)', background: 'linear-gradient(180deg, rgba(244, 63, 94, 0.08) 0%, rgba(255,255,255,0.95) 100%)', boxShadow: '0 8px 30px rgba(244, 63, 94, 0.25)', animation: 'pulse-border 1.5s infinite' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span className="badge badge-red" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', fontWeight: 800 }}>
+                            🚨 CITIZEN SOS DISPATCH
+                          </span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--red)', animation: 'pulse-avatar 1s infinite' }}>
+                            🔊 ALARM RINGING
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span className="badge badge-amber" style={{ fontWeight: 800, fontSize: '0.75rem', padding: '0.35rem 0.6rem' }}>
+                            ⏱️ Auto-Pass in {sosCountdown}s
+                          </span>
+                          <span className={`badge ${sosState.severity === 'high' ? 'badge-red' : 'badge-amber'}`}>
+                            {sosState.severity === 'high' ? 'HIGH PRIORITY' : 'MODERATE TRIAGE'}
+                          </span>
+                        </div>
                       </div>
 
                       <h3 style={{ fontSize: '1.25rem', color: 'var(--red-dark)', marginBottom: '0.5rem' }}>
