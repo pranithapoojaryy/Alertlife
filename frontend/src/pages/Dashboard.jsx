@@ -19,8 +19,8 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
   const [profile, setProfile] = useState(() => {
     const local = api.getProfileSync ? api.getProfileSync() : null;
     return local || { 
-      name: user.name || '', 
-      email: user.email || '', 
+      name: '', 
+      email: '', 
       phone: '', 
       bloodGroup: 'O+', 
       allergies: '', 
@@ -40,20 +40,22 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
   // Volunteer Specific Extended States
   const [dutyStatus, setDutyStatus] = useState('available');
-  const [volProfile, setVolProfile] = useState({
-    name: user.name || '',
-    email: user.email || '',
-    phone: '',
-    certification: 'Certified First Responder',
-    certificationNumber: '',
-    skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'Choking Relief'],
-    availabilityStatus: 'available',
-    serviceRadius: 5,
-    isVerified: true,
-    totalEmergenciesHandled: 0,
-    rating: 5.0,
-    experience: 1,
-    currentLocation: { latitude: 12.9352, longitude: 77.6245 }
+  const [volProfile, setVolProfile] = useState(() => {
+    return {
+      name: '',
+      email: '',
+      phone: '',
+      certification: 'Certified First Responder',
+      certificationNumber: '',
+      skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'Choking Relief'],
+      availabilityStatus: 'available',
+      serviceRadius: 5,
+      isVerified: true,
+      totalEmergenciesHandled: 0,
+      rating: 5.0,
+      experience: 1,
+      currentLocation: { latitude: 12.9352, longitude: 77.6245 }
+    };
   });
   const [isCprActive, setIsCprActive] = useState(false);
   const [cprBeats, setCprBeats] = useState(0);
@@ -364,14 +366,17 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       });
       return;
     }
-    if (volProfile.phone && !/^\+?[\d\s\-()]{7,20}$/.test(volProfile.phone)) {
-      Swal.fire({
-        title: 'Invalid Phone Number',
-        text: 'Please enter a valid phone number (e.g. +1 (555) 012-3456).',
-        icon: 'warning',
-        confirmButtonColor: '#6366f1'
-      });
-      return;
+    if (volProfile.phone) {
+      const volPhoneDigits = volProfile.phone.replace(/\D/g, '');
+      if (volPhoneDigits.length !== 10 || !/^[6789]\d{9}$/.test(volPhoneDigits)) {
+        Swal.fire({
+          title: 'Invalid Phone Number',
+          text: 'Volunteer phone number must be EXACTLY 10 digits (starting with 6, 7, 8, or 9).',
+          icon: 'warning',
+          confirmButtonColor: '#6366f1'
+        });
+        return;
+      }
     }
     api.updateVolunteerProfile(volProfile).then(updated => {
       if (updated) setVolProfile(updated);
@@ -702,19 +707,11 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       });
       return;
     }
-    if (!profile.phone?.trim()) {
+    const phoneDigits = (profile.phone || '').replace(/\D/g, '');
+    if (phoneDigits.length !== 10 || !/^[6789]\d{9}$/.test(phoneDigits)) {
       Swal.fire({
-        title: 'Validation Error',
-        text: 'Phone Number is required.',
-        icon: 'warning',
-        confirmButtonColor: '#6366f1'
-      });
-      return;
-    }
-    if (!/^\+?[\d\s\-()]{7,20}$/.test(profile.phone)) {
-      Swal.fire({
-        title: 'Invalid Phone Format',
-        text: 'Please enter a valid phone number (e.g. +1 (555) 019-2834).',
+        title: 'Invalid Mobile Number',
+        text: 'Phone number must be EXACTLY 10 digits (starting with 6, 7, 8, or 9).',
         icon: 'warning',
         confirmButtonColor: '#6366f1'
       });

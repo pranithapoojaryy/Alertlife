@@ -30,17 +30,35 @@ const defaultState = {
     organDonor: false,
     medications: ""
   },
+  volunteerProfile: {
+    name: "",
+    email: "",
+    phone: "",
+    certification: "Certified First Responder",
+    certificationNumber: "",
+    skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'Choking Relief'],
+    availabilityStatus: "available",
+    serviceRadius: 5,
+    isVerified: true,
+    totalEmergenciesHandled: 0,
+    rating: 5.0,
+    experience: 1,
+    currentLocation: { latitude: 12.9352, longitude: 77.6245 }
+  },
   activeSOS: null,
   webinars: [],
   rescueLedger: [],
   articles: [],
+  incidentHistory: [],
   radius: 5.0
 };
 
+const DB_KEY = 'alertlife_db_v4';
+
 const getLocalDB = () => {
-  const data = localStorage.getItem('alertlife_db_v3');
+  const data = localStorage.getItem(DB_KEY);
   if (!data) {
-    localStorage.setItem('alertlife_db_v3', JSON.stringify(defaultState));
+    localStorage.setItem(DB_KEY, JSON.stringify(defaultState));
     return defaultState;
   }
   try {
@@ -51,7 +69,7 @@ const getLocalDB = () => {
 };
 
 const saveLocalDB = (state) => {
-  localStorage.setItem('alertlife_db_v3', JSON.stringify(state));
+  localStorage.setItem(DB_KEY, JSON.stringify(state));
 };
 
 export const api = {
@@ -908,6 +926,17 @@ export const api = {
     });
     saveLocalDB(db);
     return db.rescueLedger;
+  },
+
+  clearAllData: () => {
+    localStorage.removeItem('user_session');
+    localStorage.removeItem('alertlife_token');
+    localStorage.removeItem('alertlife_registered_users');
+    localStorage.removeItem('alertlife_db_v3');
+    localStorage.removeItem(DB_KEY);
+    saveLocalDB(defaultState);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
+    return true;
   }
 };
 
