@@ -859,6 +859,7 @@ export const api = {
     db.rescueLedger = [newRescueLog, ...(db.rescueLedger || [])];
     db.activeSOS = null;
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return true;
   },
 

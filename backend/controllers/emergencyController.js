@@ -305,31 +305,47 @@ const getVolunteerEmergencies = async (req, res) => {
 };
 
 // @desc Submit volunteer emergency report
-// @route POST /api/emergencies/:id/report
-// @access Private (volunteer)
 const submitReport = async (req, res) => {
   try {
-    const { description, firstAidProvided, patientCondition } = req.body;
-    const assignment = await VolunteerAssignment.findOneAndUpdate(
-      { emergencyId: req.params.id, volunteerId: req.user._id },
+    const { description, firstAidProvided, patientCondition, notes, pulse, bloodPressure, vitals } = req.body;
+    const volunteerId = req.user ? req.user._id : null;
+
+    await EmergencyRequest.findByIdAndUpdate(
+      req.params.id,
       {
-        status: 'completed',
-        completedAt: new Date(),
-        report: { description, firstAidProvided, patientCondition, submittedAt: new Date() },
+        status: 'resolved',
+        resolvedAt: new Date(),
+        $push: {
+          notes: {
+            author: 'Volunteer Responder',
+            content: `Outcome: ${patientCondition || 'Resolved'} | ${firstAidProvided || description || ''} | ${vitals || `BP: ${bloodPressure || 'N/A'}, Pulse: ${pulse || 'N/A'}`}`
+          }
+        }
       },
       { new: true }
     );
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
 
-    await Volunteer.findOneAndUpdate(
-      { userId: req.user._id },
-      { 
-        $inc: { totalEmergenciesHandled: 1, experience: 10 },
-        $set: { availabilityStatus: 'available' }
-      }
-    );
+    if (volunteerId) {
+      await VolunteerAssignment.findOneAndUpdate(
+        { emergencyId: req.params.id, volunteerId: volunteerId },
+        {
+          status: 'completed',
+          completedAt: new Date(),
+          report: { description, firstAidProvided, patientCondition, submittedAt: new Date() },
+        },
+        { new: true, upsert: true }
+      );
 
-    res.json({ success: true, message: 'Report submitted', assignment });
+      await Volunteer.findOneAndUpdate(
+        { userId: volunteerId },
+        { 
+          $inc: { totalEmergenciesHandled: 1, experience: 10 },
+          $set: { availabilityStatus: 'available' }
+        }
+      );
+    }
+
+    res.json({ success: true, message: 'Report submitted and emergency resolved successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

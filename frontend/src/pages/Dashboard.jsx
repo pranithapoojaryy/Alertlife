@@ -713,23 +713,34 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     api.updateSOS({ consultationActive: false });
   };
 
-  const handleDetailedReportSubmit = (e) => {
+  const handleDetailedReportSubmit = async (e) => {
     e.preventDefault();
     const activeEmergencyId = sosState?.id || 'sos-' + Date.now();
-    api.submitIncidentReport(activeEmergencyId, {
-      patientCondition: reportForm.condition,
-      interventions: reportForm.interventions,
+    
+    // Clear screen immediately
+    setSosState(null);
+    setNavProgress(0);
+    setReportForm({
+      condition: 'Stabilized / Awake',
+      interventions: '',
+      pulse: '',
+      bloodPressure: '',
+      notes: ''
+    });
+
+    await api.submitIncidentReport(activeEmergencyId, {
+      patientCondition: reportForm.condition || 'Stabilized',
+      interventions: reportForm.interventions || 'First Aid',
       pulse: reportForm.pulse,
       bloodPressure: reportForm.bloodPressure,
       notes: reportForm.notes,
-      description: `${reportForm.interventions} | Condition: ${reportForm.condition}`,
-      vitals: `BP ${reportForm.bloodPressure} | HR ${reportForm.pulse}`
+      description: `${reportForm.interventions || 'First Aid'} | Condition: ${reportForm.condition || 'Stabilized'}`,
+      vitals: `BP ${reportForm.bloodPressure || 'Normal'} | HR ${reportForm.pulse || 'Normal'}`
     });
-    setSosState(null);
-    setNavProgress(0);
+
     Swal.fire({
-      title: 'Incident Logged!',
-      text: 'Field Incident & Vitals Logged successfully! Rescue work recorded for Admin verification.',
+      title: 'Incident Logged & Cleared!',
+      text: 'Field Incident & Vitals Logged successfully! Emergency marked as resolved.',
       icon: 'success',
       confirmButtonColor: '#10b981'
     });
