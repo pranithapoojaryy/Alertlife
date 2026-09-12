@@ -47,6 +47,27 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
   const [showAddContact, setShowAddContact] = useState(false);
   const [editingContactId, setEditingContactId] = useState(null);
   const [radius, setRadius] = useState(api.getRadius());
+  const [isSirenMuted, setIsSirenMuted] = useState(() => {
+    try {
+      return localStorage.getItem('alertlife_siren_muted') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [realtimeStatus, setRealtimeStatus] = useState('connected');
+
+  const toggleSirenMute = () => {
+    setIsSirenMuted(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('alertlife_siren_muted', String(next));
+      } catch {}
+      if (next) {
+        stopContinuousAlarm();
+      }
+      return next;
+    });
+  };
 
   // Volunteer Specific Extended States
   const [dutyStatus, setDutyStatus] = useState('available');
@@ -222,6 +243,9 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
   // Track continuous emergency ambulance siren & vibration for incoming emergency
   const playAmbulanceSiren = () => {
+    if (isSirenMuted || localStorage.getItem('alertlife_siren_muted') === 'true') {
+      return;
+    }
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
@@ -966,7 +990,13 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeStatus('connected');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setRealtimeStatus('connecting');
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -1127,11 +1157,47 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           <div className="mobile-logo">
             <span>🚨</span> Alert Life
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span 
+              title={realtimeStatus === 'connected' ? 'Supabase Realtime WebSocket Active' : 'Connecting to Supabase...'}
+              style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontSize: '0.7rem', 
+                padding: '0.2rem 0.45rem', 
+                borderRadius: '12px', 
+                background: realtimeStatus === 'connected' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                color: realtimeStatus === 'connected' ? 'var(--emerald)' : 'var(--amber)',
+                border: `1px solid ${realtimeStatus === 'connected' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: realtimeStatus === 'connected' ? '#10b981' : '#f59e0b', display: 'inline-block' }}></span>
+              {realtimeStatus === 'connected' ? 'Live' : 'Connecting'}
+            </span>
+
+            <button
+              onClick={toggleSirenMute}
+              title={isSirenMuted ? 'Unmute siren sound' : 'Mute siren sound'}
+              style={{
+                background: isSirenMuted ? 'rgba(239, 68, 68, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                border: `1px solid ${isSirenMuted ? 'rgba(239, 68, 68, 0.3)' : 'rgba(99, 102, 241, 0.3)'}`,
+                color: isSirenMuted ? 'var(--red)' : 'var(--blue)',
+                padding: '0.2rem 0.45rem',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center'
+              }}
+            >
+              {isSirenMuted ? '🔇' : '🔊'}
+            </button>
+
             <span 
               style={{ 
-                padding: '0.25rem 0.6rem', 
-                fontSize: '0.75rem', 
+                padding: '0.25rem 0.5rem', 
+                fontSize: '0.72rem', 
                 fontWeight: 700, 
                 borderRadius: '20px',
                 background: currentRole === 'volunteer' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)', 
@@ -1139,7 +1205,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                 border: `1px solid ${currentRole === 'volunteer' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.3)'}`
               }}
             >
-              {currentRole === 'volunteer' ? '🛡️ Volunteer' : '👤 Citizen'}
+              {currentRole === 'volunteer' ? '🛡️ Vol' : '👤 Cit'}
             </span>
             <button className="btn btn-outline" style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem' }} onClick={onLogout}>
               Logout
@@ -3071,6 +3137,27 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       <aside className="sidebar">
         <div className="logo">
           <span>{currentRole === 'hospital' ? '🏥' : '🚨'}</span> {currentRole === 'hospital' ? 'Hospital ER Portal' : 'Alert Life Desk'}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.45rem 0.65rem', margin: '0.4rem 0 0.85rem', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: realtimeStatus === 'connected' ? 'var(--emerald)' : 'var(--amber)' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: realtimeStatus === 'connected' ? '#10b981' : '#f59e0b', display: 'inline-block' }}></span>
+            {realtimeStatus === 'connected' ? 'Supabase Live' : 'Connecting...'}
+          </span>
+          <button
+            onClick={toggleSirenMute}
+            title={isSirenMuted ? 'Unmute siren sound' : 'Mute siren sound'}
+            style={{
+              background: isSirenMuted ? 'rgba(239, 68, 68, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+              border: `1px solid ${isSirenMuted ? 'rgba(239, 68, 68, 0.3)' : 'rgba(99, 102, 241, 0.3)'}`,
+              color: isSirenMuted ? 'var(--red)' : 'var(--blue)',
+              padding: '0.2rem 0.5rem',
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              cursor: 'pointer'
+            }}
+          >
+            {isSirenMuted ? '🔇 Muted' : '🔊 Sound On'}
+          </button>
         </div>
         <div className="sidebar-menu">
           {currentRole === 'hospital' ? (
