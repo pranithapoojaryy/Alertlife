@@ -34,18 +34,9 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then(reg => {
-              reg.update();
-              console.log('PWA ServiceWorker registered & updated:', reg.scope);
+              console.log('PWA ServiceWorker registered:', reg.scope);
             })
             .catch(err => console.log('PWA ServiceWorker registration failed:', err));
-        });
-
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
-          }
         });
       }
     </script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alertlife-v7-' + Date.now();
+const CACHE_NAME = 'alertlife-v1.0.0';
 const ASSETS = [
   '/',
   '/index.html',

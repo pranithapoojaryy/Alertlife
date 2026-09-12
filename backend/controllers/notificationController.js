@@ -1,32 +1,50 @@
-const Notification = require('../models/Notification');
+const supabase = require('../config/supabase');
 
 const getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50);
-    const unreadCount = await Notification.countDocuments({ userId: req.user._id, isRead: false });
-    res.json({ success: true, notifications, unreadCount });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+    const userId = req.user ? (req.user.id || req.user._id) : null;
+    const { data: notifications, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) return res.status(500).json({ success: false, message: error.message });
+
+    const unreadCount = (notifications || []).filter(n => !n.is_read).length;
+    res.json({ success: true, notifications: notifications || [], unreadCount });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const markAsRead = async (req, res) => {
   try {
-    await Notification.findByIdAndUpdate(req.params.id, { isRead: true, readAt: new Date() });
+    await supabase.from('notifications').update({ is_read: true }).eq('id', req.params.id);
     res.json({ success: true, message: 'Marked as read' });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const markAllAsRead = async (req, res) => {
   try {
-    await Notification.updateMany({ userId: req.user._id, isRead: false }, { isRead: true, readAt: new Date() });
+    const userId = req.user ? (req.user.id || req.user._id) : null;
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId);
     res.json({ success: true, message: 'All notifications marked as read' });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const deleteNotification = async (req, res) => {
   try {
-    await Notification.findByIdAndDelete(req.params.id);
+    await supabase.from('notifications').delete().eq('id', req.params.id);
     res.json({ success: true, message: 'Notification deleted' });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 module.exports = { getNotifications, markAsRead, markAllAsRead, deleteNotification };

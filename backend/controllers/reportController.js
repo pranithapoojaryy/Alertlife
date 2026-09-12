@@ -1,113 +1,151 @@
-const User = require('../models/User');
-const EmergencyRequest = require('../models/EmergencyRequest');
-const Volunteer = require('../models/Volunteer');
-const Hospital = require('../models/Hospital');
-const AmbulanceRequest = require('../models/AmbulanceRequest');
-const DoctorConsultation = require('../models/DoctorConsultation');
-const AwarenessEvent = require('../models/AwarenessEvent');
+const supabase = require('../config/supabase');
 
 const getDashboardStats = async (req, res) => {
   try {
-    const [totalUsers, totalEmergencies, activeEmergencies, totalVolunteers,
-      verifiedVolunteers, totalHospitals, totalAmbulanceRequests, resolvedEmergencies] = await Promise.all([
-      User.countDocuments(),
-      EmergencyRequest.countDocuments(),
-      EmergencyRequest.countDocuments({ status: { $in: ['pending', 'assigned', 'in_progress'] } }),
-      Volunteer.countDocuments(),
-      Volunteer.countDocuments({ isVerified: true }),
-      Hospital.countDocuments(),
-      AmbulanceRequest.countDocuments(),
-      EmergencyRequest.countDocuments({ status: 'resolved' }),
+    const [
+      { count: totalUsers },
+      { count: totalEmergencies },
+      { count: activeEmergencies },
+      { count: totalVolunteers },
+      { count: verifiedVolunteers },
+      { count: totalHospitals },
+      { count: totalAmbulanceRequests },
+      { count: resolvedEmergencies }
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('emergency_requests').select('*', { count: 'exact', head: true }),
+      supabase.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ['pending', 'assigned', 'in_progress']),
+      supabase.from('volunteers').select('*', { count: 'exact', head: true }),
+      supabase.from('volunteers').select('*', { count: 'exact', head: true }).eq('is_verified', true),
+      supabase.from('hospitals').select('*', { count: 'exact', head: true }),
+      supabase.from('ambulance_requests').select('*', { count: 'exact', head: true }),
+      supabase.from('emergency_requests').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
     ]);
 
     // Emergency type breakdown
-    const emergencyByType = await EmergencyRequest.aggregate([
-      { $group: { _id: '$emergencyType', count: { $sum: 1 } } },
-    ]);
-
-    // Monthly emergencies (last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const monthlyEmergencies = await EmergencyRequest.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo } } },
-      { $group: { _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } }, count: { $sum: 1 } } },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]);
+    const { data: allReqs } = await supabase.from('emergency_requests').select('emergency_type');
+    const typeMap = {};
+    (allReqs || []).forEach(r => {
+      const t = r.emergency_type || 'other';
+      typeMap[t] = (typeMap[t] || 0) + 1;
+    });
+    const emergencyByType = Object.keys(typeMap).map(k => ({ _id: k, count: typeMap[k] }));
 
     res.json({
       success: true,
       stats: {
-        totalUsers, totalEmergencies, activeEmergencies, totalVolunteers,
-        verifiedVolunteers, totalHospitals, totalAmbulanceRequests, resolvedEmergencies,
-        resolutionRate: totalEmergencies ? ((resolvedEmergencies / totalEmergencies) * 100).toFixed(1) : 0,
+        totalUsers: totalUsers || 0,
+        totalEmergencies: totalEmergencies || 0,
+        activeEmergencies: activeEmergencies || 0,
+        totalVolunteers: totalVolunteers || 0,
+        verifiedVolunteers: verifiedVolunteers || 0,
+        totalHospitals: totalHospitals || 0,
+        totalAmbulanceRequests: totalAmbulanceRequests || 0,
+        resolvedEmergencies: resolvedEmergencies || 0,
+        resolutionRate: totalEmergencies ? (((resolvedEmergencies || 0) / totalEmergencies) * 100).toFixed(1) : 0,
         emergencyByType,
-        monthlyEmergencies,
+        monthlyEmergencies: [],
       },
     });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const getUserStats = async (req, res) => {
   try {
-    const users = await User.find({}, 'name email role isActive isVerified createdAt').sort({ createdAt: -1 }).limit(100);
-    const roleBreakdown = await User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]);
-    res.json({ success: true, users, roleBreakdown });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, is_active, is_verified, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const roleMap = {};
+    (users || []).forEach(u => {
+      const r = u.role || 'citizen';
+      roleMap[r] = (roleMap[r] || 0) + 1;
+    });
+    const roleBreakdown = Object.keys(roleMap).map(r => ({ _id: r, count: roleMap[r] }));
+
+    res.json({ success: true, users: users || [], roleBreakdown });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const toggleUserStatus = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    user.isActive = !user.isActive;
-    await user.save();
-    res.json({ success: true, message: `User ${user.isActive ? 'activated' : 'deactivated'}`, user });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, is_active')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const newStatus = !(user.is_active ?? true);
+    const { data: updated, error: upErr } = await supabase
+      .from('users')
+      .update({ is_active: newStatus })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    res.json({ success: true, message: `User ${newStatus ? 'activated' : 'deactivated'}`, user: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const getRecentActivities = async (req, res) => {
   try {
-    const [emergencies, ambulances, volunteers] = await Promise.all([
-      EmergencyRequest.find().populate('citizenId', 'name').sort({ createdAt: -1 }).limit(10),
-      AmbulanceRequest.find().populate('requestedBy', 'name').sort({ createdAt: -1 }).limit(10),
-      Volunteer.find().populate('userId', 'name').sort({ createdAt: -1 }).limit(10)
+    const [
+      { data: emergencies },
+      { data: ambulances },
+      { data: volunteers }
+    ] = await Promise.all([
+      supabase.from('emergency_requests').select('*').order('created_at', { ascending: false }).limit(10),
+      supabase.from('ambulance_requests').select('*').order('created_at', { ascending: false }).limit(10),
+      supabase.from('volunteers').select('*, user:users!user_id(name)').order('created_at', { ascending: false }).limit(10)
     ]);
 
     const activities = [];
 
-    emergencies.forEach(e => {
+    (emergencies || []).forEach(e => {
       activities.push({
-        id: e._id,
+        id: e.id,
         type: 'emergency',
         icon: '🚨',
         color: '#e63946',
         bg: 'rgba(230,57,70,0.1)',
-        message: `New SOS: ${e.emergencyType.replace('_', ' ')} reported by ${e.citizenId?.name || 'Citizen'} at ${e.location?.address || 'captured location'}`,
-        time: e.createdAt
+        message: `New SOS: ${(e.emergency_type || 'medical').replace('_', ' ')} reported by ${e.patient_name || 'Citizen'} at ${e.address || 'location'}`,
+        time: e.created_at
       });
     });
 
-    ambulances.forEach(a => {
+    (ambulances || []).forEach(a => {
       activities.push({
-        id: a._id,
+        id: a.id,
         type: 'ambulance',
         icon: '🚑',
         color: '#f4a261',
         bg: 'rgba(244,162,97,0.1)',
-        message: `Ambulance ${a.status} for emergency request. Driver: ${a.ambulanceDetails?.driverName || 'Assigning...'}`,
-        time: a.createdAt
+        message: `Ambulance ${a.status || 'dispatched'} for emergency request.`,
+        time: a.created_at
       });
     });
 
-    volunteers.forEach(v => {
+    (volunteers || []).forEach(v => {
       activities.push({
-        id: v._id,
+        id: v.id,
         type: 'volunteer',
         icon: '🙋',
         color: '#2ec4b6',
         bg: 'rgba(46,196,182,0.1)',
-        message: `New volunteer registered: ${v.userId?.name || 'Volunteer'}. Certification: ${v.certificationNumber || 'Pending'}`,
-        time: v.createdAt
+        message: `New volunteer registered: ${v.user?.name || 'Volunteer'}. Certification: ${v.certification_number || 'Pending'}`,
+        time: v.created_at
       });
     });
 

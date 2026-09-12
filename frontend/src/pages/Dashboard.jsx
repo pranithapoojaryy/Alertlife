@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { api } from '../services/api';
+import { supabase } from '../services/supabaseClient';
 
 export default function Dashboard({ user = { name: '', email: '', role: 'citizen' }, onLogout }) {
   const currentRole = (user && user.role) ? user.role.toLowerCase() : 'citizen';
@@ -219,6 +220,64 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     }
   }, [currentRole]);
 
+  // Track continuous emergency ambulance siren & vibration for incoming emergency
+  const playAmbulanceSiren = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      // Authentic emergency ambulance siren (pitch sweep / dual-tone hi-lo horn)
+      osc.type = 'sawtooth';
+      
+      // Wail from 650Hz to 1100Hz and back to create a piercing emergency ambulance siren
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.linearRampToValueAtTime(1150, now + 0.35);
+      osc.frequency.linearRampToValueAtTime(650, now + 0.70);
+
+      gain.gain.setValueAtTime(0.6, now);
+      gain.gain.setValueAtTime(0.6, now + 0.70);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.78);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.78);
+    } catch {
+      // audio context handling
+    }
+  };
+
+  const startContinuousAlarm = () => {
+    if (!window._alertlife_siren_interval) {
+      playAmbulanceSiren();
+      if (navigator.vibrate) {
+        navigator.vibrate([350, 150, 350, 250]);
+      }
+      window._alertlife_siren_interval = setInterval(() => {
+        playAmbulanceSiren();
+        if (navigator.vibrate) {
+          navigator.vibrate([350, 150, 350, 250]);
+        }
+      }, 800);
+    }
+  };
+
+  const stopContinuousAlarm = () => {
+    if (window._alertlife_siren_interval) {
+      clearInterval(window._alertlife_siren_interval);
+      window._alertlife_siren_interval = null;
+    }
+    if (navigator.vibrate) {
+      navigator.vibrate(0);
+    }
+  };
+
   // Sync state on intervals
   useEffect(() => {
     // Fetch initial profile async
@@ -231,64 +290,6 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         }
       });
     }
-
-    // Track continuous emergency ambulance siren & vibration for incoming emergency
-    const playAmbulanceSiren = () => {
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-
-        // Authentic emergency ambulance siren (pitch sweep / dual-tone hi-lo horn)
-        osc.type = 'sawtooth';
-        
-        // Wail from 650Hz to 1100Hz and back to create a piercing emergency ambulance siren
-        osc.frequency.setValueAtTime(650, now);
-        osc.frequency.linearRampToValueAtTime(1150, now + 0.35);
-        osc.frequency.linearRampToValueAtTime(650, now + 0.70);
-
-        gain.gain.setValueAtTime(0.6, now);
-        gain.gain.setValueAtTime(0.6, now + 0.70);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.78);
-
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.78);
-      } catch {
-        // audio context handling
-      }
-    };
-
-    const startContinuousAlarm = () => {
-      if (!window._alertlife_siren_interval) {
-        playAmbulanceSiren();
-        if (navigator.vibrate) {
-          navigator.vibrate([350, 150, 350, 250]);
-        }
-        window._alertlife_siren_interval = setInterval(() => {
-          playAmbulanceSiren();
-          if (navigator.vibrate) {
-            navigator.vibrate([350, 150, 350, 250]);
-          }
-        }, 800);
-      }
-    };
-
-    const stopContinuousAlarm = () => {
-      if (window._alertlife_siren_interval) {
-        clearInterval(window._alertlife_siren_interval);
-        window._alertlife_siren_interval = null;
-      }
-      if (navigator.vibrate) {
-        navigator.vibrate(0);
-      }
-    };
 
     const fetchData = async () => {
       let liveSos = null;
@@ -778,6 +779,199 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       await api.passSOS(emergencyId, volId);
     }
   };
+
+  // -----------------------------------------------------------------
+  // Supabase Real-Time Engine (emergency_requests, volunteer_assignments, notifications)
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    const mapEmergencyPayload = (newReq) => ({
+      id: newReq.id,
+      timestamp: newReq.created_at || newReq.createdAt || new Date().toISOString(),
+      lat: Number(newReq.latitude ?? (newReq.location?.latitude ?? 12.9352)),
+      lng: Number(newReq.longitude ?? (newReq.location?.longitude ?? 77.6245)),
+      address: newReq.address || newReq.location?.address || `${Number(newReq.latitude || 12.9352).toFixed(4)}°, ${Number(newReq.longitude || 77.6245).toFixed(4)}°`,
+      description: newReq.description || 'Medical Emergency Assistance Requested',
+      severity: newReq.severity || 'high',
+      emergencyType: newReq.emergency_type || newReq.emergencyType || 'medical',
+      category: newReq.emergency_type || newReq.emergencyType || 'General Emergency',
+      patientName: newReq.patient_name || newReq.patientName || 'Citizen In Need',
+      patientPhone: newReq.patient_phone || newReq.patientPhone || '',
+      patientBlood: newReq.patient_blood || newReq.patientBlood || 'O+',
+      allergies: newReq.allergies || 'None declared',
+      medicalHistory: newReq.medical_history || newReq.medicalHistory || 'None declared',
+      status: newReq.status || 'pending',
+      currentVolunteerId: newReq.current_volunteer || newReq.currentVolunteer || null,
+      declinedVolunteers: newReq.declined_volunteers || newReq.declinedVolunteers || [],
+      volunteerId: (newReq.status === 'assigned' || newReq.status === 'accepted') ? (newReq.current_volunteer || newReq.currentVolunteer) : null,
+      ambulanceStatus: newReq.ambulance_status || 'Dispatched',
+      ambulanceEta: newReq.ambulance_eta || '6 mins',
+      ambulanceDetails: newReq.ambulance_details || null,
+      hospitalAlerted: true
+    });
+
+    const channel = supabase
+      .channel('alertlife-realtime-engine')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'emergency_requests' },
+        (payload) => {
+          if (!payload.new) return;
+          const mapped = mapEmergencyPayload(payload.new);
+
+          // Realtime instant alert for Volunteers (if available / on-duty) and Hospital desks without polling
+          if (currentRole === 'volunteer' && dutyStatus === 'available') {
+            setSosState(mapped);
+            setActiveTab('sos');
+            startContinuousAlarm();
+            Swal.fire({
+              title: '🚨 IMMEDIATE SOS DISPATCH!',
+              html: `
+                <div style="text-align: left; font-size: 0.9rem; line-height: 1.5;">
+                  <p><strong>Incident Type:</strong> ${String(mapped.category).toUpperCase()}</p>
+                  <p><strong>Patient:</strong> ${mapped.patientName} (${mapped.patientBlood})</p>
+                  <p><strong>Location:</strong> ${mapped.address}</p>
+                  <p><strong>Details:</strong> ${mapped.description}</p>
+                </div>
+              `,
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: '⚡ Accept Emergency',
+              cancelButtonText: 'Pass / Next Responder',
+              confirmButtonColor: '#10b981',
+              cancelButtonColor: '#ef4444',
+              allowOutsideClick: false
+            }).then((res) => {
+              if (res.isConfirmed) {
+                acceptSOS();
+              } else {
+                handlePassSOS();
+              }
+            });
+          } else if (currentRole === 'hospital') {
+            setSosState(mapped);
+            setActiveTab('ambulance');
+            playAmbulanceSiren();
+            if (api.getAmbulanceRequests) {
+              api.getAmbulanceRequests().then(data => setAmbulanceRequests(data || []));
+            }
+            Swal.fire({
+              title: '🚑 INCOMING EMERGENCY CALL!',
+              text: `Critical emergency reported at ${mapped.address}. Priority hospital ambulance dispatch requested.`,
+              icon: 'warning',
+              confirmButtonText: 'Open ER Dispatch',
+              confirmButtonColor: '#e11d48'
+            });
+          } else if (currentRole === 'admin') {
+            playAmbulanceSiren();
+            setSosState(mapped);
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              title: '🚨 New Emergency SOS Logged',
+              text: `${mapped.patientName} (${mapped.address})`,
+              icon: 'warning',
+              timer: 5000,
+              showConfirmButton: false
+            });
+          } else if (currentRole === 'citizen') {
+            // If this citizen created it or is active on it
+            if (mapped.patientPhone === profile.phone || mapped.patientName === profile.name) {
+              setSosState(mapped);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'emergency_requests' },
+        (payload) => {
+          if (!payload.new) return;
+          const updated = payload.new;
+          setSosState(prev => {
+            if (!prev || (String(prev.id) !== String(updated.id))) return prev;
+            const isFinished = updated.status === 'resolved' || updated.status === 'closed' || updated.status === 'cancelled';
+            if (isFinished) {
+              stopContinuousAlarm();
+              return null;
+            }
+            return {
+              ...prev,
+              status: updated.status,
+              currentVolunteerId: updated.current_volunteer || updated.currentVolunteer || prev.currentVolunteerId
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'volunteer_assignments' },
+        (payload) => {
+          if (!payload.new) return;
+          const assignment = payload.new;
+          const assignedVolId = assignment.volunteer_id || assignment.volunteerId;
+          const assignedEmergencyId = assignment.emergency_id || assignment.emergencyId;
+
+          setSosState(prev => {
+            if (!prev) return prev;
+            if (String(assignedEmergencyId) === String(prev.id)) {
+              if (assignment.status === 'accepted') {
+                stopContinuousAlarm();
+                return {
+                  ...prev,
+                  status: 'accepted',
+                  volunteerId: assignedVolId || prev.volunteerId
+                };
+              }
+              if (assignment.status === 'completed' || assignment.status === 'resolved') {
+                stopContinuousAlarm();
+                return {
+                  ...prev,
+                  status: 'resolved'
+                };
+              }
+              if (assignment.status === 'rejected') {
+                return {
+                  ...prev,
+                  status: 'pending',
+                  currentVolunteerId: null
+                };
+              }
+            }
+            return prev;
+          });
+
+          if (currentRole === 'admin' && api.getRescueLedger) {
+            setRescueLedger(api.getRescueLedger());
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          if (!payload.new) return;
+          const notif = payload.new;
+          const targetUserId = notif.user_id || notif.userId;
+          const isTarget = !targetUserId || targetUserId === user?.id || targetUserId === user?._id || targetUserId === user?.email;
+          if (isTarget) {
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: notif.type === 'emergency' ? 'warning' : 'info',
+              title: notif.title || '🚨 Alert Life Notification',
+              text: notif.message,
+              timer: 5000,
+              showConfirmButton: false
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentRole, dutyStatus, profile.phone, profile.name, user?.id, user?._id, user?.email]);
 
   const triggerAmbulance = () => {
     dispatchAmbulance(sosState?.id);
