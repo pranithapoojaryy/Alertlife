@@ -16,21 +16,30 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files for uploads
 app.use('/uploads', express.static('uploads'));
 
-// API Routes
-app.use('/api/auth',          require('./routes/auth'));
-app.use('/api/citizens',      require('./routes/citizen'));
-app.use('/api/volunteers',    require('./routes/volunteer'));
-app.use('/api/emergencies',   require('./routes/emergency'));
-app.use('/api/ambulance',     require('./routes/ambulance'));
-app.use('/api/doctors',       require('./routes/doctor'));
-app.use('/api/hospitals',     require('./routes/hospital'));
-app.use('/api/education',     require('./routes/education'));
-app.use('/api/events',        require('./routes/events'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/reports',       require('./routes/reports'));
-app.use('/api/admin',         require('./routes/admin'));
+// Define API router
+const apiRouter = express.Router();
+apiRouter.use('/auth',          require('./routes/auth'));
+apiRouter.use('/citizens',      require('./routes/citizen'));
+apiRouter.use('/volunteers',    require('./routes/volunteer'));
+apiRouter.use('/emergencies',   require('./routes/emergency'));
+apiRouter.use('/ambulance',     require('./routes/ambulance'));
+apiRouter.use('/doctors',       require('./routes/doctor'));
+apiRouter.use('/hospitals',     require('./routes/hospital'));
+apiRouter.use('/education',     require('./routes/education'));
+apiRouter.use('/events',        require('./routes/events'));
+apiRouter.use('/notifications', require('./routes/notifications'));
+apiRouter.use('/reports',       require('./routes/reports'));
+apiRouter.use('/admin',         require('./routes/admin'));
 
-// Health check
+apiRouter.get('/', (req, res) => {
+  res.json({ message: '🚨 Alert Life API Running (Supabase PostgreSQL)', version: '1.0.0', status: 'OK' });
+});
+
+// Mount router on both '/api' and '/' for complete rewrite flexibility
+app.use('/api', apiRouter);
+app.use(apiRouter);
+
+// Root health check
 app.get('/', (req, res) => {
   res.json({ message: '🚨 Alert Life API Running (Supabase PostgreSQL)', version: '1.0.0', status: 'OK' });
 });
@@ -46,8 +55,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: err.message || 'Server Error' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Alert Life Server running on http://localhost:${PORT}`);
-  console.log(`📊 Database: Supabase PostgreSQL`);
-});
+// Start listener only when run directly as standalone script
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Alert Life Server running on http://localhost:${PORT}`);
+    console.log(`📊 Database: Supabase PostgreSQL`);
+  });
+}
+
+module.exports = app;

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://alertlife-nw5j.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const client = axios.create({
   baseURL: API_BASE_URL,
