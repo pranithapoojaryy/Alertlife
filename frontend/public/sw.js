@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alertlife-v1.0.0';
+const CACHE_NAME = 'alertlife-v1.0.3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -8,13 +8,8 @@ const ASSETS = [
   '/volunteer-icon.svg'
 ];
 
-// Install: cache essential PWA shell and index.html
+// Install: immediately activate new worker
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -22,27 +17,24 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map((key) => caches.delete(key))
-      )
+      Promise.all(keys.map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();
 });
 
-// Fetch: Network-first for everything to always deliver latest code
+// Fetch: Never intercept /api or /assets to prevent stale bundle mismatch
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  
+  try {
+    const url = new URL(e.request.url);
+    if (url.pathname.startsWith('/api') || url.pathname.startsWith('/assets')) {
+      return; // Direct network pass-through
+    }
+  } catch {}
 
   e.respondWith(
-    fetch(e.request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, responseClone));
-        }
-        return networkResponse;
-      })
-      .catch(() => caches.match(e.request).then(cached => cached || (e.request.mode === 'navigate' ? caches.match('/index.html') : null)))
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
