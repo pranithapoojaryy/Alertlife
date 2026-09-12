@@ -9,6 +9,23 @@
     <meta name="theme-color" id="app-theme-color" content="#6366f1" />
     <title>Alert Life - Emergency SOS</title>
     <script>
+      // Early error interceptor to auto-recover from stale caches
+      window.addEventListener('error', function(e) {
+        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          console.warn('Asset failed to load, purging caches');
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              for (var r of regs) r.unregister();
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function(keys) {
+              for (var k of keys) caches.delete(k);
+            });
+          }
+        }
+      }, true);
+
       try {
         var params = new URLSearchParams(window.location.search);
         var isVolunteer = params.get('portal') === 'volunteer' || window.location.pathname.indexOf('volunteer') !== -1;
@@ -30,23 +47,6 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      // Automatically clear cache if a stale asset fails to load
-      window.addEventListener('error', function(e) {
-        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-          console.warn('Asset failed to load, clearing caches and unregistering SW');
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-              for (var r of regs) r.unregister();
-            });
-          }
-          if ('caches' in window) {
-            caches.keys().then(function(keys) {
-              for (var k of keys) caches.delete(k);
-            });
-          }
-        }
-      }, true);
-
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
