@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Alert Link - Root",
   "scripts": {
+    "postinstall": "cd frontend && npm install",
+    "build": "cd frontend && npm install && npm run build && cd .. && cp -r frontend/dist ./dist 2>/dev/null || true",
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm run dev",

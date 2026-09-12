@@ -1,14 +1,9 @@
-const EmergencyRequest = require('../models/EmergencyRequest');
-const VolunteerAssignment = require('../models/VolunteerAssignment');
-const Volunteer = require('../models/Volunteer');
-const Notification = require('../models/Notification');
-const User = require('../models/User');
-const AmbulanceRequest = require('../models/AmbulanceRequest');
-const Hospital = require('../models/Hospital');
+const supabase = require('../config/supabase');
 
 // Calculate distance using Haversine formula
 const getDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371;
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
+  const R = 6371; // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(dLat / 2) ** 2 +
@@ -18,177 +13,189 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 // @desc Create emergency SOS request
 // @route POST /api/emergencies
-// @access Private (citizen)
+// @access Private (citizen) or Public fallback
 const createEmergency = async (req, res) => {
   try {
-    const { latitude, longitude, address, emergencyType, description, severity, patientName, patientPhone, patientBlood, allergies, medicalHistory } = req.body;
-    const Citizen = require('../models/Citizen');
-    const citizenProf = await Citizen.findOne({ userId: req.user._id });
+    const {
+      latitude, longitude, address, emergencyType, description, severity,
+      patientName, patientPhone, patientBlood, allergies, medicalHistory
+    } = req.body;
 
-    const emergency = await EmergencyRequest.create({
-      citizenId: req.user._id,
-      patientName: patientName || req.user.name || 'Citizen In Need',
-      patientPhone: patientPhone || req.user.phone || '',
-      patientBlood: patientBlood || citizenProf?.bloodGroup || 'O+',
-      allergies: allergies || (Array.isArray(citizenProf?.allergies) ? citizenProf.allergies.join(', ') : citizenProf?.allergies) || 'None',
-      medicalHistory: medicalHistory || (Array.isArray(citizenProf?.medicalHistory) ? citizenProf.medicalHistory.map(m => m.condition || m).join(', ') : citizenProf?.medicalHistory) || 'None',
-      location: { latitude, longitude, address },
-      emergencyType: emergencyType || 'other',
-      description,
-      severity: severity || 'high',
-    });
+    const lat = Number(latitude || 12.9352);
+    const lng = Number(longitude || 77.6245);
+    const citizenId = req.user ? (req.user.id || req.user._id) : null;
 
-    // Alert nearest hospital immediately for every SOS request
-    let hospitals = await Hospital.find({ isActive: { $ne: false } });
-    if (!hospitals || hospitals.length === 0) {
-      hospitals = await Hospital.find({});
-    }
-    
-    // Sort hospitals by distance from citizen's live location
-    const hospitalsWithDist = hospitals.map(h => {
-      let dist = 3.5; // default reasonable city distance
-      if (h.location && h.location.latitude && h.location.longitude) {
-        dist = getDistance(latitude, longitude, h.location.latitude, h.location.longitude);
-      }
-      return { hospital: h, distance: dist };
-    }).sort((a, b) => a.distance - b.distance);
-
-    const nearestHospitalObj = hospitalsWithDist[0];
-    if (nearestHospitalObj && nearestHospitalObj.hospital) {
-      const hospital = nearestHospitalObj.hospital;
-      const ambulanceReq = await AmbulanceRequest.create({
-        emergencyId: emergency._id,
-        requestedBy: req.user._id,
-        hospitalId: hospital._id,
-        pickupLocation: { latitude, longitude, address },
-      });
-      
-      emergency.ambulanceRequest = ambulanceReq._id;
-
-      await Notification.create({
-        userId: hospital.userId,
-        title: '🚨 Emergency Ambulance Request!',
-        message: `Auto-dispatched ambulance request for emergency (${emergencyType.replace('_', ' ')}). Location: ${address || `${latitude}, ${longitude}`}`,
-        type: 'ambulance',
-        priority: 'high',
-        relatedId: ambulanceReq._id,
-        relatedModel: 'AmbulanceRequest',
-      });
-    }
-
-    // Find available verified active volunteers
-    let volunteers = await Volunteer.find({
-      isVerified: true,
-      availabilityStatus: { $ne: 'offline' }
-    }).populate('userId', 'name phone');
-
-    if (!volunteers || volunteers.length === 0) {
-      volunteers = await Volunteer.find({
-        availabilityStatus: { $ne: 'offline' }
-      }).populate('userId', 'name phone');
-    }
-
-    // Sort volunteers by proximity to citizen's live GPS coordinates
-    const volunteersWithDist = volunteers
-      .filter(v => v.userId)
-      .map(v => {
-        const vLat = v.currentLocation?.latitude || latitude;
-        const vLng = v.currentLocation?.longitude || longitude;
-        const dist = getDistance(latitude, longitude, vLat, vLng);
-        return { volunteer: v, distance: dist, lat: vLat, lng: vLng };
+    // 1. Insert emergency request into Supabase
+    const { data: emergency, error: emError } = await supabase
+      .from('emergency_requests')
+      .insert({
+        citizen_id: citizenId,
+        patient_name: patientName || req.user?.name || 'Citizen In Need',
+        patient_phone: patientPhone || req.user?.phone || '',
+        patient_blood: patientBlood || 'O+',
+        allergies: allergies || 'None declared',
+        medical_history: medicalHistory || 'None declared',
+        latitude: lat,
+        longitude: lng,
+        address: address || `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
+        emergency_type: emergencyType || 'other',
+        description: description || 'Medical Emergency Assistance Requested',
+        severity: severity || 'high',
+        status: 'pending'
       })
-      .sort((a, b) => a.distance - b.distance);
+      .select()
+      .single();
 
-    const primaryTarget = volunteersWithDist[0];
-
-    if (primaryTarget) {
-      const targetVol = primaryTarget.volunteer;
-      const targetUserId = targetVol.userId._id || targetVol.userId;
-      emergency.currentVolunteer = targetUserId;
-
-      const assignment = await VolunteerAssignment.create({
-        emergencyId: emergency._id,
-        volunteerId: targetUserId,
-        distanceKm: primaryTarget.distance.toFixed(2),
-        status: 'notified'
-      });
-      emergency.assignedVolunteers.push(assignment._id);
-
-      await Notification.create({
-        userId: targetUserId,
-        title: '🚨 Urgent Nearby SOS Alert!',
-        message: `Emergency SOS: ${emergencyType.replace('_', ' ')} is ${primaryTarget.distance.toFixed(1)} km from your live location. Respond now!`,
-        type: 'emergency',
-        priority: 'high',
-        relatedId: emergency._id,
-        relatedModel: 'EmergencyRequest',
-      });
+    if (emError || !emergency) {
+      return res.status(500).json({ success: false, message: emError?.message || 'Failed to create emergency' });
     }
 
-    // Alert all active staff users (admins, hospitals, doctors)
-    const staffUsers = await User.find({
-      role: { $in: ['hospital', 'doctor', 'admin'] },
-      isActive: true
-    });
+    emergency._id = emergency.id;
 
-    for (const staff of staffUsers) {
-      await Notification.create({
-        userId: staff._id,
-        title: '🚨 Urgent SOS Alert!',
-        message: `Emergency SOS triggered: ${emergencyType.replace('_', ' ')} at ${address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`}.`,
-        type: 'emergency',
-        priority: 'high',
-        relatedId: emergency._id,
-        relatedModel: 'EmergencyRequest',
-      });
+    // 2. Alert nearest hospital with ambulance auto-dispatch
+    let topHospitals = [];
+    try {
+      const { data: hospitals } = await supabase
+        .from('hospitals')
+        .select('*');
+
+      if (hospitals && hospitals.length > 0) {
+        const sortedHospitals = hospitals.map(h => {
+          const hLat = Number(h.latitude || 12.9352);
+          const hLng = Number(h.longitude || 77.6245);
+          const dist = getDistance(lat, lng, hLat, hLng);
+          return { hospital: h, distance: dist };
+        }).sort((a, b) => a.distance - b.distance);
+
+        const nearestHospital = sortedHospitals[0]?.hospital;
+        if (nearestHospital) {
+          await supabase.from('ambulance_requests').insert({
+            emergency_id: emergency.id,
+            requested_by: citizenId,
+            hospital_id: nearestHospital.id,
+            status: 'requested',
+            pickup_location: { latitude: lat, longitude: lng, address }
+          });
+
+          if (nearestHospital.user_id) {
+            await supabase.from('notifications').insert({
+              user_id: nearestHospital.user_id,
+              title: '🚨 Emergency Ambulance Request!',
+              message: `Auto-dispatched ambulance request for emergency (${(emergencyType || 'medical').replace('_', ' ')}). Location: ${address}`,
+              type: 'ambulance',
+              priority: 'high'
+            });
+          }
+        }
+
+        topHospitals = sortedHospitals.slice(0, 3).map(h => ({
+          id: h.hospital.id,
+          name: h.hospital.hospital_name || h.hospital.hospitalName || 'Emergency Center',
+          phone: h.hospital.contact_number || h.hospital.contactNumber || '108',
+          distance: h.distance.toFixed(2)
+        }));
+      }
+    } catch (hospErr) {
+      console.warn('Hospital auto-routing warning:', hospErr.message);
     }
 
-    await emergency.save();
+    // 3. Find nearby available verified volunteers using coordinate filtering
+    let primaryTarget = null;
+    try {
+      const { data: volunteers } = await supabase
+        .from('volunteers')
+        .select('*, user:users!user_id(id, name, phone)')
+        .neq('availability_status', 'offline');
 
-    // Prepare top 3 hospitals for response
-    const topHospitals = hospitalsWithDist.slice(0, 3).map(h => ({
-      id: h.hospital._id,
-      name: h.hospital.hospitalName,
-      phone: h.hospital.contactNumber,
-      distance: h.distance.toFixed(2)
-    })).filter(h => h.distance !== 'Infinity');
+      if (volunteers && volunteers.length > 0) {
+        const volunteersWithDist = volunteers
+          .filter(v => v.user)
+          .map(v => {
+            const vLat = Number(v.latitude || lat);
+            const vLng = Number(v.longitude || lng);
+            const dist = getDistance(lat, lng, vLat, vLng);
+            return { volunteer: v, distance: dist };
+          })
+          .sort((a, b) => a.distance - b.distance);
+
+        primaryTarget = volunteersWithDist[0];
+
+        if (primaryTarget) {
+          const targetUserId = primaryTarget.volunteer.user.id;
+          await supabase
+            .from('emergency_requests')
+            .update({ current_volunteer: targetUserId })
+            .eq('id', emergency.id);
+
+          await supabase.from('volunteer_assignments').insert({
+            emergency_id: emergency.id,
+            volunteer_id: targetUserId,
+            distance_km: primaryTarget.distance.toFixed(2),
+            status: 'notified'
+          });
+
+          await supabase.from('notifications').insert({
+            user_id: targetUserId,
+            title: '🚨 Urgent Nearby SOS Alert!',
+            message: `Emergency SOS: ${(emergencyType || 'medical').replace('_', ' ')} is ${primaryTarget.distance.toFixed(1)} km from your live location. Respond now!`,
+            type: 'emergency',
+            priority: 'high'
+          });
+        }
+      }
+    } catch (volErr) {
+      console.warn('Volunteer matching warning:', volErr.message);
+    }
 
     res.status(201).json({
       success: true,
       message: `Emergency created. Nearest volunteer dispatched (${primaryTarget ? primaryTarget.distance.toFixed(2) + ' km' : 'Searching'}). Hospital alerted.`,
       emergency,
       assignedVolunteer: primaryTarget ? {
-        id: primaryTarget.volunteer.userId._id,
-        name: primaryTarget.volunteer.userId.name,
-        phone: primaryTarget.volunteer.userId.phone,
+        id: primaryTarget.volunteer.user.id,
+        name: primaryTarget.volunteer.user.name,
+        phone: primaryTarget.volunteer.user.phone,
         distanceKm: primaryTarget.distance.toFixed(2)
       } : null,
-      nearestHospitals: topHospitals,
+      nearestHospitals: topHospitals
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc Get all emergencies (admin) or user's emergencies
+// @desc Get all emergencies
 // @route GET /api/emergencies
-// @access Private
+// @access Private or Public sync
 const getEmergencies = async (req, res) => {
   try {
-    let query = {};
-    // Volunteers and Admins need to see all active community emergencies to respond
-    // Only filter by citizenId if requesting citizen's own history
-    if (req.user.role === 'citizen' && req.query.self === 'true') {
-      query.citizenId = req.user._id;
+    let query = supabase
+      .from('emergency_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (req.user && req.user.role === 'citizen' && req.query.self === 'true') {
+      query = query.eq('citizen_id', req.user.id || req.user._id);
     }
 
-    const emergencies = await EmergencyRequest.find(query)
-      .populate('citizenId', 'name phone')
-      .populate('ambulanceRequest')
-      .populate('doctorConsultation')
-      .sort({ createdAt: -1 });
+    const { data: emergencies, error } = await query;
+    if (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
 
-    res.json({ success: true, count: emergencies.length, emergencies });
+    // Normalize for frontend expectations
+    const mapped = (emergencies || []).map(e => ({
+      ...e,
+      _id: e.id,
+      patientName: e.patient_name || e.patientName,
+      patientPhone: e.patient_phone || e.patientPhone,
+      patientBlood: e.patient_blood || e.patientBlood,
+      emergencyType: e.emergency_type || e.emergencyType,
+      currentVolunteer: e.current_volunteer || e.currentVolunteer,
+      location: { latitude: Number(e.latitude), longitude: Number(e.longitude), address: e.address }
+    }));
+
+    res.json({ success: true, count: mapped.length, emergencies: mapped });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -199,32 +206,23 @@ const getEmergencies = async (req, res) => {
 // @access Private
 const getEmergency = async (req, res) => {
   try {
-    const emergency = await EmergencyRequest.findById(req.params.id)
-      .populate('citizenId', 'name phone email')
-      .populate('citizenProfile')
-      .populate({
-        path: 'assignedVolunteers',
-        populate: { path: 'volunteerId', select: 'name phone' }
-      })
-      .populate('ambulanceRequest')
-      .populate('doctorConsultation');
+    const { data: emergency, error } = await supabase
+      .from('emergency_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-    if (!emergency) return res.status(404).json({ success: false, message: 'Emergency not found' });
-
-    const emergencyObj = emergency.toObject();
-    if (emergencyObj.assignedVolunteers && emergencyObj.assignedVolunteers.length > 0) {
-      for (let i = 0; i < emergencyObj.assignedVolunteers.length; i++) {
-        const assignment = emergencyObj.assignedVolunteers[i];
-        if (assignment.volunteerId) {
-          const volunteerProfile = await Volunteer.findOne({ userId: assignment.volunteerId._id || assignment.volunteerId });
-          if (volunteerProfile) {
-            assignment.volunteerProfile = volunteerProfile;
-          }
-        }
-      }
+    if (error || !emergency) {
+      return res.status(404).json({ success: false, message: 'Emergency not found' });
     }
 
-    res.json({ success: true, emergency: emergencyObj });
+    emergency._id = emergency.id;
+    emergency.patientName = emergency.patient_name || emergency.patientName;
+    emergency.patientPhone = emergency.patient_phone || emergency.patientPhone;
+    emergency.patientBlood = emergency.patient_blood || emergency.patientBlood;
+    emergency.location = { latitude: Number(emergency.latitude), longitude: Number(emergency.longitude), address: emergency.address };
+
+    res.json({ success: true, emergency });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -236,46 +234,62 @@ const getEmergency = async (req, res) => {
 const updateEmergencyStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const emergency = await EmergencyRequest.findByIdAndUpdate(
-      req.params.id,
-      { status, ...(status === 'resolved' ? { resolvedAt: new Date() } : {}) },
-      { new: true }
-    );
-    if (!emergency) return res.status(404).json({ success: false, message: 'Emergency not found' });
+    const updateData = { status };
+    if (status === 'resolved') {
+      updateData.resolved_at = new Date().toISOString();
+    }
+
+    const { data: emergency, error } = await supabase
+      .from('emergency_requests')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error || !emergency) {
+      return res.status(404).json({ success: false, message: error?.message || 'Emergency not found' });
+    }
+
+    emergency._id = emergency.id;
     res.json({ success: true, message: 'Status updated', emergency });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// @desc Accept emergency by volunteer
+// @route PUT /api/emergencies/:id/accept
+// @access Private
 const acceptEmergency = async (req, res) => {
   try {
-    const { volunteerName, volunteerPhone, volunteerCert } = req.body;
-    const volunteerId = req.user ? req.user._id : (req.body.volunteerId || null);
+    const { volunteerName } = req.body;
+    const volunteerId = req.user ? (req.user.id || req.user._id) : (req.body.volunteerId || null);
 
-    const emergency = await EmergencyRequest.findByIdAndUpdate(
-      req.params.id,
-      {
+    const { data: emergency, error } = await supabase
+      .from('emergency_requests')
+      .update({
         status: 'assigned',
-        currentVolunteer: volunteerId,
-        $push: {
-          notes: {
-            author: volunteerName || 'Volunteer',
-            content: `Accepted by ${volunteerName || 'Volunteer Responder'}`
-          }
-        }
-      },
-      { new: true }
-    );
+        current_volunteer: volunteerId
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (!emergency) return res.status(404).json({ success: false, message: 'Emergency not found' });
+    if (error || !emergency) {
+      return res.status(404).json({ success: false, message: error?.message || 'Emergency not found' });
+    }
+
+    emergency._id = emergency.id;
 
     if (volunteerId) {
-      await VolunteerAssignment.findOneAndUpdate(
-        { emergencyId: req.params.id, volunteerId: volunteerId },
-        { status: 'accepted', acceptedAt: new Date() },
-        { new: true, upsert: true }
-      );
+      await supabase
+        .from('volunteer_assignments')
+        .upsert({
+          emergency_id: req.params.id,
+          volunteer_id: volunteerId,
+          status: 'accepted',
+          accepted_at: new Date().toISOString()
+        }, { onConflict: 'emergency_id,volunteer_id' });
     }
 
     res.json({ success: true, message: 'Emergency accepted', emergency });
@@ -289,63 +303,65 @@ const acceptEmergency = async (req, res) => {
 // @access Private (volunteer)
 const getVolunteerEmergencies = async (req, res) => {
   try {
-    const assignments = await VolunteerAssignment.find({ volunteerId: req.user._id })
-      .populate({
-        path: 'emergencyId',
-        populate: [
-          { path: 'citizenId', select: 'name phone' },
-          { 
-            path: 'ambulanceRequest',
-            populate: { path: 'hospitalId', select: 'hospitalName contactNumber' }
-          }
-        ],
-      })
-      .sort({ createdAt: -1 });
-    res.json({ success: true, assignments });
+    const volunteerId = req.user.id || req.user._id;
+    const { data: assignments, error } = await supabase
+      .from('volunteer_assignments')
+      .select('*, emergency:emergency_requests(*)')
+      .eq('volunteer_id', volunteerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+
+    res.json({ success: true, assignments: assignments || [] });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // @desc Submit volunteer emergency report
+// @route POST /api/emergencies/:id/report
 const submitReport = async (req, res) => {
   try {
-    const { description, firstAidProvided, patientCondition, notes, pulse, bloodPressure, vitals } = req.body;
-    const volunteerId = req.user ? req.user._id : null;
+    const { description, firstAidProvided, patientCondition, pulse, bloodPressure, vitals } = req.body;
+    const volunteerId = req.user ? (req.user.id || req.user._id) : null;
 
-    await EmergencyRequest.findByIdAndUpdate(
-      req.params.id,
-      {
+    await supabase
+      .from('emergency_requests')
+      .update({
         status: 'resolved',
-        resolvedAt: new Date(),
-        $push: {
-          notes: {
-            author: 'Volunteer Responder',
-            content: `Outcome: ${patientCondition || 'Resolved'} | ${firstAidProvided || description || ''} | ${vitals || `BP: ${bloodPressure || 'N/A'}, Pulse: ${pulse || 'N/A'}`}`
-          }
-        }
-      },
-      { new: true }
-    );
+        resolved_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id);
 
     if (volunteerId) {
-      await VolunteerAssignment.findOneAndUpdate(
-        { emergencyId: req.params.id, volunteerId: volunteerId },
-        {
+      await supabase
+        .from('volunteer_assignments')
+        .upsert({
+          emergency_id: req.params.id,
+          volunteer_id: volunteerId,
           status: 'completed',
-          completedAt: new Date(),
-          report: { description, firstAidProvided, patientCondition, submittedAt: new Date() },
-        },
-        { new: true, upsert: true }
-      );
+          completed_at: new Date().toISOString(),
+          report: { description, firstAidProvided, patientCondition, pulse, bloodPressure, vitals }
+        }, { onConflict: 'emergency_id,volunteer_id' });
 
-      await Volunteer.findOneAndUpdate(
-        { userId: volunteerId },
-        { 
-          $inc: { totalEmergenciesHandled: 1, experience: 10 },
-          $set: { availabilityStatus: 'available' }
-        }
-      );
+      // Update volunteer stats
+      const { data: vol } = await supabase
+        .from('volunteers')
+        .select('total_emergencies_handled')
+        .eq('user_id', volunteerId)
+        .single();
+
+      if (vol) {
+        await supabase
+          .from('volunteers')
+          .update({
+            total_emergencies_handled: (vol.total_emergencies_handled || 0) + 1,
+            availability_status: 'available'
+          })
+          .eq('user_id', volunteerId);
+      }
     }
 
     res.json({ success: true, message: 'Report submitted and emergency resolved successfully' });
@@ -355,53 +371,43 @@ const submitReport = async (req, res) => {
 };
 
 // @desc Simulator for landing page (unauthenticated)
-// @route POST /api/emergencies/test
-// @access Public
 const testEmergencySimulator = async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
-    if (!latitude || !longitude) {
-      return res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
-    }
+    const lat = Number(latitude || 12.9352);
+    const lng = Number(longitude || 77.6245);
 
-    // Find nearby volunteers (within 5km)
-    const volunteers = await Volunteer.find({
-      availabilityStatus: 'available',
-      isVerified: true,
-      'currentLocation.latitude': { $exists: true },
-    });
+    const { data: volunteers } = await supabase
+      .from('volunteers')
+      .select('*')
+      .eq('availability_status', 'available');
 
     let nearbyVolunteersCount = 0;
-    volunteers.forEach((v) => {
-      const dist = getDistance(latitude, longitude, v.currentLocation.latitude, v.currentLocation.longitude);
-      if (dist <= (v.serviceRadius || 5)) {
-        nearbyVolunteersCount++;
-      }
+    (volunteers || []).forEach(v => {
+      const dist = getDistance(lat, lng, Number(v.latitude || lat), Number(v.longitude || lng));
+      if (dist <= (v.service_radius || 5)) nearbyVolunteersCount++;
     });
 
-    // Find nearest hospital
-    const hospitals = await Hospital.find({ isVerified: true, isActive: true });
+    const { data: hospitals } = await supabase.from('hospitals').select('*');
     let nearestHospital = null;
     let minDistance = Infinity;
 
-    hospitals.forEach((h) => {
-      if (h.location && h.location.latitude && h.location.longitude) {
-        const dist = getDistance(latitude, longitude, h.location.latitude, h.location.longitude);
-        if (dist < minDistance) {
-          minDistance = dist;
-          nearestHospital = {
-            id: h._id,
-            name: h.hospitalName,
-            distance: dist.toFixed(2),
-          };
-        }
+    (hospitals || []).forEach(h => {
+      const dist = getDistance(lat, lng, Number(h.latitude || lat), Number(h.longitude || lng));
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestHospital = {
+          id: h.id,
+          name: h.hospital_name || 'Medical Center',
+          distance: dist.toFixed(2)
+        };
       }
     });
 
     res.json({
       success: true,
       volunteersCount: nearbyVolunteersCount,
-      nearestHospital,
+      nearestHospital
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -410,256 +416,102 @@ const testEmergencySimulator = async (req, res) => {
 
 // @desc Create anonymous/guest emergency SOS request
 const createGuestEmergency = async (req, res) => {
-  try {
-    const { latitude, longitude, emergencyType, guestPhone, description, severity, address, patientName, patientPhone, patientBlood, allergies, medicalHistory } = req.body;
-    const phone = patientPhone || guestPhone || "+1 (555) 019-2834";
-    const name = patientName || "Citizen In Need";
-    const desc = description || "Emergency SOS First Aid Assistance";
-
-    const emergency = await EmergencyRequest.create({
-      guestContact: { phone },
-      patientName: name,
-      patientPhone: phone,
-      patientBlood: patientBlood || 'O+',
-      allergies: allergies || 'None declared',
-      medicalHistory: medicalHistory || 'None declared',
-      location: { latitude: latitude || 37.7749, longitude: longitude || -122.4194, address: address || 'Live Citizen Location' },
-      emergencyType: emergencyType || 'other',
-      description: desc,
-      severity: severity || 'high',
-      status: 'locating'
-    });
-
-    // Alert nearest hospital
-    let hospitals = await Hospital.find({ isActive: { $ne: false } });
-    if (!hospitals || hospitals.length === 0) {
-      hospitals = await Hospital.find({});
-    }
-    
-    // Sort hospitals by distance
-    const hospitalsWithDist = hospitals.map(h => {
-      let dist = 3.5;
-      if (h.location && h.location.latitude && h.location.longitude) {
-        dist = getDistance(latitude, longitude, h.location.latitude, h.location.longitude);
-      }
-      return { hospital: h, distance: dist };
-    }).sort((a, b) => a.distance - b.distance);
-
-    const nearestHospitalObj = hospitalsWithDist[0];
-    if (nearestHospitalObj && nearestHospitalObj.hospital) {
-      const hospital = nearestHospitalObj.hospital;
-      const ambulanceReq = await AmbulanceRequest.create({
-        emergencyId: emergency._id,
-        hospitalId: hospital._id,
-        pickupLocation: { latitude, longitude, address: 'Guest Location' },
-      });
-      emergency.ambulanceRequest = ambulanceReq._id;
-
-      await Notification.create({
-        userId: hospital.userId,
-        title: '🚨 Guest Emergency Ambulance Request!',
-        message: `Auto-dispatched ambulance request for guest emergency. Phone: ${guestPhone}`,
-        type: 'ambulance',
-        priority: 'high',
-        relatedId: ambulanceReq._id,
-        relatedModel: 'AmbulanceRequest',
-      });
-    }
-
-    // Find active volunteers and target closest
-    let volunteers = await Volunteer.find({
-      $or: [
-        { availabilityStatus: 'available' },
-        { availabilityStatus: { $exists: false } },
-        { isVerified: true }
-      ]
-    }).populate('userId', 'name phone');
-
-    if (!volunteers || volunteers.length === 0) {
-      volunteers = await Volunteer.find({}).populate('userId', 'name phone');
-    }
-
-    const volunteersWithDist = volunteers
-      .filter(v => v.userId)
-      .map(v => {
-        const vLat = v.currentLocation?.latitude || latitude;
-        const vLng = v.currentLocation?.longitude || longitude;
-        const dist = getDistance(latitude, longitude, vLat, vLng);
-        return { volunteer: v, distance: dist, lat: vLat, lng: vLng };
-      })
-      .sort((a, b) => a.distance - b.distance);
-
-    const primaryTarget = volunteersWithDist[0];
-
-    if (primaryTarget) {
-      const targetVol = primaryTarget.volunteer;
-      const targetUserId = targetVol.userId._id || targetVol.userId;
-      emergency.currentVolunteer = targetUserId;
-
-      const assignment = await VolunteerAssignment.create({
-        emergencyId: emergency._id,
-        volunteerId: targetUserId,
-        distanceKm: primaryTarget.distance.toFixed(2),
-        status: 'notified'
-      });
-      emergency.assignedVolunteers.push(assignment._id);
-
-      await Notification.create({
-        userId: targetUserId,
-        title: '🚨 Guest Emergency Alert!',
-        message: `Emergency: ${emergencyType.replace('_', ' ')} is ${primaryTarget.distance.toFixed(1)} km from your live location. Guest Phone: ${guestPhone}`,
-        type: 'emergency',
-        priority: 'high',
-        relatedId: emergency._id,
-        relatedModel: 'EmergencyRequest',
-      });
-    }
-
-    // Alert all active staff users (volunteers, hospitals, doctors, admins)
-    const staffUsers = await User.find({
-      role: { $in: ['hospital', 'doctor', 'admin'] },
-      isActive: true
-    });
-
-    for (const staff of staffUsers) {
-      await Notification.create({
-        userId: staff._id,
-        title: '🚨 Urgent SOS Alert!',
-        message: `Guest Emergency SOS triggered: ${emergencyType.replace('_', ' ')} near guest phone ${guestPhone}.`,
-        type: 'emergency',
-        priority: 'high',
-        relatedId: emergency._id,
-        relatedModel: 'EmergencyRequest',
-      });
-    }
-
-    await emergency.save();
-
-    // Prepare top 3 hospitals for the response
-    const topHospitals = hospitalsWithDist.slice(0, 3).map(h => ({
-      id: h.hospital._id,
-      name: h.hospital.hospitalName,
-      phone: h.hospital.contactNumber,
-      distance: h.distance.toFixed(2)
-    })).filter(h => h.distance !== 'Infinity');
-
-    res.status(201).json({
-      success: true,
-      message: `Emergency created. Nearest volunteer dispatched (${primaryTarget ? primaryTarget.distance.toFixed(2) + ' km' : 'Searching'}). Hospital alerted.`,
-      emergency,
-      assignedVolunteer: primaryTarget ? {
-        id: primaryTarget.volunteer.userId._id,
-        name: primaryTarget.volunteer.userId.name,
-        phone: primaryTarget.volunteer.userId.phone,
-        distanceKm: primaryTarget.distance.toFixed(2)
-      } : null,
-      nearestHospitals: topHospitals,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  return createEmergency(req, res);
 };
 
-// @desc Volunteer passes/declines emergency -> Cascades to next nearest volunteer
+// @desc Volunteer passes emergency -> Cascades to next nearest volunteer
 // @route PUT /api/emergencies/:id/pass
-// @access Public / Private (Volunteer)
 const passEmergency = async (req, res) => {
   try {
     const emergencyId = req.params.id;
-    const volunteerId = req.user ? req.user._id : req.body.volunteerId;
+    const volunteerId = req.user ? (req.user.id || req.user._id) : req.body.volunteerId;
 
-    const emergency = await EmergencyRequest.findById(emergencyId);
-    if (!emergency) {
+    const { data: emergency, error: emErr } = await supabase
+      .from('emergency_requests')
+      .select('*')
+      .eq('id', emergencyId)
+      .single();
+
+    if (emErr || !emergency) {
       return res.status(404).json({ success: false, message: 'Emergency not found' });
     }
 
-    // Mark current assignment as rejected/passed if volunteerId provided
-    if (volunteerId) {
-      await VolunteerAssignment.findOneAndUpdate(
-        { emergencyId: emergency._id, volunteerId: volunteerId },
-        { status: 'rejected' }
-      );
-      if (!emergency.declinedVolunteers) {
-        emergency.declinedVolunteers = [];
-      }
-      if (!emergency.declinedVolunteers.includes(volunteerId)) {
-        emergency.declinedVolunteers.push(volunteerId);
-      }
+    const declinedVolunteers = emergency.declined_volunteers || [];
+    if (volunteerId && !declinedVolunteers.includes(volunteerId)) {
+      declinedVolunteers.push(volunteerId);
     }
 
-    const lat = emergency.location?.latitude || 12.9352;
-    const lng = emergency.location?.longitude || 77.6245;
+    const lat = Number(emergency.latitude || 12.9352);
+    const lng = Number(emergency.longitude || 77.6245);
 
-    // Find active volunteers excluding those who already declined
-    const excludedIds = emergency.declinedVolunteers || [];
-    let volunteers = await Volunteer.find({
-      isVerified: true,
-      availabilityStatus: { $ne: 'offline' }
-    }).populate('userId', 'name phone email');
+    // Query active volunteers excluding those who declined
+    const { data: volunteers } = await supabase
+      .from('volunteers')
+      .select('*, user:users!user_id(id, name, phone)')
+      .neq('availability_status', 'offline');
 
-    if (!volunteers || volunteers.length === 0) {
-      volunteers = await Volunteer.find({
-        availabilityStatus: { $ne: 'offline' }
-      }).populate('userId', 'name phone email');
-    }
+    const eligible = (volunteers || [])
+      .filter(v => v.user && !declinedVolunteers.includes(v.user.id))
+      .map(v => {
+        const vLat = Number(v.latitude || lat);
+        const vLng = Number(v.longitude || lng);
+        return { volunteer: v, distance: getDistance(lat, lng, vLat, vLng) };
+      })
+      .sort((a, b) => a.distance - b.distance);
 
-    // Filter out declined volunteers
-    const eligibleVolunteers = volunteers.filter(v => {
-      if (!v.userId) return false;
-      const uId = (v.userId._id || v.userId).toString();
-      return !excludedIds.some(declinedId => declinedId.toString() === uId);
-    });
-
-    // Sort by proximity
-    const sortedEligible = eligibleVolunteers.map(v => {
-      const vLat = v.currentLocation?.latitude || lat;
-      const vLng = v.currentLocation?.longitude || lng;
-      const dist = getDistance(lat, lng, vLat, vLng);
-      return { volunteer: v, distance: dist, lat: vLat, lng: vLng };
-    }).sort((a, b) => a.distance - b.distance);
-
-    const nextTarget = sortedEligible[0];
+    const nextTarget = eligible[0];
 
     if (nextTarget) {
-      const nextTargetUserId = nextTarget.volunteer.userId._id || nextTarget.volunteer.userId;
-      emergency.currentVolunteer = nextTargetUserId;
-      emergency.status = 'pending';
+      const nextUserId = nextTarget.volunteer.user.id;
+      await supabase
+        .from('emergency_requests')
+        .update({
+          current_volunteer: nextUserId,
+          declined_volunteers: declinedVolunteers,
+          status: 'pending'
+        })
+        .eq('id', emergencyId);
 
-      const nextAssignment = await VolunteerAssignment.create({
-        emergencyId: emergency._id,
-        volunteerId: nextTargetUserId,
-        distanceKm: nextTarget.distance.toFixed(2),
+      await supabase.from('volunteer_assignments').insert({
+        emergency_id: emergencyId,
+        volunteer_id: nextUserId,
+        distance_km: nextTarget.distance.toFixed(2),
         status: 'notified'
       });
-      emergency.assignedVolunteers.push(nextAssignment._id);
 
-      await Notification.create({
-        userId: nextTargetUserId,
+      await supabase.from('notifications').insert({
+        user_id: nextUserId,
         title: '🚨 Re-Routed Emergency SOS Alert!',
-        message: `Previous responder unavailable. Emergency SOS: ${emergency.emergencyType.replace('_', ' ')} is ${nextTarget.distance.toFixed(1)} km from you. Can you respond?`,
+        message: `Previous responder unavailable. Emergency SOS: ${(emergency.emergency_type || 'medical').replace('_', ' ')} is ${nextTarget.distance.toFixed(1)} km away. Can you respond?`,
         type: 'emergency',
-        priority: 'high',
-        relatedId: emergency._id,
-        relatedModel: 'EmergencyRequest',
+        priority: 'high'
       });
 
-      await emergency.save();
+      emergency.current_volunteer = nextUserId;
+      emergency._id = emergency.id;
 
       return res.json({
         success: true,
-        message: `SOS passed and re-routed to next nearest volunteer (${nextTarget.volunteer.userId.name || 'Responder'}, ${nextTarget.distance.toFixed(2)} km away).`,
+        message: `SOS passed and re-routed to next nearest volunteer (${nextTarget.volunteer.user.name}, ${nextTarget.distance.toFixed(2)} km away).`,
         emergency,
         nextVolunteer: {
-          id: nextTarget.volunteer.userId._id,
-          name: nextTarget.volunteer.userId.name,
-          phone: nextTarget.volunteer.userId.phone,
+          id: nextUserId,
+          name: nextTarget.volunteer.user.name,
+          phone: nextTarget.volunteer.user.phone,
           distanceKm: nextTarget.distance.toFixed(2)
         }
       });
     } else {
-      // No more volunteers in range -> escalate status
-      emergency.currentVolunteer = null;
-      await emergency.save();
+      await supabase
+        .from('emergency_requests')
+        .update({
+          current_volunteer: null,
+          declined_volunteers: declinedVolunteers
+        })
+        .eq('id', emergencyId);
+
+      emergency.current_volunteer = null;
+      emergency._id = emergency.id;
 
       return res.json({
         success: true,
@@ -673,5 +525,15 @@ const passEmergency = async (req, res) => {
   }
 };
 
-module.exports = { createEmergency, getEmergencies, getEmergency, updateEmergencyStatus, acceptEmergency, getVolunteerEmergencies, submitReport, testEmergencySimulator, createGuestEmergency, passEmergency };
-
+module.exports = {
+  createEmergency,
+  getEmergencies,
+  getEmergency,
+  updateEmergencyStatus,
+  acceptEmergency,
+  getVolunteerEmergencies,
+  submitReport,
+  testEmergencySimulator,
+  createGuestEmergency,
+  passEmergency
+};

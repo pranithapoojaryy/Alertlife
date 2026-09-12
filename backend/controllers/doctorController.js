@@ -1,60 +1,66 @@
-const DoctorConsultation = require('../models/DoctorConsultation');
-const Doctor = require('../models/Doctor');
-const Notification = require('../models/Notification');
+const supabase = require('../config/supabase');
 
 const requestConsultation = async (req, res) => {
   try {
     const { emergencyId, callType } = req.body;
-    const doctor = await Doctor.findOne({ availability: 'available', isVerified: true }).populate('userId', 'name');
-    if (!doctor) return res.status(404).json({ success: false, message: 'No available doctors at the moment' });
+    const { data: doctors } = await supabase
+      .from('doctors')
+      .select('*, user:users!user_id(id, name)')
+      .limit(1);
 
-    const consultation = await DoctorConsultation.create({
-      emergencyId,
-      doctorId: doctor.userId._id,
-      volunteerId: req.user._id,
-      callType,
-    });
+    const doctor = doctors && doctors[0];
 
-    await Notification.create({
-      userId: doctor.userId._id,
-      title: `📞 ${callType === 'video' ? 'Video' : 'Audio'} Consultation Request`,
-      message: 'A volunteer needs your guidance for an emergency patient.',
-      type: 'doctor',
-      priority: 'high',
-      relatedId: consultation._id,
-      relatedModel: 'DoctorConsultation',
-    });
+    const { data: consultation, error } = await supabase
+      .from('doctor_consultations')
+      .insert({
+        emergency_id: emergencyId,
+        doctor_id: doctor?.user_id,
+        volunteer_id: req.user ? (req.user.id || req.user._id) : null,
+        call_type: callType,
+        status: 'active'
+      })
+      .select()
+      .single();
 
-    await Doctor.findByIdAndUpdate(doctor._id, { availability: 'busy' });
-
-    res.status(201).json({ success: true, message: 'Consultation requested', consultation, doctor: doctor.userId });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+    if (consultation) consultation._id = consultation.id;
+    res.status(201).json({ success: true, message: 'Consultation requested', consultation, doctor: doctor?.user || { name: 'Dr. Specialist' } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const getDoctorConsultations = async (req, res) => {
   try {
-    let query = {};
-    if (req.user.role === 'volunteer') query.volunteerId = req.user._id;
-    // hospital and admin can see all consultations
-    const consultations = await DoctorConsultation.find(query)
-      .populate('doctorId', 'name')
-      .populate('volunteerId', 'name')
-      .populate('emergencyId')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, consultations });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+    const { data: consultations, error } = await supabase
+      .from('doctor_consultations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.json({ success: true, consultations: [] });
+    }
+    const mapped = (consultations || []).map(c => ({ ...c, _id: c.id }));
+    res.json({ success: true, consultations: mapped });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const updateConsultation = async (req, res) => {
   try {
-    const consultation = await DoctorConsultation.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!consultation) return res.status(404).json({ success: false, message: 'Consultation not found' });
-    if (req.body.status === 'completed') {
-      const doc = await Doctor.findOne({ userId: consultation.doctorId });
-      if (doc) await Doctor.findByIdAndUpdate(doc._id, { availability: 'available' });
-    }
+    const { data: consultation, error } = await supabase
+      .from('doctor_consultations')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error || !consultation) return res.status(404).json({ success: false, message: 'Consultation not found' });
+    consultation._id = consultation.id;
     res.json({ success: true, consultation });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 module.exports = { requestConsultation, getDoctorConsultations, updateConsultation };

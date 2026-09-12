@@ -8,29 +8,16 @@ const roleCheck = require('../middleware/roleCheck');
 router.post('/guest', createGuestEmergency);
 router.post('/test', testEmergencySimulator);
 router.post('/', async (req, res, next) => {
-  // If request has valid auth header, use protected createEmergency, otherwise fallback to guest emergency creation
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer') && !req.headers.authorization.includes('mock-token')) {
     return protect(req, res, () => createEmergency(req, res));
   }
-  // Otherwise create public emergency directly
   return createGuestEmergency(req, res);
 });
 router.get('/', async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer') && !req.headers.authorization.includes('mock-token')) {
     return protect(req, res, () => getEmergencies(req, res));
   }
-  // Public emergency fetch for cross-device synchronization
-  try {
-    const EmergencyRequest = require('../models/EmergencyRequest');
-    const emergencies = await EmergencyRequest.find({})
-      .populate('citizenId', 'name phone')
-      .populate('ambulanceRequest')
-      .populate('doctorConsultation')
-      .sort({ createdAt: -1 });
-    return res.json({ success: true, count: emergencies.length, emergencies });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
-  }
+  return getEmergencies(req, res);
 });
 router.get('/volunteer/assigned', protect, roleCheck('volunteer'), getVolunteerEmergencies);
 router.get('/:id', getEmergency);
