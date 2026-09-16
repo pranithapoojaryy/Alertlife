@@ -100,17 +100,31 @@ function App() {
     return /^[6789]\d{9}$/.test(digitsOnly) && digitsOnly.length === 10;
   };
 
+  // Strictly Validate Email: Must be valid format (e.g. user@gmail.com, user@hospital.org, user@domain.com, .in, etc. - no plain names)
+  const isValidOfficialEmail = (email) => {
+    if (!email || typeof email !== 'string') return false;
+    const trimmed = email.trim();
+    // Regex ensures proper username, @ symbol, domain name, and valid top-level domain (.com, .org, .in, .gov, .edu, .net, .co, etc.)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(trimmed);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     const trimmedInput = loginEmail.trim();
 
     if (!trimmedInput) {
-      setError('Please enter your email or 10-digit mobile number.');
+      setError('Please enter your valid email (e.g. name@gmail.com) or 10-digit mobile number.');
       return;
     }
     
-    const isEmail = trimmedInput.includes('@');
-    if (!isEmail) {
+    const isEmail = trimmedInput.includes('@') || /[a-zA-Z]/.test(trimmedInput);
+    if (isEmail) {
+      if (!isValidOfficialEmail(trimmedInput)) {
+        setError('Please enter a valid email address with domain (e.g. user@gmail.com or official@hospital.com). Plain names or invalid domains are not allowed.');
+        return;
+      }
+    } else {
       const digitsOnly = trimmedInput.replace(/\D/g, '');
       if (digitsOnly.length !== 10 || !/^[6789]\d{9}$/.test(digitsOnly)) {
         setError('Mobile number must be EXACTLY 10 digits starting with 6, 7, 8, or 9.');
@@ -150,8 +164,12 @@ function App() {
       setError(currentRole === 'hospital' ? 'Please enter Hospital Name.' : 'Please enter your full name.');
       return;
     }
-    if (!regForm.email?.trim() || !regForm.email.includes('@')) {
-      setError('Please enter a valid official email address.');
+    if (!regForm.email?.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (!isValidOfficialEmail(regForm.email)) {
+      setError('Invalid email address! Must be a valid email containing "@" and a valid domain (e.g. name@gmail.com or desk@hospital.com). Plain names or incomplete emails are not allowed.');
       return;
     }
     

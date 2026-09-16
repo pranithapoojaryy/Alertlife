@@ -13,7 +13,17 @@ const register = async (req, res) => {
   try {
     let { name, email, password, phone, role, bloodGroup, ...roleData } = req.body;
     
-    if (email) email = email.toLowerCase().trim();
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+    }
+
+    email = email.toLowerCase().trim();
+
+    // Strict email format validation: must have valid username, @, and top-level domain (e.g. .com, .org, .in)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format. Email must include "@" and a valid domain (e.g. user@gmail.com or official@hospital.com).' });
+    }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
