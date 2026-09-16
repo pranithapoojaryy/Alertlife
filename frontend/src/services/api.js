@@ -1065,6 +1065,8 @@ export const api = {
           email: email,
           phone: db.profile.phone,
           certification: 'Citizen Health ID',
+          bloodGroup: db.profile.bloodGroup || 'O+',
+          role: 'Citizen',
           active: true,
           isVerified: true
         });
