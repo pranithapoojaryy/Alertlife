@@ -94,6 +94,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
   const [articles, setArticles] = useState([]);
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [memberRoleFilter, setMemberRoleFilter] = useState('all');
 
   // Simulated GPS route tracking
   const [navProgress, setNavProgress] = useState(0);
@@ -3477,97 +3478,153 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
             {/* Registered Community & Responders Directory */}
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 className="card-title" style={{ margin: 0 }}>👥 Active Volunteer Responders & Field Network</h3>
-                <span className="badge badge-emerald" style={{ fontSize: '0.75rem' }}>
-                  {members.filter(m => (m.role || '').toLowerCase() === 'volunteer').length} Registered Responders
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 className="card-title" style={{ margin: 0 }}>👥 Registered Community & Responders Directory</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                    All newly registered field volunteers, citizens, and medical centers across all 4 portals
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {['all', 'volunteer', 'citizen', 'hospital'].map(filterKey => (
+                    <button
+                      key={filterKey}
+                      onClick={() => setMemberRoleFilter(filterKey)}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        borderRadius: '99px',
+                        border: '1px solid',
+                        borderColor: memberRoleFilter === filterKey ? 'var(--blue)' : 'var(--border)',
+                        background: memberRoleFilter === filterKey ? 'var(--blue)' : 'rgba(0,0,0,0.03)',
+                        color: memberRoleFilter === filterKey ? '#fff' : 'var(--text-primary)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {filterKey === 'all' && `🌐 All (${members.length})`}
+                      {filterKey === 'volunteer' && `🛡️ Volunteers (${members.filter(m => (m.role || '').toLowerCase() === 'volunteer').length})`}
+                      {filterKey === 'citizen' && `👤 Citizens (${members.filter(m => (m.role || '').toLowerCase() === 'citizen').length})`}
+                      {filterKey === 'hospital' && `🏥 Hospitals (${members.filter(m => (m.role || '').toLowerCase() === 'hospital').length})`}
+                    </button>
+                  ))}
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.72rem' }}
+                    onClick={() => api.getMembers().then(data => setMembers(data || []))}
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
               </div>
+
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
-                      <th style={{ padding: '0.75rem 0.6rem' }}>Responder</th>
-                      <th style={{ padding: '0.75rem 0.6rem' }}>Role & Cert</th>
-                      <th style={{ padding: '0.75rem 0.6rem' }}>Contact</th>
-                      <th style={{ padding: '0.75rem 0.6rem' }}>Verification</th>
-                      <th style={{ padding: '0.75rem 0.6rem' }}>Live Duty</th>
-                      <th style={{ padding: '0.75rem 0.6rem' }}>Action</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Member / Name</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Role & Credentials</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Contact Info</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Verification Status</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Duty Readiness</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Admin Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {members && members.filter(m => (m.role || '').toLowerCase() === 'volunteer').length > 0 ? (
-                      members.filter(m => (m.role || '').toLowerCase() === 'volunteer').map((m) => (
-                        <tr key={m.id || m.email} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.75rem 0.6rem' }}>
-                            <div style={{ fontWeight: 600 }}>{m.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.email}</div>
-                          </td>
-                          <td style={{ padding: '0.75rem 0.6rem' }}>
-                            <span className="badge badge-blue">Volunteer</span>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{m.certification || 'Certified First Responder'}</div>
-                          </td>
-                          <td style={{ padding: '0.75rem 0.6rem' }}>{m.phone || 'N/A'}</td>
-                          <td style={{ padding: '0.75rem 0.6rem' }}>
-                            <span className={`badge ${m.isVerified ? 'badge-emerald' : 'badge-amber'}`}>
-                              {m.isVerified ? '✓ Verified' : '⚠️ Pending Admin Verification'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '0.75rem 0.6rem' }}>
-                            <span style={{ color: m.isVerified ? 'var(--emerald)' : 'var(--amber)', fontWeight: 700 }}>
-                              {m.isVerified ? '🟢 On Duty' : '⏳ Pending Review'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '0.75rem 0.6rem' }}>
-                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                              {!m.isVerified && (
-                                <button 
-                                  className="btn btn-primary" 
-                                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', fontWeight: 600 }} 
-                                  onClick={async () => {
-                                    await api.verifyVolunteer(m.id || m.email);
-                                    Swal.fire({ 
-                                      title: 'Approved!', 
-                                      text: `${m.name} has been verified and approved as an active field responder.`, 
-                                      icon: 'success', 
-                                      timer: 1500, 
-                                      showConfirmButton: false 
-                                    });
-                                    setMembers(prev => prev.map(item => (item.id === m.id || item.email === m.email) ? { ...item, active: true, isVerified: true } : item));
-                                  }}
-                                >
-                                  ✓ Approve
-                                </button>
+                    {members && members.filter(m => {
+                      if (memberRoleFilter === 'all') return true;
+                      return (m.role || '').toLowerCase() === memberRoleFilter;
+                    }).length > 0 ? (
+                      members.filter(m => {
+                        if (memberRoleFilter === 'all') return true;
+                        return (m.role || '').toLowerCase() === memberRoleFilter;
+                      }).map((m) => {
+                        const isVol = (m.role || '').toLowerCase() === 'volunteer';
+                        const isHosp = (m.role || '').toLowerCase() === 'hospital';
+                        const roleBadgeClass = isVol ? 'badge-blue' : isHosp ? 'badge-red' : 'badge-emerald';
+
+                        return (
+                          <tr key={m.id || m.email} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '0.75rem 0.6rem' }}>
+                              <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{m.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.email}</div>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.6rem' }}>
+                              <span className={`badge ${roleBadgeClass}`} style={{ fontSize: '0.68rem' }}>{m.role || 'Member'}</span>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{m.certification || 'Verified ID'}</div>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.6rem' }}>
+                              {m.phone ? (
+                                <a href={`tel:${m.phone}`} style={{ color: 'var(--blue)', fontWeight: 600, textDecoration: 'none' }}>
+                                  📞 {m.phone}
+                                </a>
+                              ) : (
+                                <span style={{ color: 'var(--text-secondary)' }}>N/A</span>
                               )}
-                              <button 
-                                className="btn btn-outline" 
-                                style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }} 
-                                onClick={() => Swal.fire({ 
-                                  title: 'Contacting Responder', 
-                                  text: `Initiating direct emergency channel to ${m.name} (${m.phone || 'N/A'})...`, 
-                                  icon: 'info', 
-                                  confirmButtonColor: '#6366f1' 
-                                })}
-                              >
-                                📞 Ping
-                              </button>
-                              <button
-                                className="btn btn-outline"
-                                style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', borderColor: '#8b5cf6', color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.08)' }}
-                                onClick={() => handleAdminIssueCertificate({ volunteerName: m.name }, 'milestone')}
-                              >
-                                🎓 Award Cert
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td style={{ padding: '0.75rem 0.6rem' }}>
+                              <span className={`badge ${m.isVerified ? 'badge-emerald' : 'badge-amber'}`}>
+                                {m.isVerified ? '✓ Verified Active' : '⚠️ Pending Admin Approval'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.6rem' }}>
+                              <span style={{ color: m.isVerified ? 'var(--emerald)' : 'var(--amber)', fontWeight: 700 }}>
+                                {m.isVerified ? '🟢 Active & Ready' : '⏳ Locked (Pending)'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.6rem' }}>
+                              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {!m.isVerified && (
+                                  <button 
+                                    className="btn btn-primary" 
+                                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', fontWeight: 600, background: 'var(--emerald)', border: 'none' }} 
+                                    onClick={async () => {
+                                      await api.verifyVolunteer(m.id || m.email);
+                                      Swal.fire({ 
+                                        title: 'Approved!', 
+                                        text: `${m.name} has been verified and approved as an active member.`, 
+                                        icon: 'success', 
+                                        timer: 1500, 
+                                        showConfirmButton: false 
+                                      });
+                                      setMembers(prev => prev.map(item => (item.id === m.id || item.email === m.email) ? { ...item, active: true, isVerified: true } : item));
+                                    }}
+                                  >
+                                    ✓ Approve
+                                  </button>
+                                )}
+                                <button 
+                                  className="btn btn-outline" 
+                                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }} 
+                                  onClick={() => Swal.fire({ 
+                                    title: 'Contact Member', 
+                                    text: `Initiating direct communication to ${m.name} (${m.phone || m.email})...`, 
+                                    icon: 'info', 
+                                    confirmButtonColor: '#6366f1' 
+                                  })}
+                                >
+                                  📞 Ping
+                                </button>
+                                {isVol && (
+                                  <button
+                                    className="btn btn-outline"
+                                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', borderColor: '#8b5cf6', color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.08)' }}
+                                    onClick={() => handleAdminIssueCertificate({ volunteerName: m.name }, 'milestone')}
+                                  >
+                                    🎓 Award Cert
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
                           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📭</span>
-                          <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#fff' }}>No volunteer responders registered yet</strong>
-                          All newly registered field volunteers will automatically appear here for one-click admin verification.
+                          <strong style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>No members found in this category</strong>
+                          All newly registered volunteers, citizens, and hospitals will automatically appear here.
                         </td>
                       </tr>
                     )}

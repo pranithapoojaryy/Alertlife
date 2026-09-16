@@ -282,25 +282,29 @@ export const api = {
 
   register: async (formData) => {
     // Store in clean registered users pool for guaranteed credential check
-    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5'];
+    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
     storageKeys.forEach(k => {
       try {
         const registeredUsers = JSON.parse(localStorage.getItem(k) || '[]');
-        const existing = registeredUsers.find(u => u.email?.toLowerCase() === formData.email?.toLowerCase());
-        if (!existing) {
-          const newLocalUser = {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            password: formData.password,
-            role: formData.role || 'citizen',
-            bloodGroup: formData.bloodGroup || 'O+',
-            certification: formData.certification || 'Certified First Responder',
-            isVerified: false
-          };
-          registeredUsers.push(newLocalUser);
-          localStorage.setItem(k, JSON.stringify(registeredUsers));
+        const existingIdx = registeredUsers.findIndex(u => u.email?.toLowerCase() === formData.email?.toLowerCase());
+        const userObj = {
+          id: 'reg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          role: formData.role || 'citizen',
+          bloodGroup: formData.bloodGroup || 'O+',
+          certification: formData.certification || (formData.role === 'volunteer' ? 'Certified First Responder' : formData.role === 'hospital' ? 'Hospital Medical License' : 'Citizen Health ID'),
+          isVerified: formData.role === 'volunteer' ? false : true,
+          active: true
+        };
+        if (existingIdx >= 0) {
+          registeredUsers[existingIdx] = { ...registeredUsers[existingIdx], ...userObj };
+        } else {
+          registeredUsers.push(userObj);
         }
+        localStorage.setItem(k, JSON.stringify(registeredUsers));
       } catch {}
     });
 
@@ -329,12 +333,16 @@ export const api = {
         };
       }
       saveLocalDB(db);
-      return data.user || { ...formData, isVerified: false };
+      window.dispatchEvent(new Event('alertlife_storage_update'));
+      return data.user || { ...formData, isVerified: formData.role === 'volunteer' ? false : true };
     } catch (err) {
+      const db = getLocalDB();
+      saveLocalDB(db);
+      window.dispatchEvent(new Event('alertlife_storage_update'));
       if (err.response?.data?.message && err.response.data.message !== 'Email already registered') {
         throw new Error(err.response.data.message);
       }
-      return { ...formData, isVerified: false };
+      return { ...formData, isVerified: formData.role === 'volunteer' ? false : true };
     }
   },
 
@@ -735,7 +743,7 @@ export const api = {
       const { data: volData } = await client.get('/volunteers');
       if (volData.success && volData.volunteers) {
         volData.volunteers.forEach(v => {
-          const email = v.userId?.email || v.email || '';
+          const email = (v.userId?.email || v.email || '').toLowerCase().trim();
           const key = email || v._id;
           const isVer = v.isVerified === true || v.userId?.isVerified === true;
           membersMap.set(key, {
@@ -755,59 +763,72 @@ export const api = {
       console.warn('Backend members fetch info:', err.message);
     }
 
-    // 2. Fetch from localStorage registered users
+    // 2. Fetch from localStorage registered users (Volunteers, Citizens, Hospitals)
     const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
     storageKeys.forEach(k => {
       try {
         const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
         regUsers.forEach((u, idx) => {
-          const role = (u.role || '').toLowerCase();
-          if (role === 'volunteer') {
-            const email = (u.email || '').toLowerCase().trim();
-            const key = email || `reg-${idx}`;
-            if (!membersMap.has(key)) {
-              membersMap.set(key, {
-                id: u.id || `reg-${idx}-${email}`,
-                name: u.name || 'Volunteer Responder',
-                email: email,
-                phone: u.phone || '',
-                certification: u.certification || 'Certified First Responder',
-                bloodGroup: u.bloodGroup || 'O+',
-                role: 'Volunteer',
-                active: u.isVerified === true,
-                isVerified: u.isVerified === true
-              });
-            } else if (u.isVerified) {
-              const existing = membersMap.get(key);
-              existing.isVerified = true;
-              existing.active = true;
-            }
+          const email = (u.email || '').toLowerCase().trim();
+          const key = email || `reg-${idx}`;
+          const rawRole = (u.role || 'citizen').toLowerCase();
+          const roleLabel = rawRole === 'volunteer' ? 'Volunteer' : rawRole === 'hospital' ? 'Hospital' : rawRole === 'admin' ? 'Admin' : 'Citizen';
+          const defaultCert = rawRole === 'volunteer' ? 'Certified First Responder' : rawRole === 'hospital' ? 'Hospital Medical License' : 'Citizen Health ID';
+
+          if (!membersMap.has(key)) {
+            membersMap.set(key, {
+              id: u.id || `reg-${idx}-${email}`,
+              name: u.name || (rawRole === 'hospital' ? 'Medical Center' : 'Network Member'),
+              email: email,
+              phone: u.phone || '',
+              certification: u.certification || defaultCert,
+              bloodGroup: u.bloodGroup || 'O+',
+              role: roleLabel,
+              active: u.isVerified !== false,
+              isVerified: u.isVerified !== false
+            });
+          } else if (u.isVerified) {
+            const existing = membersMap.get(key);
+            existing.isVerified = true;
+            existing.active = true;
           }
         });
       } catch {}
     });
 
-    // 3. Check active volunteer session in localStorage
-    try {
-      const volSession = JSON.parse(localStorage.getItem('user_session_volunteer') || localStorage.getItem('user_session') || 'null');
-      if (volSession && volSession.email && (volSession.role || '').toLowerCase() === 'volunteer') {
-        const email = volSession.email.toLowerCase().trim();
-        if (!membersMap.has(email)) {
-          membersMap.set(email, {
-            id: volSession.id || `session-vol-${email}`,
-            name: volSession.name || 'Volunteer Responder',
-            email: email,
-            phone: volSession.phone || '',
-            certification: 'Certified First Responder',
-            bloodGroup: 'O+',
-            role: 'Volunteer',
-            active: volSession.isVerified === true,
-            isVerified: volSession.isVerified === true
-          });
-        }
-      }
-    } catch {}
+    // 3. Check active user sessions in localStorage
+    const sessionKeys = [
+      { key: 'user_session_volunteer', role: 'Volunteer', defaultCert: 'Certified First Responder' },
+      { key: 'user_session_citizen', role: 'Citizen', defaultCert: 'Citizen Health ID' },
+      { key: 'user_session_hospital', role: 'Hospital', defaultCert: 'Hospital Medical License' },
+      { key: 'user_session', role: 'Citizen', defaultCert: 'Citizen Health ID' }
+    ];
 
+    sessionKeys.forEach(({ key, role, defaultCert }) => {
+      try {
+        const sess = JSON.parse(localStorage.getItem(key) || 'null');
+        if (sess && sess.email) {
+          const email = sess.email.toLowerCase().trim();
+          const isVol = (sess.role || role).toLowerCase() === 'volunteer';
+          const isVer = sess.isVerified === true || !isVol;
+          if (!membersMap.has(email)) {
+            membersMap.set(email, {
+              id: sess.id || `sess-${email}`,
+              name: sess.name || 'Active Member',
+              email: email,
+              phone: sess.phone || '',
+              certification: sess.certification || defaultCert,
+              bloodGroup: sess.bloodGroup || 'O+',
+              role: sess.role ? sess.role.charAt(0).toUpperCase() + sess.role.slice(1) : role,
+              active: isVer,
+              isVerified: isVer
+            });
+          }
+        }
+      } catch {}
+    });
+
+    // 4. Local DB Profiles
     const db = getLocalDB();
     if (db.volunteerProfile?.name && db.volunteerProfile?.email) {
       const email = db.volunteerProfile.email.toLowerCase().trim();
@@ -822,6 +843,22 @@ export const api = {
           role: 'Volunteer',
           active: db.volunteerProfile.isVerified === true,
           isVerified: db.volunteerProfile.isVerified === true
+        });
+      }
+    }
+    if (db.profile?.name && db.profile?.email) {
+      const email = db.profile.email.toLowerCase().trim();
+      if (!membersMap.has(email)) {
+        membersMap.set(email, {
+          id: 'curr-citizen',
+          name: db.profile.name,
+          email: email,
+          phone: db.profile.phone,
+          certification: 'Citizen Health ID',
+          bloodGroup: db.profile.bloodGroup || 'O+',
+          role: 'Citizen',
+          active: true,
+          isVerified: true
         });
       }
     }
