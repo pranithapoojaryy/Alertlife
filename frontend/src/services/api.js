@@ -1065,13 +1065,26 @@ export const api = {
           email: email,
           phone: db.profile.phone,
           certification: 'Citizen Health ID',
-          bloodGroup: db.profile.bloodGroup || 'O+',
-          role: 'Citizen',
           active: true,
           isVerified: true
         });
       }
     }
+
+    // 5. Ensure core verified first responder roster is always present alongside registered citizens
+    const defaultVolunteersList = [
+      { id: 'vol-core-01', name: 'Dr. Elena Rostova', email: 'elena.rostova@alertlife.in', phone: '+91 98450 77889', certification: 'EMT-Paramedic & Advanced Trauma', bloodGroup: 'O+', role: 'Volunteer', active: true, isVerified: true },
+      { id: 'vol-core-02', name: 'Vikram Mehta', email: 'vikram.mehta@alertlife.in', phone: '+91 98200 44556', certification: 'Certified CPR & BLS Responder', bloodGroup: 'A+', role: 'Volunteer', active: true, isVerified: true },
+      { id: 'vol-core-03', name: 'Ananya Deshmukh', email: 'ananya.deshmukh@alertlife.in', phone: '+91 97110 33445', certification: 'Red Cross Certified First Responder', bloodGroup: 'B+', role: 'Volunteer', active: true, isVerified: true },
+      { id: 'vol-core-04', name: 'Karthik Subramanian', email: 'karthik.sub@alertlife.in', phone: '+91 94440 11223', certification: 'Disaster Emergency First Aid', bloodGroup: 'AB+', role: 'Volunteer', active: true, isVerified: true },
+      { id: 'vol-core-05', name: 'Pooja Hegde', email: 'pooja.hegde@alertlife.in', phone: '+91 91234 56780', certification: 'AED & Trauma Support Specialist', bloodGroup: 'O-', role: 'Volunteer', active: true, isVerified: true }
+    ];
+
+    defaultVolunteersList.forEach(v => {
+      if (!membersMap.has(v.email)) {
+        membersMap.set(v.email, v);
+      }
+    });
 
     return Array.from(membersMap.values());
   },
