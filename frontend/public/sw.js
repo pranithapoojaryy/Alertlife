@@ -74,10 +74,12 @@ self.addEventListener('push', (e) => {
     tag: data.tag || 'alertlife-live-notification',
     renotify: true,
     requireInteraction: true,
-    vibrate: [350, 150, 350, 250, 500],
+    silent: false,
+    sound: '/siren.mp3',
+    vibrate: [500, 200, 500, 200, 800, 200, 500, 200, 500, 200, 1000],
     data: data.data || { url: '/' },
     actions: [
-      { action: 'open', title: '👁️ View Live Radar' },
+      { action: 'open', title: '⚡ Open & Attend SOS' },
       { action: 'dismiss', title: '✕ Dismiss' }
     ]
   };
