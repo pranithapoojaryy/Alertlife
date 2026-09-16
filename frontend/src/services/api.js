@@ -1337,6 +1337,38 @@ export const api = {
     return db.rescueLedger;
   },
 
+  // 🎓 Volunteer Certificate Management (Per-Rescue and Overall Milestone Certificates)
+  getVolunteerCertificates: () => {
+    const db = getLocalDB();
+    return db.certificates || [];
+  },
+
+  issueCertificate: (certData) => {
+    const db = getLocalDB();
+    if (!db.certificates) db.certificates = [];
+
+    const newCert = {
+      id: 'cert-' + Date.now(),
+      issuedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      issuedTimestamp: new Date().toISOString(),
+      ...certData
+    };
+
+    // Replace if same type & target exists or prepend
+    db.certificates = [newCert, ...(db.certificates.filter(c => c.id !== newCert.id))];
+    saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
+
+    // 🔔 Send Live Notification: Certificate Awarded
+    api.sendLivePushNotification({
+      title: '🎓 Official Certificate Issued!',
+      body: `Congratulations ${certData.recipientName}! An official certificate (${certData.title}) has been issued by Administration.`,
+      tag: 'cert-awarded-' + newCert.id
+    });
+
+    return db.certificates;
+  },
+
   clearAllData: () => {
     localStorage.removeItem('user_session');
     localStorage.removeItem('alertlife_token');
