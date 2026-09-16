@@ -11,7 +11,14 @@ const getVolunteerProfile = async (req, res) => {
 
 const updateVolunteerProfile = async (req, res) => {
   try {
-    const profile = await Volunteer.findOneAndUpdate({ userId: req.user._id }, req.body, { new: true, upsert: true });
+    const { name, phone, ...volData } = req.body;
+    if (name || phone) {
+      const userUpdate = {};
+      if (name) userUpdate.name = name;
+      if (phone) userUpdate.phone = phone;
+      await User.findByIdAndUpdate(req.user._id, userUpdate);
+    }
+    const profile = await Volunteer.findOneAndUpdate({ userId: req.user._id }, { ...volData, ...(req.body) }, { new: true, upsert: true }).populate('userId', 'name email phone');
     res.json({ success: true, message: 'Profile updated', profile });
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };

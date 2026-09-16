@@ -468,7 +468,15 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
               } else if (!isVer) {
                 setDutyStatus('offline');
               }
-              return { ...prev, ...vp, isVerified: isVer };
+              // Retain active form edits / current values for phone, name, cert if already populated
+              return {
+                ...vp,
+                ...prev,
+                isVerified: isVer,
+                totalEmergenciesHandled: vp.totalEmergenciesHandled ?? prev.totalEmergenciesHandled,
+                rating: vp.rating ?? prev.rating,
+                currentLocation: vp.currentLocation || prev.currentLocation
+              };
             });
           }
         });

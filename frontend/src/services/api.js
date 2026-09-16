@@ -190,33 +190,58 @@ export const api = {
 
   // Auth & Session
   login: async (identifier, password, currentRole = 'citizen') => {
+    const cleanInput = (identifier || '').trim().toLowerCase();
+    const digitsOnly = (identifier || '').replace(/\D/g, '');
+    const last10 = digitsOnly.slice(-10);
+    const isEmail = (identifier || '').includes('@');
+
+    // Retrieve locally registered users if present
+    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
+    let localFound = null;
+    for (const k of storageKeys) {
+      try {
+        const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
+        localFound = regUsers.find(u => {
+          if (u.email && u.email.toLowerCase() === cleanInput) return true;
+          if (u.phone) {
+            const uDigits = u.phone.replace(/\D/g, '');
+            if (last10 && uDigits.slice(-10) === last10) return true;
+            if (u.phone === identifier) return true;
+          }
+          return false;
+        });
+        if (localFound) break;
+      } catch {}
+    }
+
     try {
       const { data } = await client.post('/auth/login', { identifier, email: identifier, password });
       if (data.token) {
         localStorage.setItem('alertlife_token', data.token);
       }
       
-      // Proactively sync live GPS after login
-      if (data.user) {
-        api.syncLiveLocation(data.user.role || currentRole).catch(() => {});
-      }
-      return data.user;
-    } catch (err) {
-      const cleanInput = identifier.trim().toLowerCase();
-      const digitsOnly = identifier.replace(/\D/g, '');
-      const last10 = digitsOnly.slice(-10);
-      const isEmail = identifier.includes('@');
+      const loggedUser = {
+        ...data.user,
+        phone: data.user?.phone || localFound?.phone || (digitsOnly.length === 10 ? digitsOnly : ''),
+        name: data.user?.name || localFound?.name || '',
+        role: data.user?.role || currentRole
+      };
 
+      // Proactively sync live GPS after login
+      api.syncLiveLocation(loggedUser.role || currentRole).catch(() => {});
+      return loggedUser;
+    } catch (err) {
       // If backend login failed (e.g. user not found in DB), attempt automatic registration on live backend
       try {
         const autoName = isEmail 
-          ? identifier.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) 
-          : 'Responder ' + (last10 || 'User');
-        const regRole = currentRole || (cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : cleanInput.includes('volunteer') ? 'volunteer' : 'citizen');
+          ? (localFound?.name || identifier.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+          : (localFound?.name || ('Responder ' + (last10 || 'User')));
+        const regRole = currentRole || localFound?.role || (cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : cleanInput.includes('volunteer') ? 'volunteer' : 'citizen');
+        const exactPhone = localFound?.phone || (digitsOnly.length === 10 ? digitsOnly : '');
         const regPayload = {
           name: autoName,
           email: isEmail ? cleanInput : `${last10 || '9876543210'}@alertlife.in`,
-          phone: digitsOnly.length === 10 ? digitsOnly : '9876543210',
+          phone: exactPhone,
           password: password,
           role: regRole,
           certification: 'Certified First Responder',
@@ -227,39 +252,26 @@ export const api = {
           localStorage.setItem('alertlife_token', regData.token);
         }
         if (regData.user) {
-          api.syncLiveLocation(regData.user.role || regRole).catch(() => {});
-          return regData.user;
+          const registeredUser = {
+            ...regData.user,
+            phone: regData.user.phone || exactPhone,
+            role: regData.user.role || regRole
+          };
+          api.syncLiveLocation(registeredUser.role || regRole).catch(() => {});
+          return registeredUser;
         }
       } catch (autoRegErr) {
         console.warn('Auto-registration on login info:', autoRegErr.message);
       }
 
-      // Check for local credentials fallback
-      const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
-      for (const k of storageKeys) {
-        try {
-          const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
-          const localFound = regUsers.find(u => {
-            if (u.email && u.email.toLowerCase() === cleanInput) return true;
-            if (u.phone) {
-              const uDigits = u.phone.replace(/\D/g, '');
-              if (last10 && uDigits.slice(-10) === last10) return true;
-              if (u.phone === identifier) return true;
-            }
-            return false;
-          });
-          
-          if (localFound) {
-            if (localFound.password === password) {
-              localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
-              api.syncLiveLocation(localFound.role || currentRole).catch(() => {});
-              return localFound;
-            } else {
-              throw new Error('Invalid password. Please check your credentials.');
-            }
-          }
-        } catch (e) {
-          if (e.message.includes('Invalid password')) throw e;
+      // Check local credentials fallback
+      if (localFound) {
+        if (localFound.password === password) {
+          localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
+          api.syncLiveLocation(localFound.role || currentRole).catch(() => {});
+          return localFound;
+        } else {
+          throw new Error('Invalid password. Please check your credentials.');
         }
       }
 
@@ -272,10 +284,11 @@ export const api = {
       const db = getLocalDB();
       const name = isEmail ? identifier.split('@')[0] : 'User ' + last10;
       const role = currentRole || (cleanInput.includes('volunteer') ? 'volunteer' : cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : 'citizen');
+      const fallbackPhone = digitsOnly.length === 10 ? digitsOnly : (!isEmail ? identifier : (db.volunteerProfile?.phone || db.profile?.phone || ''));
       api.syncLiveLocation(role).catch(() => {});
       return { 
         email: isEmail ? cleanInput : `${last10 || '9876543210'}@alertlife.in`, 
-        phone: !isEmail ? identifier : '', 
+        phone: fallbackPhone, 
         name: db.volunteerProfile?.name || db.profile?.name || name, 
         role,
         isVerified: false
@@ -284,17 +297,20 @@ export const api = {
   },
 
   register: async (formData) => {
+    const cleanPhone = (formData.phone || '').replace(/\D/g, '');
+    const cleanEmail = (formData.email || '').toLowerCase().trim();
+
     // Store in clean registered users pool for guaranteed credential check
     const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
     storageKeys.forEach(k => {
       try {
         const registeredUsers = JSON.parse(localStorage.getItem(k) || '[]');
-        const existingIdx = registeredUsers.findIndex(u => u.email?.toLowerCase() === formData.email?.toLowerCase());
+        const existingIdx = registeredUsers.findIndex(u => u.email?.toLowerCase() === cleanEmail || (cleanPhone && u.phone?.replace(/\D/g, '') === cleanPhone));
         const userObj = {
           id: 'reg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
           name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
+          email: cleanEmail,
+          phone: cleanPhone || formData.phone,
           password: formData.password,
           role: formData.role || 'citizen',
           bloodGroup: formData.bloodGroup || 'O+',
@@ -312,7 +328,7 @@ export const api = {
     });
 
     try {
-      const { data } = await client.post('/auth/register', formData);
+      const { data } = await client.post('/auth/register', { ...formData, email: cleanEmail, phone: cleanPhone || formData.phone });
       if (data.token) {
         localStorage.setItem('alertlife_token', data.token);
       }
@@ -321,38 +337,38 @@ export const api = {
       db.profile = {
         ...db.profile,
         name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        email: cleanEmail,
+        phone: cleanPhone || formData.phone,
         bloodGroup: formData.bloodGroup || 'O+'
       };
       if (formData.role === 'volunteer') {
         db.volunteerProfile = {
           ...db.volunteerProfile,
           name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
+          email: cleanEmail,
+          phone: cleanPhone || formData.phone,
           certification: formData.certification || 'Certified First Responder',
           isVerified: false
         };
       }
       saveLocalDB(db);
       window.dispatchEvent(new Event('alertlife_storage_update'));
-      return data.user || { ...formData, isVerified: formData.role === 'volunteer' ? false : true };
+      return data.user || { ...formData, email: cleanEmail, phone: cleanPhone || formData.phone, isVerified: formData.role === 'volunteer' ? false : true };
     } catch (err) {
       const db = getLocalDB();
       db.profile = {
         ...db.profile,
         name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        email: cleanEmail,
+        phone: cleanPhone || formData.phone,
         bloodGroup: formData.bloodGroup || 'O+'
       };
       if (formData.role === 'volunteer') {
         db.volunteerProfile = {
           ...db.volunteerProfile,
           name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
+          email: cleanEmail,
+          phone: cleanPhone || formData.phone,
           certification: formData.certification || 'Certified First Responder',
           isVerified: false
         };
@@ -362,7 +378,7 @@ export const api = {
       if (err.response?.data?.message && err.response.data.message !== 'Email already registered') {
         throw new Error(err.response.data.message);
       }
-      return { ...formData, isVerified: formData.role === 'volunteer' ? false : true };
+      return { ...formData, email: cleanEmail, phone: cleanPhone || formData.phone, isVerified: formData.role === 'volunteer' ? false : true };
     }
   },
 
@@ -1101,38 +1117,48 @@ export const api = {
       session = JSON.parse(localStorage.getItem('user_session_volunteer') || localStorage.getItem('user_session') || '{}');
     } catch {}
 
+    const db = getLocalDB();
+    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v6') || localStorage.getItem('alertlife_registered_users_v5') || '[]');
+    const matchingUser = registeredUsers.find(u => (session.email && u.email?.toLowerCase() === session.email.toLowerCase()) || (session.phone && u.phone?.replace(/\D/g, '') === session.phone?.replace(/\D/g, '')));
+    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? session?.isVerified ?? false;
+
+    // Prefer active session and locally edited volunteer profile values for name and phone
+    const activeName = db.volunteerProfile?.name || session.name || matchingUser?.name || "";
+    const activePhone = db.volunteerProfile?.phone || session.phone || matchingUser?.phone || "";
+    const activeEmail = db.volunteerProfile?.email || session.email || matchingUser?.email || "";
+
     try {
       const { data: allVols } = await client.get('/volunteers');
       if (allVols.success && Array.isArray(allVols.volunteers)) {
         const found = allVols.volunteers.find(v => {
           const volEmail = (v.userId?.email || v.email || '').toLowerCase().trim();
           const volPhone = (v.userId?.phone || v.phone || '').replace(/\D/g, '');
-          const sessEmail = (session.email || '').toLowerCase().trim();
-          const sessPhone = (session.phone || '').replace(/\D/g, '');
+          const sessEmail = (activeEmail || '').toLowerCase().trim();
+          const sessPhone = (activePhone || '').replace(/\D/g, '');
           
           if (sessEmail && volEmail && sessEmail === volEmail) return true;
           if (sessPhone && volPhone && (sessPhone === volPhone || sessPhone.slice(-10) === volPhone.slice(-10))) return true;
-          if (session.name && v.userId?.name && v.userId.name.toLowerCase() === session.name.toLowerCase()) return true;
+          if (activeName && v.userId?.name && v.userId.name.toLowerCase() === activeName.toLowerCase()) return true;
           return false;
         });
 
         if (found) {
-          const isVer = found.isVerified === true || found.userId?.isVerified === true;
+          const isVer = found.isVerified === true || found.userId?.isVerified === true || verifiedStatus;
           return {
             id: found._id,
-            name: found.userId?.name || session.name || 'Volunteer Responder',
-            email: found.userId?.email || session.email || '',
-            phone: found.userId?.phone || session.phone || '',
-            certification: found.certification || 'Certified First Responder',
-            certificationNumber: found.certificationNumber || '',
-            skills: found.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
-            availabilityStatus: found.availabilityStatus || 'available',
-            serviceRadius: found.serviceRadius || 5,
+            name: activeName || found.userId?.name || 'Volunteer Responder',
+            email: activeEmail || found.userId?.email || '',
+            phone: activePhone || found.userId?.phone || '',
+            certification: db.volunteerProfile?.certification || found.certification || 'Certified First Responder',
+            certificationNumber: db.volunteerProfile?.certificationNumber || found.certificationNumber || '',
+            skills: db.volunteerProfile?.skills || found.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
+            availabilityStatus: db.volunteerProfile?.availabilityStatus || found.availabilityStatus || 'available',
+            serviceRadius: db.volunteerProfile?.serviceRadius || found.serviceRadius || 5,
             isVerified: isVer,
-            totalEmergenciesHandled: found.totalEmergenciesHandled || 0,
-            rating: found.rating || 5.0,
-            experience: found.experience || 1,
-            currentLocation: found.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
+            totalEmergenciesHandled: found.totalEmergenciesHandled || db.volunteerProfile?.totalEmergenciesHandled || 0,
+            rating: found.rating || db.volunteerProfile?.rating || 5.0,
+            experience: db.volunteerProfile?.experience || found.experience || 1,
+            currentLocation: db.volunteerProfile?.currentLocation || found.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
           };
         }
       }
@@ -1143,37 +1169,32 @@ export const api = {
     try {
       const { data } = await client.get('/volunteers/profile');
       if (data.success && data.profile) {
-        const isVer = data.profile.isVerified === true || data.profile.userId?.isVerified === true;
+        const isVer = data.profile.isVerified === true || data.profile.userId?.isVerified === true || verifiedStatus;
         return {
           id: data.profile._id,
-          name: data.profile.userId?.name || session.name || '',
-          email: data.profile.userId?.email || session.email || '',
-          phone: data.profile.userId?.phone || session.phone || '',
-          certification: data.profile.certification || 'Certified First Responder',
-          certificationNumber: data.profile.certificationNumber || '',
-          skills: data.profile.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
-          availabilityStatus: data.profile.availabilityStatus || 'available',
-          serviceRadius: data.profile.serviceRadius || 5,
+          name: activeName || data.profile.userId?.name || '',
+          email: activeEmail || data.profile.userId?.email || '',
+          phone: activePhone || data.profile.userId?.phone || '',
+          certification: db.volunteerProfile?.certification || data.profile.certification || 'Certified First Responder',
+          certificationNumber: db.volunteerProfile?.certificationNumber || data.profile.certificationNumber || '',
+          skills: db.volunteerProfile?.skills || data.profile.skills || ['CPR', 'AED', 'Choking Relief', 'Bandaging', 'Burn Treatment'],
+          availabilityStatus: db.volunteerProfile?.availabilityStatus || data.profile.availabilityStatus || 'available',
+          serviceRadius: db.volunteerProfile?.serviceRadius || data.profile.serviceRadius || 5,
           isVerified: isVer,
-          totalEmergenciesHandled: data.profile.totalEmergenciesHandled || 0,
-          rating: data.profile.rating || 5.0,
-          experience: data.profile.experience || 1,
-          currentLocation: data.profile.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
+          totalEmergenciesHandled: data.profile.totalEmergenciesHandled || db.volunteerProfile?.totalEmergenciesHandled || 0,
+          rating: data.profile.rating || db.volunteerProfile?.rating || 5.0,
+          experience: db.volunteerProfile?.experience || data.profile.experience || 1,
+          currentLocation: db.volunteerProfile?.currentLocation || data.profile.currentLocation || { latitude: 12.9352, longitude: 77.6245 }
         };
       }
     } catch (err) {
       console.warn('Backend volunteer profile fetch info:', err.message);
     }
 
-    const db = getLocalDB();
-    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v6') || localStorage.getItem('alertlife_registered_users_v5') || '[]');
-    const matchingUser = registeredUsers.find(u => u.email === session.email || u.phone === session.phone);
-    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? false;
-
     return {
-      name: session.name || db.volunteerProfile?.name || db.profile?.name || "",
-      email: session.email || db.volunteerProfile?.email || db.profile?.email || "",
-      phone: session.phone || db.volunteerProfile?.phone || db.profile?.phone || "",
+      name: activeName,
+      email: activeEmail,
+      phone: activePhone,
       certification: db.volunteerProfile?.certification || "Certified First Responder",
       certificationNumber: db.volunteerProfile?.certificationNumber || "",
       skills: db.volunteerProfile?.skills || ["CPR (Adult/Infant)", "AED Defibrillation", "Tourniquet / Bleeding Control", "Choking Relief"],
@@ -1188,20 +1209,75 @@ export const api = {
   },
 
   updateVolunteerProfile: async (volData) => {
+    const cleanPhone = (volData.phone || '').replace(/\D/g, '');
+    const formattedData = {
+      ...volData,
+      phone: cleanPhone || volData.phone
+    };
+
+    // 1. Update backend live database
     try {
-      const { data } = await client.put('/volunteers/profile', volData);
-      if (data.success) {
-        const db = getLocalDB();
-        db.volunteerProfile = { ...(db.volunteerProfile || {}), ...volData };
-        saveLocalDB(db);
-        return data.profile;
-      }
+      await client.put('/volunteers/profile', formattedData);
     } catch (err) {
       console.warn('Backend volunteer update info:', err.message);
     }
+
+    // 2. Update local DB
     const db = getLocalDB();
-    db.volunteerProfile = { ...(db.volunteerProfile || {}), ...volData };
+    db.volunteerProfile = { ...(db.volunteerProfile || {}), ...formattedData };
     saveLocalDB(db);
+
+    // 3. Update localStorage active user sessions
+    try {
+      const volSession = JSON.parse(localStorage.getItem('user_session_volunteer') || '{}');
+      if (volSession) {
+        const updatedSession = { ...volSession, ...formattedData, name: formattedData.name, phone: formattedData.phone };
+        localStorage.setItem('user_session_volunteer', JSON.stringify(updatedSession));
+      }
+      const genericSession = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (genericSession && genericSession.role === 'volunteer') {
+        const updatedGeneric = { ...genericSession, ...formattedData, name: formattedData.name, phone: formattedData.phone };
+        localStorage.setItem('user_session', JSON.stringify(updatedGeneric));
+      }
+    } catch {}
+
+    // 4. Update registered users storage pool
+    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
+    storageKeys.forEach(k => {
+      try {
+        const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
+        let matched = false;
+        regUsers.forEach(u => {
+          if ((formattedData.email && u.email?.toLowerCase() === formattedData.email.toLowerCase()) || (cleanPhone && u.phone?.replace(/\D/g, '') === cleanPhone)) {
+            u.name = formattedData.name || u.name;
+            u.phone = formattedData.phone || u.phone;
+            u.certification = formattedData.certification || u.certification;
+            u.certificationNumber = formattedData.certificationNumber || u.certificationNumber;
+            u.skills = formattedData.skills || u.skills;
+            u.serviceRadius = formattedData.serviceRadius || u.serviceRadius;
+            matched = true;
+          }
+        });
+        if (matched) {
+          localStorage.setItem(k, JSON.stringify(regUsers));
+        }
+      } catch {}
+    });
+
+    // 5. Update any certificates where recipientName should match new name if needed
+    try {
+      const pool = JSON.parse(localStorage.getItem('alertlife_certificates_pool') || '[]');
+      if (Array.isArray(pool) && pool.length > 0 && formattedData.name) {
+        pool.forEach(c => {
+          if (c && (!c.recipientName || c.recipientName === 'Volunteer Responder' || c.recipientName === 'Rahul Sharma')) {
+            c.recipientName = formattedData.name;
+          }
+        });
+        localStorage.setItem('alertlife_certificates_pool', JSON.stringify(pool));
+      }
+    } catch {}
+
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.volunteerProfile;
   },
 
@@ -1691,6 +1767,18 @@ export const api = {
         } catch {}
       }
     }
+
+    // Filter certificates for current volunteer if specificName or session.name is present, or return all certs
+    if (volName && volName !== 'Volunteer First Responder') {
+      const cleanVolName = volName.trim().toLowerCase();
+      const matched = certs.filter(c => {
+        if (!c.recipientName) return true;
+        const cName = c.recipientName.trim().toLowerCase();
+        return cName === cleanVolName || cName.includes(cleanVolName) || cleanVolName.includes(cName) || cName === 'volunteer responder' || cName === 'volunteer first responder';
+      });
+      if (matched.length > 0) return matched;
+    }
+
     return certs;
   },
 
