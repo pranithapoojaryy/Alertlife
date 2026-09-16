@@ -45,24 +45,17 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => {
-              reg.update();
-              console.log('PWA ServiceWorker registered & updated:', reg.scope);
-            })
-            .catch(err => console.log('PWA ServiceWorker registration failed:', err));
-        });
-
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
-          }
-        });
-      }
+      try {
+        if ('serviceWorker' in navigator && window.location.protocol.indexOf('http') === 0) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+              .then(reg => {
+                if (reg && reg.update) reg.update().catch(() => {});
+              })
+              .catch(() => {});
+          });
+        }
+      } catch (e) {}
     </script>
   </body>
 </html>

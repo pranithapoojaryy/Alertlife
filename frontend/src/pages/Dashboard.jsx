@@ -516,10 +516,12 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
     };
 
-    // Auto-request browser push notification permission on mount
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
-    }
+    // Safe browser push notification check without unhandled rejections
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    } catch (e) {}
 
     fetchData();
     fetchStaticData();
