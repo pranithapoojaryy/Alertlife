@@ -343,6 +343,14 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         });
       }
 
+      // Real-time dynamic sync of volunteer training tutorials, guides, and health camps
+      api.getArticles().then(data => {
+        if (data) setArticles(data);
+      });
+      api.getWebinars().then(data => {
+        if (data) setWebinars(data);
+      });
+
       // Sync members list for Admin
       if (currentRole === 'admin' || currentRole === 'hospital') {
         api.getMembers().then(data => setMembers(data || []));
@@ -1761,14 +1769,29 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   {/* Hero Banner */}
                   <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1))' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ fontSize: '2rem' }}>📢</span>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Community Health & Camp Center</h3>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                          Verified first-aid tutorials, YouTube training videos, downloadable emergency medical manuals, and free neighborhood health checkup camps.
-                        </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '2rem' }}>📢</span>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Community Health & Training Hub</h3>
+                            <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>🟢 Live Feed</span>
+                          </div>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                            Verified first-aid tutorials, YouTube training videos, downloadable emergency manuals, and free health checkup camps.
+                          </p>
+                        </div>
                       </div>
+                      <button 
+                        className="btn btn-outline" 
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        onClick={() => {
+                          api.getArticles().then(data => { if (data) setArticles(data); });
+                          api.getWebinars().then(data => { if (data) setWebinars(data); });
+                        }}
+                      >
+                        🔄 Refresh Feeds
+                      </button>
                     </div>
                   </div>
 

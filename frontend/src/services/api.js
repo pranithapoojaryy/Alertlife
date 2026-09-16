@@ -568,60 +568,86 @@ export const api = {
 
   // Webinars & articles
   getWebinars: async () => {
+    const webinarsMap = new Map();
     try {
       const { data } = await client.get('/events');
       if (data.success && data.events) {
-        return data.events.map(e => ({
-          id: e._id,
-          title: e.title,
-          speaker: e.speaker || 'Certified Instructor',
-          date: e.date,
-          location: e.location || 'Online / Community Center',
-          type: e.type || 'Webinar',
-          attendees: e.attendees?.length || 0
-        }));
+        data.events.forEach(e => {
+          webinarsMap.set(e._id, {
+            id: e._id,
+            title: e.title,
+            speaker: e.speaker || e.organizerName || (e.organizer?.name ? `${e.organizer.name} (Organizer)` : 'Volunteer Responder'),
+            date: e.date,
+            location: e.location || e.venue || 'Community Center Ground',
+            type: e.type || (e.eventType === 'webinar' ? 'Online Webinar' : 'Health Camp'),
+            attendees: e.registrations?.length || e.attendees || 0
+          });
+        });
       }
     } catch (err) {
       console.warn('Backend events fetch info:', err.message);
     }
-    return getLocalDB().webinars || [];
+
+    const localWebinars = getLocalDB().webinars || [];
+    localWebinars.forEach(w => {
+      if (!webinarsMap.has(w.id)) {
+        webinarsMap.set(w.id, w);
+      }
+    });
+
+    return Array.from(webinarsMap.values());
   },
 
   registerForWebinar: async (webId) => {
     try {
-      await client.post(`/events/${webId}/register`);
+      if (webId && !webId.startsWith('web-')) {
+        await client.post(`/events/${webId}/register`);
+      }
     } catch (err) {
-      console.warn('Failed to register for event on backend.', err);
+      console.warn('Failed to register for event on backend.', err.message);
     }
     const db = getLocalDB();
     db.webinars = (db.webinars || []).map(w => w.id === webId ? { ...w, attendees: (w.attendees || 0) + 1 } : w);
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.webinars;
   },
 
   getArticles: async () => {
+    const articlesMap = new Map();
     try {
       const { data } = await client.get('/education');
       if (data.success && (data.contents || data.content)) {
         const rawList = data.contents || data.content;
-        return rawList.map(c => ({
-          id: c._id,
-          title: c.title,
-          category: c.category || 'Guides',
-          contentType: c.contentType || 'article',
-          readTime: c.readTime || (c.contentType === 'video' ? '3 min video' : c.contentType === 'document' ? 'PDF Guide' : '5 min read'),
-          videoUrl: c.videoUrl || null,
-          thumbnail: c.thumbnail || null,
-          imageUrl: c.imageUrl || c.filePath || null,
-          docUrl: c.filePath || c.docUrl || '#',
-          author: c.author?.name || 'Volunteer Responder',
-          content: c.description || c.content
-        }));
+        rawList.forEach(c => {
+          articlesMap.set(c._id, {
+            id: c._id,
+            title: c.title,
+            category: c.category || 'First Aid Guides',
+            contentType: c.contentType || 'article',
+            readTime: c.readTime || (c.contentType === 'video' ? '3 min video' : c.contentType === 'document' ? 'PDF Guide' : '5 min read'),
+            videoUrl: c.videoUrl || (c.contentType === 'video' ? c.mediaUrl : null),
+            thumbnail: c.thumbnail || null,
+            imageUrl: c.imageUrl || (c.contentType === 'image' ? c.mediaUrl : c.filePath) || null,
+            docUrl: c.docUrl || (c.contentType === 'document' ? c.mediaUrl : c.filePath) || '#',
+            author: c.authorName || (c.author?.name ? `${c.author.name} (Verified Responder)` : 'Verified Volunteer'),
+            content: c.content || c.description,
+            date: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Recent'
+          });
+        });
       }
     } catch (err) {
       console.warn('Backend articles fetch info:', err.message);
     }
-    return getLocalDB().articles || [];
+
+    const localArticles = getLocalDB().articles || [];
+    localArticles.forEach(a => {
+      if (!articlesMap.has(a.id)) {
+        articlesMap.set(a.id, a);
+      }
+    });
+
+    return Array.from(articlesMap.values());
   },  getMembers: async () => {
     const membersMap = new Map();
 
@@ -958,14 +984,28 @@ export const api = {
   },
 
   addWebinar: async (webinarData) => {
+    let savedWeb = { id: 'web-' + Date.now(), ...webinarData, attendees: 0 };
     try {
-      await client.post('/events', { ...webinarData, type: 'webinar' });
+      const { data } = await client.post('/events', webinarData);
+      if (data.success && data.event) {
+        const e = data.event;
+        savedWeb = {
+          id: e._id,
+          title: e.title,
+          speaker: e.speaker || e.organizerName || 'Volunteer Responder',
+          date: e.date,
+          location: e.location || e.venue || 'Community Center Ground',
+          type: e.type || 'Health Camp',
+          attendees: 0
+        };
+      }
     } catch (err) {
       console.warn('Backend event creation info:', err.message);
     }
     const db = getLocalDB();
-    db.webinars = [...(db.webinars || []), { id: 'web-' + Date.now(), ...webinarData, attendees: 0 }];
+    db.webinars = [savedWeb, ...(db.webinars || []).filter(w => w.id !== savedWeb.id)];
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.webinars;
   },
 
@@ -980,6 +1020,7 @@ export const api = {
     const db = getLocalDB();
     db.webinars = (db.webinars || []).map(w => w.id === id ? { ...w, ...webinarData } : w);
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.webinars;
   },
 
@@ -994,18 +1035,38 @@ export const api = {
     const db = getLocalDB();
     db.webinars = (db.webinars || []).filter(w => w.id !== id);
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.webinars;
   },
 
   addArticle: async (articleData) => {
+    let savedArt = { id: 'art-' + Date.now(), ...articleData };
     try {
-      await client.post('/education', articleData);
+      const { data } = await client.post('/education', articleData);
+      if (data.success && data.content) {
+        const c = data.content;
+        savedArt = {
+          id: c._id,
+          title: c.title,
+          category: c.category || 'First Aid Guides',
+          contentType: c.contentType || 'article',
+          readTime: c.readTime || '5 min read',
+          videoUrl: c.videoUrl || null,
+          thumbnail: c.thumbnail || null,
+          imageUrl: c.imageUrl || c.filePath || null,
+          docUrl: c.docUrl || c.filePath || '#',
+          author: c.authorName || 'Verified Volunteer',
+          content: c.content || c.description,
+          date: 'Just now'
+        };
+      }
     } catch (err) {
       console.warn('Backend article creation info:', err.message);
     }
     const db = getLocalDB();
-    db.articles = [...(db.articles || []), { id: 'art-' + Date.now(), ...articleData }];
+    db.articles = [savedArt, ...(db.articles || []).filter(a => a.id !== savedArt.id)];
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.articles;
   },
 
@@ -1020,6 +1081,7 @@ export const api = {
     const db = getLocalDB();
     db.articles = (db.articles || []).map(a => a.id === id ? { ...a, ...articleData } : a);
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.articles;
   },
 
@@ -1034,6 +1096,7 @@ export const api = {
     const db = getLocalDB();
     db.articles = (db.articles || []).filter(a => a.id !== id);
     saveLocalDB(db);
+    window.dispatchEvent(new Event('alertlife_storage_update'));
     return db.articles;
   },
 

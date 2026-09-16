@@ -2,7 +2,16 @@ const EducationalContent = require('../models/EducationalContent');
 
 const createContent = async (req, res) => {
   try {
-    const content = await EducationalContent.create({ ...req.body, author: req.user._id });
+    const authorId = req.user?._id || req.body.authorId || null;
+    const authorName = req.user?.name || req.body.author || 'Verified Volunteer Responder';
+    const content = await EducationalContent.create({
+      ...req.body,
+      description: req.body.description || req.body.content || '',
+      content: req.body.content || req.body.description || '',
+      author: authorId,
+      authorName: authorName,
+      isPublished: true
+    });
     res.status(201).json({ success: true, message: 'Content created', content });
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
@@ -10,9 +19,9 @@ const createContent = async (req, res) => {
 const getAllContent = async (req, res) => {
   try {
     const { category, contentType } = req.query;
-    let query = { isPublished: true };
-    if (category) query.category = category;
-    if (contentType) query.contentType = contentType;
+    let query = { $or: [{ isPublished: true }, { isPublished: { $exists: false } }] };
+    if (category && category !== 'all') query.category = category;
+    if (contentType && contentType !== 'all') query.contentType = contentType;
     const contents = await EducationalContent.find(query).populate('author', 'name').sort({ createdAt: -1 });
     res.json({ success: true, count: contents.length, contents });
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
@@ -44,3 +53,4 @@ const deleteContent = async (req, res) => {
 };
 
 module.exports = { createContent, getAllContent, getContentById, updateContent, deleteContent };
+
