@@ -197,10 +197,16 @@ const deleteAccount = async (req, res) => {
     // Finally delete the user
     await User.findByIdAndDelete(user._id);
 
-    res.json({ success: true, message: 'Account deleted successfully' });
+// @desc Get all registered users (for admin & hospital directory)
+// @route GET /api/auth/users
+// @access Public / Semi-public
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}, 'name email role phone bloodGroup isVerified isActive createdAt').sort({ createdAt: -1 });
+    res.json({ success: true, count: users.length, users });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { register, login, getMe, updatePassword, deleteAccount };
+module.exports = { register, login, getMe, updatePassword, deleteAccount, getAllUsers };

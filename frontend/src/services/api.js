@@ -919,7 +919,36 @@ export const api = {
   },  getMembers: async () => {
     const membersMap = new Map();
 
-    // 1. Fetch from live backend /volunteers
+    // 1. Fetch all registered users from backend /auth/users
+    try {
+      const { data: usersData } = await client.get('/auth/users');
+      if (usersData.success && Array.isArray(usersData.users)) {
+        usersData.users.forEach(u => {
+          const email = (u.email || '').toLowerCase().trim();
+          const key = email || u._id;
+          const rawRole = (u.role || 'citizen').toLowerCase();
+          const roleLabel = rawRole === 'volunteer' ? 'Volunteer' : rawRole === 'hospital' ? 'Hospital' : rawRole === 'admin' ? 'Admin' : 'Citizen';
+          const defaultCert = rawRole === 'volunteer' ? 'Certified First Responder' : rawRole === 'hospital' ? 'Hospital Medical License' : 'Citizen Health ID';
+          const isVer = u.isVerified === true || rawRole === 'citizen' || rawRole === 'hospital';
+
+          membersMap.set(key, {
+            id: u._id,
+            name: u.name || (rawRole === 'citizen' ? 'Registered Citizen' : 'Member'),
+            email: email,
+            phone: u.phone || '',
+            certification: u.certification || defaultCert,
+            bloodGroup: u.bloodGroup || 'O+',
+            role: roleLabel,
+            active: u.isActive !== false,
+            isVerified: isVer
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('Backend users fetch info:', err.message);
+    }
+
+    // 2. Fetch from live backend /volunteers
     try {
       const { data: volData } = await client.get('/volunteers');
       if (volData.success && volData.volunteers) {
