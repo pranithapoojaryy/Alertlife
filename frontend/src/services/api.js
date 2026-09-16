@@ -1319,7 +1319,28 @@ export const api = {
     db.rescueLedger = [newRescueLog, ...(db.rescueLedger || [])];
     db.activeSOS = null;
     saveLocalDB(db);
+
+    try {
+      localStorage.setItem('alertlife_rescue_ledger_pool', JSON.stringify(db.rescueLedger));
+    } catch {}
+
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+        bc.postMessage({ type: 'RESCUE_COMPLETED', data: newRescueLog });
+        bc.close();
+      }
+    } catch {}
+
     window.dispatchEvent(new Event('alertlife_storage_update'));
+
+    // 🔔 Notify Admin: Rescue Attended & Ready for Verification / Certificate Issuance
+    api.sendLivePushNotification({
+      title: '🎖️ Rescue Mission Attended & Completed!',
+      body: `Volunteer ${newRescueLog.volunteerName} attended emergency for ${newRescueLog.patientName}. Admin can now issue Certificate of Achievement.`,
+      tag: 'rescue-completed-' + newRescueLog.id
+    });
+
     return true;
   },
 
@@ -1580,7 +1601,16 @@ export const api = {
 
   getRescueLedger: () => {
     const db = getLocalDB();
-    return db.rescueLedger || [];
+    let ledger = db.rescueLedger || [];
+    try {
+      const pool = JSON.parse(localStorage.getItem('alertlife_rescue_ledger_pool') || '[]');
+      if (Array.isArray(pool) && pool.length > 0) {
+        const map = new Map();
+        [...ledger, ...pool].forEach(r => map.set(r.id, r));
+        ledger = Array.from(map.values());
+      }
+    } catch {}
+    return ledger;
   },
 
   recordRescueWork: (logData) => {
