@@ -192,7 +192,7 @@ export const api = {
     }
   },
 
-  dismissLivePushNotification: async (tagPrefix = 'cert-awarded') => {
+  dismissLivePushNotification: async (tagPrefix = '') => {
     try {
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.getRegistration();

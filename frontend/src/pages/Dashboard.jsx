@@ -145,28 +145,46 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     }
   });
 
-  const handleOpenCertificate = (cert) => {
-    setViewingCertificate(cert);
-    if (cert && cert.id) {
-      setViewedCertIds(prev => {
-        if (!prev.includes(cert.id)) {
-          const updated = [...prev, cert.id];
-          try {
-            localStorage.setItem('alertlife_viewed_certs', JSON.stringify(updated));
-          } catch {}
-          return updated;
-        }
-        return prev;
-      });
-    }
-    // Dismiss system OS-level / Push Notification
+  const markAllCertificatesAsViewed = () => {
+    const allIds = (certificates || []).map(c => c.id).filter(Boolean);
+    const now = Date.now();
+    setViewedCertIds(prev => {
+      const combined = Array.from(new Set([...prev, ...allIds, 'all_dismissed']));
+      try {
+        localStorage.setItem('alertlife_viewed_certs', JSON.stringify(combined));
+        localStorage.setItem('alertlife_certs_dismissed_at', String(now));
+      } catch {}
+      return combined;
+    });
     if (api.dismissLivePushNotification) {
-      api.dismissLivePushNotification('cert-awarded');
-      api.dismissLivePushNotification(cert?.id);
+      api.dismissLivePushNotification();
     }
   };
 
-  const unreadCertCount = certificates.filter(c => !viewedCertIds.includes(c.id)).length;
+  const handleOpenCertificate = (cert) => {
+    setViewingCertificate(cert);
+    markAllCertificatesAsViewed();
+    if (cert && cert.id && api.dismissLivePushNotification) {
+      api.dismissLivePushNotification(cert.id);
+    }
+  };
+
+  // Automatically mark all certificates as read when the volunteer opens the certificates tab
+  useEffect(() => {
+    if (activeTab === 'certificates') {
+      markAllCertificatesAsViewed();
+    }
+  }, [activeTab]);
+
+  const unreadCertCount = viewedCertIds.includes('all_dismissed')
+    ? 0
+    : (certificates || []).filter(c => {
+        if (!c || !c.id) return false;
+        if (viewedCertIds.includes(c.id)) return false;
+        const dismissedAt = parseInt(localStorage.getItem('alertlife_certs_dismissed_at') || '0', 10);
+        if (c.timestamp && c.timestamp <= dismissedAt) return false;
+        return true;
+      }).length;
 
   // Admin Issue Certificate Action (supports both per-rescue intervention certificate and cumulative milestone award)
   const handleAdminIssueCertificate = async (rescueData, type = 'per_rescue') => {
@@ -1176,7 +1194,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
           padding: '1rem',
           overflowY: 'auto'
         }}
-        onClick={() => setViewingCertificate(null)}
+        onClick={() => {
+          setViewingCertificate(null);
+          markAllCertificatesAsViewed();
+        }}
       >
         <div 
           style={{
@@ -1266,7 +1287,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
             <button
               className="btn btn-outline"
               style={{ padding: '0.55rem 1.25rem', fontSize: '0.82rem', cursor: 'pointer' }}
-              onClick={() => setViewingCertificate(null)}
+              onClick={() => {
+                setViewingCertificate(null);
+                markAllCertificatesAsViewed();
+              }}
             >
               ✕ Close
             </button>
@@ -2400,12 +2424,6 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                   {/* Top Certificate Quick Alert Banner - disappears or minimizes once all are viewed */}
                   {unreadCertCount > 0 && (
                     <div 
-                      onClick={() => {
-                        setActiveTab('certificates');
-                        if (certificates.length > 0) {
-                          handleOpenCertificate(certificates[0]);
-                        }
-                      }}
                       style={{ 
                         background: 'linear-gradient(135deg, #ede9fe, #dbeafe)', 
                         border: '1px solid #c4b5fd', 
@@ -2414,11 +2432,20 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between', 
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(139, 92, 246, 0.1)'
+                        boxShadow: '0 2px 6px rgba(139, 92, 246, 0.1)',
+                        gap: '0.5rem'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div 
+                        onClick={() => {
+                          markAllCertificatesAsViewed();
+                          setActiveTab('certificates');
+                          if (certificates.length > 0) {
+                            handleOpenCertificate(certificates[0]);
+                          }
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', flex: 1 }}
+                      >
                         <span style={{ fontSize: '1.4rem' }}>🎓</span>
                         <div>
                           <strong style={{ fontSize: '0.85rem', color: '#5b21b6', display: 'block' }}>
@@ -2429,9 +2456,46 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           </span>
                         </div>
                       </div>
-                      <span className="btn btn-outline" style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', background: '#fff', color: '#7c3aed', borderColor: '#c4b5fd', fontWeight: 700 }}>
-                        View ➔
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline" 
+                          style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', background: '#fff', color: '#7c3aed', borderColor: '#c4b5fd', fontWeight: 700, cursor: 'pointer' }}
+                          onClick={() => {
+                            markAllCertificatesAsViewed();
+                            setActiveTab('certificates');
+                            if (certificates.length > 0) {
+                              handleOpenCertificate(certificates[0]);
+                            }
+                          }}
+                        >
+                          View ➔
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAllCertificatesAsViewed();
+                          }}
+                          style={{
+                            background: 'rgba(109, 40, 217, 0.12)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '24px',
+                            height: '24px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            color: '#5b21b6',
+                            fontWeight: 700
+                          }}
+                          title="Dismiss notification"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   )}
 
