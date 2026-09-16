@@ -609,61 +609,96 @@ export const api = {
       console.warn('Backend articles fetch info:', err.message);
     }
     return getLocalDB().articles || [];
-  },
+  },  getMembers: async () => {
+    const membersMap = new Map();
 
-  getMembers: async () => {
+    // 1. Fetch from live backend /volunteers
     try {
       const { data: volData } = await client.get('/volunteers');
-      const volunteersList = [];
       if (volData.success && volData.volunteers) {
         volData.volunteers.forEach(v => {
-          volunteersList.push({
+          const email = v.userId?.email || v.email || '';
+          const key = email || v._id;
+          membersMap.set(key, {
             id: v._id,
-            name: v.userId?.name || 'Volunteer',
-            email: v.userId?.email || '',
-            phone: v.userId?.phone || '',
+            name: v.userId?.name || v.name || 'Volunteer Responder',
+            email: email,
+            phone: v.userId?.phone || v.phone || '',
             certification: v.certification || 'Certified First Responder',
-            bloodGroup: 'O+',
+            bloodGroup: v.bloodGroup || 'O+',
             role: 'Volunteer',
             active: v.isVerified === true,
             isVerified: v.isVerified === true
           });
         });
       }
-      return volunteersList;
     } catch (err) {
       console.warn('Backend members fetch info:', err.message);
     }
-    
-    const db = getLocalDB();
-    const membersList = [];
-    
-    // Check registered volunteers pool
-    try {
-      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
-      regUsers.filter(u => u.role === 'volunteer').forEach((u, idx) => {
-        membersList.push({
-          id: `reg-${idx}-${u.email}`,
-          name: u.name || 'Volunteer',
-          email: u.email || '',
-          phone: u.phone || '',
-          bloodGroup: u.bloodGroup || 'O+',
-          role: 'Volunteer',
-          active: u.isVerified === true,
-          isVerified: u.isVerified === true
-        });
-      });
-    } catch {
-      // ignore
-    }
 
-    if (membersList.length === 0) {
-      if (db.volunteerProfile?.name && db.volunteerProfile?.name.trim() && db.volunteerProfile?.email) {
-        membersList.push({
+    // 2. Fetch from localStorage registered users
+    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
+    storageKeys.forEach(k => {
+      try {
+        const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
+        regUsers.forEach((u, idx) => {
+          const role = (u.role || '').toLowerCase();
+          if (role === 'volunteer') {
+            const email = (u.email || '').toLowerCase().trim();
+            const key = email || `reg-${idx}`;
+            if (!membersMap.has(key)) {
+              membersMap.set(key, {
+                id: u.id || `reg-${idx}-${email}`,
+                name: u.name || 'Volunteer Responder',
+                email: email,
+                phone: u.phone || '',
+                certification: u.certification || 'Certified First Responder',
+                bloodGroup: u.bloodGroup || 'O+',
+                role: 'Volunteer',
+                active: u.isVerified === true,
+                isVerified: u.isVerified === true
+              });
+            } else if (u.isVerified) {
+              const existing = membersMap.get(key);
+              existing.isVerified = true;
+              existing.active = true;
+            }
+          }
+        });
+      } catch {}
+    });
+
+    // 3. Check active volunteer session in localStorage
+    try {
+      const volSession = JSON.parse(localStorage.getItem('user_session_volunteer') || 'null');
+      if (volSession && volSession.email) {
+        const email = volSession.email.toLowerCase().trim();
+        if (!membersMap.has(email)) {
+          membersMap.set(email, {
+            id: volSession.id || `session-vol-${email}`,
+            name: volSession.name || 'Volunteer Responder',
+            email: email,
+            phone: volSession.phone || '',
+            certification: 'Certified First Responder',
+            bloodGroup: 'O+',
+            role: 'Volunteer',
+            active: volSession.isVerified === true,
+            isVerified: volSession.isVerified === true
+          });
+        }
+      }
+    } catch {}
+
+    const db = getLocalDB();
+    if (db.volunteerProfile?.name && db.volunteerProfile?.email) {
+      const email = db.volunteerProfile.email.toLowerCase().trim();
+      if (!membersMap.has(email)) {
+        membersMap.set(email, {
           id: 'curr-vol',
           name: db.volunteerProfile.name,
-          email: db.volunteerProfile.email,
+          email: email,
           phone: db.volunteerProfile.phone,
+          certification: db.volunteerProfile.certification || 'Certified First Responder',
           bloodGroup: 'O+',
           role: 'Volunteer',
           active: db.volunteerProfile.isVerified === true,
@@ -671,7 +706,8 @@ export const api = {
         });
       }
     }
-    return membersList;
+
+    return Array.from(membersMap.values());
   },
 
   getVolunteerProfile: async () => {
@@ -790,7 +826,7 @@ export const api = {
 
   verifyVolunteer: async (volId) => {
     try {
-      if (volId && !volId.startsWith('curr-') && !volId.startsWith('reg-')) {
+      if (volId && !volId.startsWith('curr-') && !volId.startsWith('reg-') && !volId.startsWith('session-')) {
         await client.put(`/volunteers/${volId}/verify`);
       }
     } catch (err) {
@@ -800,23 +836,30 @@ export const api = {
     if (db.volunteerProfile) {
       db.volunteerProfile.isVerified = true;
     }
-    // Update matching user in alertlife_registered_users_v5
+    
+    // Update matching user in all registered users storage keys
+    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
+    storageKeys.forEach(k => {
+      try {
+        const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
+        regUsers.forEach(u => {
+          if (volId && (volId.includes(u.email) || volId === 'curr-vol' || volId === u.id || volId.includes(u.id))) {
+            u.isVerified = true;
+          }
+        });
+        localStorage.setItem(k, JSON.stringify(regUsers));
+      } catch {}
+    });
+
+    // Update active volunteer session if present
     try {
-      const regUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
-      let updated = false;
-      regUsers.forEach(u => {
-        if (volId && (volId.includes(u.email) || volId === 'curr-vol' || volId === u.id)) {
-          u.isVerified = true;
-          updated = true;
-        }
-      });
-      if (!updated && volId === 'curr-vol') {
-        regUsers.forEach(u => { if (u.role === 'volunteer') u.isVerified = true; });
+      const volSession = JSON.parse(localStorage.getItem('user_session_volunteer') || 'null');
+      if (volSession) {
+        volSession.isVerified = true;
+        localStorage.setItem('user_session_volunteer', JSON.stringify(volSession));
       }
-      localStorage.setItem('alertlife_registered_users_v5', JSON.stringify(regUsers));
-    } catch {
-      // ignore
-    }
+    } catch {}
+
     saveLocalDB(db);
     window.dispatchEvent(new Event('alertlife_storage_update'));
     return true;

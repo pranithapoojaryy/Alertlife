@@ -3000,66 +3000,90 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
             {/* Registered Community & Responders Directory */}
             <div className="card">
-              <h3 className="card-title">👥 Active Volunteer Responders & Field Network</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h3 className="card-title" style={{ margin: 0 }}>👥 Active Volunteer Responders & Field Network</h3>
+                <span className="badge badge-emerald" style={{ fontSize: '0.75rem' }}>
+                  {members.filter(m => (m.role || '').toLowerCase() === 'volunteer').length} Registered Responders
+                </span>
+              </div>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
-                    <tr style={{ background: 'rgba(0,0,0,0.03)', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
-                      <th style={{ padding: '0.6rem' }}>Responder</th>
-                      <th style={{ padding: '0.6rem' }}>Role & Cert</th>
-                      <th style={{ padding: '0.6rem' }}>Contact</th>
-                      <th style={{ padding: '0.6rem' }}>Verification</th>
-                      <th style={{ padding: '0.6rem' }}>Live Duty</th>
-                      <th style={{ padding: '0.6rem' }}>Action</th>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Responder</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Role & Cert</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Contact</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Verification</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Live Duty</th>
+                      <th style={{ padding: '0.75rem 0.6rem' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {members && members.filter(m => m.role === 'Volunteer').length > 0 ? (
-                      members.filter(m => m.role === 'Volunteer').map((m) => (
-                        <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.6rem' }}>
-                            <strong>{m.name}</strong>
+                    {members && members.filter(m => (m.role || '').toLowerCase() === 'volunteer').length > 0 ? (
+                      members.filter(m => (m.role || '').toLowerCase() === 'volunteer').map((m) => (
+                        <tr key={m.id || m.email} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.75rem 0.6rem' }}>
+                            <div style={{ fontWeight: 600 }}>{m.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.email}</div>
                           </td>
-                          <td style={{ padding: '0.6rem' }}>
+                          <td style={{ padding: '0.75rem 0.6rem' }}>
                             <span className="badge badge-blue">Volunteer</span>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{m.certification || 'Certified First Responder'}</div>
                           </td>
-                          <td style={{ padding: '0.6rem' }}>{m.phone || 'N/A'}</td>
-                          <td style={{ padding: '0.6rem' }}>
+                          <td style={{ padding: '0.75rem 0.6rem' }}>{m.phone || 'N/A'}</td>
+                          <td style={{ padding: '0.75rem 0.6rem' }}>
                             <span className={`badge ${m.isVerified ? 'badge-emerald' : 'badge-amber'}`}>
                               {m.isVerified ? '✓ Verified' : '⚠️ Pending Admin Verification'}
                             </span>
                           </td>
-                          <td style={{ padding: '0.6rem' }}>
+                          <td style={{ padding: '0.75rem 0.6rem' }}>
                             <span style={{ color: m.isVerified ? 'var(--emerald)' : 'var(--amber)', fontWeight: 700 }}>
                               {m.isVerified ? '🟢 On Duty' : '⏳ Pending Review'}
                             </span>
                           </td>
-                          <td style={{ padding: '0.6rem', display: 'flex', gap: '0.35rem' }}>
-                            {!m.isVerified && (
+                          <td style={{ padding: '0.75rem 0.6rem' }}>
+                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              {!m.isVerified && (
+                                <button 
+                                  className="btn btn-primary" 
+                                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', fontWeight: 600 }} 
+                                  onClick={async () => {
+                                    await api.verifyVolunteer(m.id || m.email);
+                                    Swal.fire({ 
+                                      title: 'Approved!', 
+                                      text: `${m.name} has been verified and approved as an active field responder.`, 
+                                      icon: 'success', 
+                                      timer: 1500, 
+                                      showConfirmButton: false 
+                                    });
+                                    setMembers(prev => prev.map(item => (item.id === m.id || item.email === m.email) ? { ...item, active: true, isVerified: true } : item));
+                                  }}
+                                >
+                                  ✓ Approve
+                                </button>
+                              )}
                               <button 
-                                className="btn btn-primary" 
-                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} 
-                                onClick={() => {
-                                  api.verifyVolunteer(m.id).then(() => {
-                                    Swal.fire({ title: 'Approved!', text: `${m.name} has been verified and approved as active responder.`, icon: 'success', timer: 1500, showConfirmButton: false });
-                                    setMembers(prev => prev.map(item => item.id === m.id ? { ...item, active: true, isVerified: true } : item));
-                                  });
-                                }}
+                                className="btn btn-outline" 
+                                style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }} 
+                                onClick={() => Swal.fire({ 
+                                  title: 'Contacting Responder', 
+                                  text: `Initiating direct emergency channel to ${m.name} (${m.phone || 'N/A'})...`, 
+                                  icon: 'info', 
+                                  confirmButtonColor: '#6366f1' 
+                                })}
                               >
-                                ✓ Approve
+                                📞 Ping
                               </button>
-                            )}
-                            <button className="btn btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }} onClick={() => Swal.fire({ title: 'Contacting Responder', text: `Initiating direct emergency channel to ${m.name} (${m.phone || 'N/A'})...`, icon: 'info', confirmButtonColor: '#6366f1' })}>
-                              📞 Ping
-                            </button>
+                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                          <span style={{ fontSize: '1.8rem', display: 'block', marginBottom: '0.4rem' }}>📭</span>
-                          No volunteer responders registered yet. All newly registered field volunteers will appear here for admin verification.
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
+                          <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📭</span>
+                          <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#fff' }}>No volunteer responders registered yet</strong>
+                          All newly registered field volunteers will automatically appear here for one-click admin verification.
                         </td>
                       </tr>
                     )}
