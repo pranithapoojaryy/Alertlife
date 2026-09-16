@@ -79,6 +79,8 @@ function App() {
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regForm, setRegForm] = useState({ 
     name: '', 
     email: '', 
@@ -261,7 +263,39 @@ function App() {
               </div>
               <div className="form-group">
                 <label className="form-label">Password</label>
-                <input type="password" className="form-input" placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input 
+                    type={showLoginPassword ? 'text' : 'password'} 
+                    className="form-input" 
+                    placeholder="••••••••" 
+                    value={loginPassword} 
+                    onChange={e => setLoginPassword(e.target.value)} 
+                    style={{ paddingRight: '2.5rem' }}
+                    required 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.65rem',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '1.05rem',
+                      padding: '0.2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-secondary)',
+                      opacity: 0.85
+                    }}
+                    title={showLoginPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showLoginPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
               </div>
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
                 Sign In to {currentRole.charAt(0).toUpperCase() + currentRole.slice(1)} Portal
@@ -326,7 +360,39 @@ function App() {
               </div>
               <div className="form-group">
                 <label className="form-label">Password</label>
-                <input type="password" className="form-input" placeholder="Create password (min 6 characters)" value={regForm.password} onChange={e => setRegForm({...regForm, password: e.target.value})} required />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input 
+                    type={showRegPassword ? 'text' : 'password'} 
+                    className="form-input" 
+                    placeholder="Create password (min 6 characters)" 
+                    value={regForm.password} 
+                    onChange={e => setRegForm({...regForm, password: e.target.value})} 
+                    style={{ paddingRight: '2.5rem' }}
+                    required 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.65rem',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '1.05rem',
+                      padding: '0.2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-secondary)',
+                      opacity: 0.85
+                    }}
+                    title={showRegPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showRegPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
               </div>
               {currentRole === 'citizen' && (
                 <div className="form-group">

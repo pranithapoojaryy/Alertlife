@@ -48,23 +48,26 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
   const [radius, setRadius] = useState(api.getRadius());
 
   // Volunteer Specific Extended States
-  const [dutyStatus, setDutyStatus] = useState('available');
   const [volProfile, setVolProfile] = useState(() => {
+    const isVer = user?.isVerified === true;
     return {
-      name: '',
-      email: '',
-      phone: '',
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
       certification: 'Certified First Responder',
       certificationNumber: '',
       skills: ['CPR (Adult/Pediatric)', 'AED Defibrillation', 'Tourniquet / Bleeding Control', 'Choking Relief'],
-      availabilityStatus: 'available',
+      availabilityStatus: isVer ? 'available' : 'offline',
       serviceRadius: 5,
-      isVerified: true,
+      isVerified: isVer,
       totalEmergenciesHandled: 0,
       rating: 5.0,
       experience: 1,
       currentLocation: { latitude: 12.9352, longitude: 77.6245 }
     };
+  });
+  const [dutyStatus, setDutyStatus] = useState(() => {
+    return (user?.isVerified === true) ? 'available' : 'offline';
   });
   const [isCprActive, setIsCprActive] = useState(false);
   const [cprBeats, setCprBeats] = useState(0);
@@ -226,8 +229,9 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     if (api.getVolunteerProfile) {
       api.getVolunteerProfile().then(vp => {
         if (vp) {
-          setVolProfile(vp);
-          setDutyStatus(vp.availabilityStatus || 'available');
+          const isVer = vp.isVerified === true;
+          setVolProfile(prev => ({ ...prev, ...vp, isVerified: isVer }));
+          setDutyStatus(isVer ? (vp.availabilityStatus || 'available') : 'offline');
         }
       });
     }
@@ -318,7 +322,23 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       if (currentRole === 'volunteer' && api.getVolunteerProfile) {
         api.getVolunteerProfile().then(vp => {
           if (vp) {
-            setVolProfile(prev => ({ ...prev, ...vp, isVerified: vp.isVerified === true }));
+            const isVer = vp.isVerified === true;
+            setVolProfile(prev => {
+              const wasUnverified = !prev.isVerified;
+              if (isVer && wasUnverified) {
+                setDutyStatus('available');
+                Swal.fire({
+                  title: '🎉 Account Verified!',
+                  text: 'An administrator has approved your responder credentials! You are now ON DUTY and ready for SOS dispatches.',
+                  icon: 'success',
+                  confirmButtonColor: '#10b981',
+                  timer: 4000
+                });
+              } else if (!isVer) {
+                setDutyStatus('offline');
+              }
+              return { ...prev, ...vp, isVerified: isVer };
+            });
           }
         });
       }
@@ -483,10 +503,20 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
 
   // Volunteer Operations
   const handleStatusChange = (newStatus) => {
+    if (!volProfile.isVerified && (newStatus === 'available' || newStatus === 'busy')) {
+      Swal.fire({
+        title: 'Admin Verification Required',
+        text: 'Your volunteer account is currently pending Admin verification. You cannot go On Duty until an Administrator approves your credentials in the Admin Console.',
+        icon: 'warning',
+        confirmButtonColor: '#6366f1'
+      });
+      setDutyStatus('offline');
+      return;
+    }
     setDutyStatus(newStatus);
     api.updateVolunteerAvailability(newStatus, volProfile.currentLocation?.latitude, volProfile.currentLocation?.longitude)
       .then(res => {
-        if (res) setVolProfile(res);
+        if (res) setVolProfile(prev => ({ ...prev, ...res }));
       });
   };
 
@@ -1958,18 +1988,38 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                       </div>
 
                       {/* Online/Offline Status Switcher */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Duty Status:</span>
                         <select 
                           className="form-select" 
-                          style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 700, borderColor: dutyStatus === 'available' ? 'var(--emerald)' : dutyStatus === 'busy' ? 'var(--amber)' : 'var(--text-muted)' }}
-                          value={dutyStatus}
+                          style={{ 
+                            width: 'auto', 
+                            padding: '0.35rem 0.75rem', 
+                            fontSize: '0.8rem', 
+                            fontWeight: 700, 
+                            borderColor: !volProfile.isVerified ? 'var(--text-muted)' : dutyStatus === 'available' ? 'var(--emerald)' : dutyStatus === 'busy' ? 'var(--amber)' : 'var(--text-muted)',
+                            background: !volProfile.isVerified ? 'rgba(0,0,0,0.04)' : undefined,
+                            opacity: !volProfile.isVerified ? 0.85 : 1
+                          }}
+                          value={volProfile.isVerified ? dutyStatus : 'offline'}
+                          disabled={!volProfile.isVerified}
                           onChange={(e) => handleStatusChange(e.target.value)}
                         >
-                          <option value="available">🟢 Available (On Duty)</option>
-                          <option value="busy">🟡 Busy / On Call</option>
-                          <option value="offline">⚪ Offline (Off Duty)</option>
+                          {volProfile.isVerified ? (
+                            <>
+                              <option value="available">🟢 Available (On Duty)</option>
+                              <option value="busy">🟡 Busy / On Call</option>
+                              <option value="offline">⚪ Offline (Off Duty)</option>
+                            </>
+                          ) : (
+                            <option value="offline">🔒 Off Duty (Pending Admin Approval)</option>
+                          )}
                         </select>
+                        {!volProfile.isVerified && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--amber)', fontWeight: 600 }}>
+                            (Locked until Admin approves)
+                          </span>
+                        )}
                       </div>
                     </div>
 
