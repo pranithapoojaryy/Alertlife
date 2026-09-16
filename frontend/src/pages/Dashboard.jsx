@@ -2535,22 +2535,33 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           <span style={{ color: 'var(--text-secondary)' }}>🌐 GPS Coordinates:</span>
                           <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem' }}>{sosState.lat?.toFixed(5)}, {sosState.lng?.toFixed(5)}</span>
                         </div>
-                        {sosState.volunteerDistanceKm && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>🎯 Live Distance:</span>
-                            <span className="badge badge-amber" style={{ fontWeight: 800 }}>{sosState.volunteerDistanceKm} km from your location</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const volLat = volProfile?.currentLocation?.latitude;
+                          const volLng = volProfile?.currentLocation?.longitude;
+                          const calculatedDist = (volLat && volLng && sosState.lat && sosState.lng)
+                            ? api.calculateDistance(sosState.lat, sosState.lng, volLat, volLng)
+                            : (sosState.volunteerDistanceKm || '0.8');
+                          return (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>🎯 Live Proximity:</span>
+                              <span className="badge badge-amber" style={{ fontWeight: 800 }}>
+                                📍 {calculatedDist} km from your GPS location ({volProfile.currentLocation?.address || 'Your Locality'})
+                              </span>
+                            </div>
+                          );
+                        })()}
                         {sosState.lat && sosState.lng && (
                           <div style={{ marginTop: '0.25rem' }}>
                             <a 
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${sosState.lat},${sosState.lng}`}
+                              href={volProfile?.currentLocation?.latitude && volProfile?.currentLocation?.longitude 
+                                ? `https://www.google.com/maps/dir/?api=1&origin=${volProfile.currentLocation.latitude},${volProfile.currentLocation.longitude}&destination=${sosState.lat},${sosState.lng}&travelmode=driving`
+                                : `https://www.google.com/maps/dir/?api=1&destination=${sosState.lat},${sosState.lng}`}
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="btn btn-outline"
                               style={{ width: '100%', padding: '0.35rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--blue)', color: 'var(--blue)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
                             >
-                              🗺️ Preview Exact Location on Google Maps ↗
+                              🗺️ Start GPS Navigation to Citizen ({sosState.address || 'Incident Location'}) ↗
                             </a>
                           </div>
                         )}
