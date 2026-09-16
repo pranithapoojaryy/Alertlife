@@ -1217,6 +1217,113 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     );
   };
 
+  const renderCertificatesShowcase = () => (
+    <div className="card" style={{ border: '2px solid rgba(139, 92, 246, 0.3)', background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.04), rgba(16, 185, 129, 0.04))' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.4rem' }}>🎓</span>
+          <div>
+            <h3 className="card-title" style={{ margin: 0, color: '#6d28d9' }}>Official Certificates & Honors</h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Admin-issued single rescue mission certificates & cumulative milestone awards
+            </p>
+          </div>
+        </div>
+        <span className="badge badge-purple" style={{ background: '#8b5cf6', color: '#fff', fontSize: '0.72rem' }}>
+          {certificates.length} {certificates.length === 1 ? 'Certificate' : 'Certificates'}
+        </span>
+      </div>
+
+      {/* Milestone Progression Tracker */}
+      <div style={{ background: '#fff', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '1rem' }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+          🏆 Milestone Badge Tiers:
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', textAlign: 'center' }}>
+          <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(217, 119, 6, 0.08)', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
+            <span style={{ fontSize: '1.1rem', display: 'block' }}>🥉</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#b45309' }}>Bronze</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>1+ Rescue</span>
+          </div>
+          <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(107, 114, 128, 0.08)', border: '1px solid rgba(107, 114, 128, 0.2)' }}>
+            <span style={{ fontSize: '1.1rem', display: 'block' }}>🥈</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#4b5563' }}>Silver</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>5+ Rescues</span>
+          </div>
+          <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+            <span style={{ fontSize: '1.1rem', display: 'block' }}>🥇</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#ca8a04' }}>Gold Hero</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>10+ Rescues</span>
+          </div>
+          <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <span style={{ fontSize: '1.1rem', display: 'block' }}>💎</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#4f46e5' }}>Platinum</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>25+ Rescues</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Issued Certificates List */}
+      {certificates.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {certificates.map(cert => (
+            <div 
+              key={cert.id} 
+              style={{ 
+                background: '#fff', 
+                border: '1px solid #e5e7eb', 
+                borderRadius: '12px', 
+                padding: '0.9rem', 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <div>
+                  <span className={`badge ${cert.certType?.includes('milestone') ? 'badge-amber' : 'badge-emerald'}`} style={{ fontSize: '0.65rem', marginBottom: '0.2rem' }}>
+                    {cert.certType === 'per_rescue' ? '🎖️ Rescue Mission Certificate' : '🏆 Milestone Award'}
+                  </span>
+                  <h4 style={{ margin: '0.2rem 0', fontSize: '0.95rem', color: '#111827' }}>
+                    {cert.title}
+                  </h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+                    Presented to: <strong>{cert.recipientName}</strong> • Issued: {cert.issuedDate}
+                  </p>
+                </div>
+                <button 
+                  className="btn btn-primary"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', border: 'none', whiteSpace: 'nowrap' }}
+                  onClick={() => setViewingCertificate(cert)}
+                >
+                  👁️ View / Print PDF
+                </button>
+              </div>
+
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', padding: '0.5rem 0.65rem', borderRadius: '8px', margin: 0, fontStyle: 'italic', borderLeft: '3px solid #8b5cf6' }}>
+                "{cert.citation || cert.description}"
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                <span>ID: <code>{cert.id}</code></span>
+                <span>Signed: Dr. S. Kulkarni (Medical Director)</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '1.5rem', background: '#fff', borderRadius: '10px', border: '1px dashed var(--border)' }}>
+          <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>🎖️</span>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>No Certificates Issued Yet</div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            When you complete verified emergency rescue missions, the System Administrator will issue and sign your official Rescue Valor and Milestone Certificates right here!
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
   // -------------------------------------------------------------
   // MOBILE PWA LAYOUTS (Citizen or Volunteer)
   // -------------------------------------------------------------
@@ -2231,6 +2338,39 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
             <>
               {activeTab === 'sos' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {/* Top Certificate Quick Alert Banner */}
+                  {certificates.length > 0 && (
+                    <div 
+                      onClick={() => setActiveTab('certificates')}
+                      style={{ 
+                        background: 'linear-gradient(135deg, #ede9fe, #dbeafe)', 
+                        border: '1px solid #c4b5fd', 
+                        padding: '0.75rem 1rem', 
+                        borderRadius: '12px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(139, 92, 246, 0.1)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ fontSize: '1.4rem' }}>🎓</span>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem', color: '#5b21b6', display: 'block' }}>
+                            {certificates.length} Official Responder Certificate{certificates.length > 1 ? 's' : ''} Issued
+                          </strong>
+                          <span style={{ fontSize: '0.72rem', color: '#6d28d9' }}>
+                            Click to view, download, or print your verified awards
+                          </span>
+                        </div>
+                      </div>
+                      <span className="btn btn-outline" style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', background: '#fff', color: '#7c3aed', borderColor: '#c4b5fd', fontWeight: 700 }}>
+                        View ➔
+                      </span>
+                    </div>
+                  )}
+
                   {/* Status & Readiness Bar */}
                   <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(16, 185, 129, 0.08))' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -2699,12 +2839,74 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                 </div>
               )}
 
-              {/* TAB 2: Volunteer Qualifications & Emergency Kit Checklist */}
+              {/* TAB 2: Volunteer Qualifications, Verified ID & Emergency Kit Checklist */}
               {activeTab === 'profile' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  {/* Responder Credentials */}
+                  {/* Digital Volunteer Responder ID Card */}
+                  <div className="citizen-id-card" style={{ background: 'linear-gradient(135deg, #1e1b4b, #312e81, #065f46)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                        <div className="citizen-avatar" style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontSize: '1.25rem', fontWeight: 800 }}>
+                          {volProfile.name ? volProfile.name.charAt(0).toUpperCase() : 'V'}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <h2 style={{ fontSize: '1.2rem', margin: 0, color: '#fff' }}>{volProfile.name || 'Volunteer Responder'}</h2>
+                            <span style={{ background: volProfile.isVerified ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)', border: `1px solid ${volProfile.isVerified ? '#10b981' : '#f59e0b'}`, color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.5px' }}>
+                              {volProfile.isVerified ? '✓ VERIFIED RESPONDER' : '⏳ PENDING APPROVAL'}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.78rem', opacity: 0.9, marginTop: '0.2rem', color: '#e0e7ff' }}>
+                            📞 {volProfile.phone || user?.phone || 'No phone set'} • ✉️ {volProfile.email || user?.email || 'volunteer@alertlife.com'}
+                          </p>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <button 
+                          onClick={() => {
+                            if (certificates.length > 0) setViewingCertificate(certificates[0]);
+                          }}
+                          style={{ 
+                            background: 'rgba(255, 255, 255, 0.15)', 
+                            border: '1px solid rgba(255, 255, 255, 0.3)', 
+                            color: '#fff',
+                            padding: '0.35rem 0.7rem', 
+                            borderRadius: '10px', 
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}
+                        >
+                          <span>🎓</span>
+                          <span><strong>{certificates.length}</strong> Cert{certificates.length === 1 ? '' : 's'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem', background: 'rgba(0,0,0,0.25)', padding: '0.75rem', borderRadius: '12px', backdropFilter: 'blur(4px)' }}>
+                      <div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75, display: 'block', color: '#e0e7ff' }}>Certification</span>
+                        <strong style={{ fontSize: '0.82rem', color: '#fff' }}>{volProfile.certification || 'First Responder'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75, display: 'block', color: '#e0e7ff' }}>License ID</span>
+                        <strong style={{ fontSize: '0.82rem', color: '#6ee7b7' }}>{volProfile.certificationNumber || 'VOL-REG-882'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.75, display: 'block', color: '#e0e7ff' }}>Service Radius</span>
+                        <strong style={{ fontSize: '0.82rem', color: '#93c5fd' }}>{volProfile.serviceRadius || 5} km</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🎓 Official Volunteer Rescue & Milestone Certificates Showcase */}
+                  {renderCertificatesShowcase()}
+
+                  {/* Responder Credentials Form */}
                   <div className="card">
-                    <h3 className="card-title">🪪 First Responder Credentials</h3>
+                    <h3 className="card-title">🪪 Update Responder Credentials</h3>
                     <form onSubmit={handleSaveVolunteerProfile}>
                       <div className="form-group">
                         <label className="form-label">Full Legal Name</label>
@@ -2791,112 +2993,13 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                       ))}
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* 🎓 Official Volunteer Rescue & Milestone Certificates */}
-                  <div className="card" style={{ border: '2px solid rgba(139, 92, 246, 0.3)', background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.04), rgba(16, 185, 129, 0.04))' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1.4rem' }}>🎓</span>
-                        <div>
-                          <h3 className="card-title" style={{ margin: 0, color: '#6d28d9' }}>Official Certificates & Honors</h3>
-                          <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>
-                            Admin-issued single rescue mission certificates & cumulative milestone awards
-                          </p>
-                        </div>
-                      </div>
-                      <span className="badge badge-purple" style={{ background: '#8b5cf6', color: '#fff', fontSize: '0.72rem' }}>
-                        {certificates.length} {certificates.length === 1 ? 'Certificate' : 'Certificates'}
-                      </span>
-                    </div>
-
-                    {/* Milestone Progression Tracker */}
-                    <div style={{ background: '#fff', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '1rem' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
-                        🏆 Milestone Badge Tiers:
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', textAlign: 'center' }}>
-                        <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(217, 119, 6, 0.08)', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
-                          <span style={{ fontSize: '1.1rem', display: 'block' }}>🥉</span>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#b45309' }}>Bronze</span>
-                          <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>1+ Rescue</span>
-                        </div>
-                        <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(107, 114, 128, 0.08)', border: '1px solid rgba(107, 114, 128, 0.2)' }}>
-                          <span style={{ fontSize: '1.1rem', display: 'block' }}>🥈</span>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#4b5563' }}>Silver</span>
-                          <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>5+ Rescues</span>
-                        </div>
-                        <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
-                          <span style={{ fontSize: '1.1rem', display: 'block' }}>🥇</span>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#ca8a04' }}>Gold Hero</span>
-                          <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>10+ Rescues</span>
-                        </div>
-                        <div style={{ padding: '0.4rem 0.2rem', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-                          <span style={{ fontSize: '1.1rem', display: 'block' }}>💎</span>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'block', color: '#4f46e5' }}>Platinum</span>
-                          <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>25+ Rescues</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Issued Certificates List */}
-                    {certificates.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {certificates.map(cert => (
-                          <div 
-                            key={cert.id} 
-                            style={{ 
-                              background: '#fff', 
-                              border: '1px solid #e5e7eb', 
-                              borderRadius: '12px', 
-                              padding: '0.9rem', 
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '0.5rem'
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                              <div>
-                                <span className={`badge ${cert.certType?.includes('milestone') ? 'badge-amber' : 'badge-emerald'}`} style={{ fontSize: '0.65rem', marginBottom: '0.2rem' }}>
-                                  {cert.certType === 'per_rescue' ? '🎖️ Rescue Mission Certificate' : '🏆 Milestone Award'}
-                                </span>
-                                <h4 style={{ margin: '0.2rem 0', fontSize: '0.95rem', color: '#111827' }}>
-                                  {cert.title}
-                                </h4>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                  Presented to: <strong>{cert.recipientName}</strong> • Issued: {cert.issuedDate}
-                                </p>
-                              </div>
-                              <button 
-                                className="btn btn-primary"
-                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', border: 'none', whiteSpace: 'nowrap' }}
-                                onClick={() => setViewingCertificate(cert)}
-                              >
-                                👁️ View / Print
-                              </button>
-                            </div>
-
-                            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', padding: '0.5rem 0.65rem', borderRadius: '8px', margin: 0, fontStyle: 'italic', borderLeft: '3px solid #8b5cf6' }}>
-                              "{cert.citation || cert.description}"
-                            </p>
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                              <span>ID: <code>{cert.id}</code></span>
-                              <span>Signed: Dr. S. Kulkarni (Medical Director)</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: '1.5rem', background: '#fff', borderRadius: '10px', border: '1px dashed var(--border)' }}>
-                        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>🎖️</span>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>No Certificates Issued Yet</div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                          When you complete verified emergency rescue missions, the System Administrator will issue and sign your official Rescue Valor and Milestone Certificates right here!
-                        </p>
-                      </div>
-                    )}
-                  </div>
+              {/* TAB: Dedicated Certificates Tab */}
+              {activeTab === 'certificates' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {renderCertificatesShowcase()}
                 </div>
               )}
 
@@ -3328,6 +3431,12 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
             <span className="nav-tab-icon">👤</span>
             {currentRole === 'volunteer' ? 'Credentials' : 'Profile & ID'}
           </button>
+          {currentRole === 'volunteer' && (
+            <button className={`nav-tab ${activeTab === 'certificates' ? 'active' : ''}`} onClick={() => setActiveTab('certificates')}>
+              <span className="nav-tab-icon">🎓</span>
+              Certificates {certificates.length > 0 && <span style={{ background: '#8b5cf6', color: '#fff', fontSize: '0.62rem', padding: '0.08rem 0.35rem', borderRadius: '10px', marginLeft: '0.2rem' }}>{certificates.length}</span>}
+            </button>
+          )}
           {currentRole === 'volunteer' && (
             <button className={`nav-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
               <span className="nav-tab-icon">📜</span>

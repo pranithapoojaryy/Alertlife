@@ -337,6 +337,23 @@ export const api = {
       return data.user || { ...formData, isVerified: formData.role === 'volunteer' ? false : true };
     } catch (err) {
       const db = getLocalDB();
+      db.profile = {
+        ...db.profile,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        bloodGroup: formData.bloodGroup || 'O+'
+      };
+      if (formData.role === 'volunteer') {
+        db.volunteerProfile = {
+          ...db.volunteerProfile,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          certification: formData.certification || 'Certified First Responder',
+          isVerified: false
+        };
+      }
       saveLocalDB(db);
       window.dispatchEvent(new Event('alertlife_storage_update'));
       if (err.response?.data?.message && err.response.data.message !== 'Email already registered') {
@@ -1387,9 +1404,15 @@ export const api = {
       }
     } catch {}
 
+    let session = {};
+    try {
+      session = JSON.parse(localStorage.getItem('user_session_volunteer') || localStorage.getItem('user_session') || '{}');
+    } catch {}
+
+    const volName = session.name || db.volunteerProfile?.name || 'Rahul Sharma';
+
     // If verified or active volunteer and no cert in storage, generate default First Responder Credential
     if (certs.length === 0) {
-      const volName = db.volunteerProfile?.name || 'Rahul Sharma';
       const initialCert = {
         id: 'cert-init-01',
         certType: 'milestone_bronze',
@@ -1402,6 +1425,9 @@ export const api = {
       certs = [initialCert];
       db.certificates = certs;
       saveLocalDB(db);
+      try {
+        localStorage.setItem('alertlife_certificates_pool', JSON.stringify(certs));
+      } catch {}
     }
     return certs;
   },
