@@ -2417,9 +2417,31 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                             {volProfile.isVerified ? '✓ Verified Responder' : '⚠️ Pending Admin Verification (Locked)'}
                           </span>
                         </div>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                          Cert: <strong>{volProfile.certification || 'Certified First Responder'}</strong> {volProfile.certificationNumber ? `(#${volProfile.certificationNumber})` : ''}
-                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
+                            Cert: <strong>{volProfile.certification || 'Certified First Responder'}</strong> {volProfile.certificationNumber ? `(#${volProfile.certificationNumber})` : ''}
+                          </p>
+                          <button
+                            type="button"
+                            className="badge badge-purple"
+                            style={{ 
+                              cursor: 'pointer', 
+                              border: 'none', 
+                              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', 
+                              color: '#fff', 
+                              fontSize: '0.72rem', 
+                              padding: '0.2rem 0.6rem',
+                              borderRadius: '20px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem'
+                            }}
+                            onClick={() => setActiveTab('certificates')}
+                          >
+                            <span>🎓</span>
+                            <span><strong>{certificates.length}</strong> Certificate{certificates.length === 1 ? '' : 's'}</span>
+                          </button>
+                        </div>
                         {!volProfile.isVerified && (
                           <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid var(--amber)', borderRadius: '8px', fontSize: '0.75rem', color: 'var(--amber-dark, #b45309)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span>⏳</span>

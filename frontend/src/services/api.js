@@ -1641,14 +1641,16 @@ export const api = {
   },
 
   // 🎓 Volunteer Certificate Management (Per-Rescue and Overall Milestone Certificates)
-  getVolunteerCertificates: () => {
+  getVolunteerCertificates: (specificName = null) => {
     const db = getLocalDB();
     let certs = db.certificates || [];
     try {
       const pool = JSON.parse(localStorage.getItem('alertlife_certificates_pool') || '[]');
       if (Array.isArray(pool) && pool.length > 0) {
         const map = new Map();
-        [...certs, ...pool].forEach(c => map.set(c.id, c));
+        [...certs, ...pool].forEach(c => {
+          if (c && c.id) map.set(c.id, c);
+        });
         certs = Array.from(map.values());
       }
     } catch {}
@@ -1658,9 +1660,9 @@ export const api = {
       session = JSON.parse(localStorage.getItem('user_session_volunteer') || localStorage.getItem('user_session') || '{}');
     } catch {}
 
-    const volName = session.name || db.volunteerProfile?.name || 'Rahul Sharma';
+    const volName = specificName || session.name || db.volunteerProfile?.name || 'Volunteer First Responder';
 
-    // If verified or active volunteer and no cert in storage, generate default First Responder Credential
+    // If no cert in storage, generate default Official First Responder Credential
     if (certs.length === 0) {
       const initialCert = {
         id: 'cert-init-01',
@@ -1677,6 +1679,17 @@ export const api = {
       try {
         localStorage.setItem('alertlife_certificates_pool', JSON.stringify(certs));
       } catch {}
+    } else {
+      // If default initial cert is present and generic, ensure it reflects current volunteer's name if customized
+      const initCert = certs.find(c => c.id === 'cert-init-01');
+      if (initCert && (!initCert.recipientName || initCert.recipientName === 'Volunteer Responder' || initCert.recipientName === 'Rahul Sharma') && session.name) {
+        initCert.recipientName = session.name;
+        db.certificates = certs;
+        saveLocalDB(db);
+        try {
+          localStorage.setItem('alertlife_certificates_pool', JSON.stringify(certs));
+        } catch {}
+      }
     }
     return certs;
   },
