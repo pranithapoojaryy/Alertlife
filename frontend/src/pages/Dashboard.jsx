@@ -413,7 +413,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
       
       // Ring ONLY when emergency is active, unaccepted, and not already responded to
-      const isUnaccepted = liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'assigned' && liveSos.status !== 'accepted' && liveSos.status !== 'in_progress' && liveSos.status !== 'arrived' && liveSos.status !== 'closed' && liveSos.status !== 'resolved';
+      const isUnaccepted = liveSos && liveSos.id && !liveSos.volunteerId && liveSos.status !== 'accepted' && liveSos.status !== 'in_progress' && liveSos.status !== 'arrived' && liveSos.status !== 'closed' && liveSos.status !== 'resolved';
       
       if (isUnaccepted && currentRole === 'volunteer') {
         startContinuousAlarm();
@@ -426,7 +426,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         if (liveSos && (!prev || prev.id !== liveSos.id)) {
           if (currentRole === 'volunteer' && isUnaccepted) {
             api.sendLivePushNotification({
-              title: '🚨 INCOMING CITIZEN SOS!',
+              title: '🚨 INCOMING CITIZEN SOS DISPATCH!',
               body: `Emergency at ${liveSos.address || 'nearby location'}. Tap to review and respond immediately!`,
               tag: 'vol-alert-' + liveSos.id
             });
@@ -440,7 +440,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         }
 
         // If status just became accepted, trigger chime
-        if (liveSos && (liveSos.status === 'accepted' || liveSos.status === 'assigned') && (!prev || (prev.status !== 'accepted' && prev.status !== 'assigned'))) {
+        if (liveSos && (liveSos.status === 'accepted' || liveSos.status === 'in_progress' || liveSos.status === 'arrived') && (!prev || (prev.status !== 'accepted' && prev.status !== 'in_progress' && prev.status !== 'arrived'))) {
           playAcceptedChime();
         }
         if (JSON.stringify(prev) === JSON.stringify(liveSos)) {
@@ -487,7 +487,7 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         setCertificates(api.getVolunteerCertificates() || []);
       }
 
-      // Sync members list for Admin
+      // Sync members list for Admin & Hospital
       if (currentRole === 'admin' || currentRole === 'hospital') {
         api.getMembers().then(data => setMembers(data || []));
         if (api.getAmbulanceRequests) {
@@ -516,11 +516,27 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
     };
 
+    // Auto-request browser push notification permission on mount
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
     fetchData();
     fetchStaticData();
 
     // High frequency sync interval (polls live Render cloud backend)
     const interval = setInterval(fetchData, 2000);
+
+    // Instant cross-tab, cross-window BroadcastChannel listener
+    let emergencyChannel = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        emergencyChannel = new BroadcastChannel('alertlife_emergency_broadcast');
+        emergencyChannel.onmessage = () => {
+          fetchData();
+        };
+      }
+    } catch {}
 
     // Instant cross-tab and in-tab event listeners
     window.addEventListener('storage', fetchData);
@@ -531,6 +547,9 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       stopContinuousAlarm();
       window.removeEventListener('storage', fetchData);
       window.removeEventListener('alertlife_storage_update', fetchData);
+      if (emergencyChannel) {
+        try { emergencyChannel.close(); } catch {}
+      }
     };
   }, []);
 

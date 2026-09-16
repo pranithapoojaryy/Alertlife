@@ -420,12 +420,13 @@ export const api = {
     try {
       const { data } = await client.get('/emergencies');
       if (data.success && Array.isArray(data.emergencies)) {
-        // Look for any active emergency
+        // Look for any active emergency (not resolved/closed/cancelled)
         const active = data.emergencies.find(e => e.status !== 'resolved' && e.status !== 'closed' && e.status !== 'cancelled');
         const db = getLocalDB();
 
         if (active) {
-          const isAccepted = active.status === 'assigned' || active.status === 'accepted' || active.status === 'in_progress' || active.status === 'arrived';
+          // An emergency is ONLY accepted once a volunteer actually accepts it
+          const isAccepted = active.status === 'accepted' || active.status === 'in_progress' || active.status === 'arrived';
           const assignedVolObj = (active.assignedVolunteers && active.assignedVolunteers[0]) ? active.assignedVolunteers[0] : null;
           const ambReq = active.ambulanceRequest;
           const ambStatus = ambReq ? (ambReq.status === 'dispatched' || active.ambulanceStatus === 'Dispatched' ? 'Dispatched' : 'requested') : (active.ambulanceStatus || 'requested');
@@ -450,9 +451,9 @@ export const api = {
             status: active.status || "matched",
             currentVolunteerId: active.currentVolunteer?._id || active.currentVolunteer || null,
             declinedVolunteers: active.declinedVolunteers || [],
-            volunteerId: isAccepted ? (active.currentVolunteer || assignedVolObj?.volunteerId || db.activeSOS?.volunteerId || 'vol-active') : null,
-            volunteerName: assignedVolObj?.name || db.activeSOS?.volunteerName || 'Assigned Responder',
-            volunteerPhone: assignedVolObj?.phone || db.activeSOS?.volunteerPhone || '',
+            volunteerId: isAccepted ? (active.currentVolunteer?._id || active.currentVolunteer || assignedVolObj?.volunteerId || db.activeSOS?.volunteerId || 'vol-active') : null,
+            volunteerName: isAccepted ? (active.volunteerDetails?.name || assignedVolObj?.name || db.activeSOS?.volunteerName || 'Assigned Responder') : null,
+            volunteerPhone: isAccepted ? (active.volunteerDetails?.phone || assignedVolObj?.phone || db.activeSOS?.volunteerPhone || '') : null,
             volunteerCert: 'Certified First Responder',
             ambulanceStatus: ambStatus,
             ambulanceEta: ambEta,
@@ -460,10 +461,18 @@ export const api = {
             hospitalAlerted: true
           };
 
-          // Only save if changed to avoid unnecessary disk/react updates
+          // Save and broadcast if changed
           if (JSON.stringify(db.activeSOS) !== JSON.stringify(mapped)) {
             db.activeSOS = mapped;
             saveLocalDB(db);
+            try {
+              if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+                const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+                bc.postMessage({ type: 'SOS_UPDATE', data: mapped });
+                bc.close();
+              }
+            } catch {}
+            window.dispatchEvent(new Event('alertlife_storage_update'));
           }
           return mapped;
         } else {
@@ -473,6 +482,7 @@ export const api = {
             if (foundClosed) {
               db.activeSOS = null;
               saveLocalDB(db);
+              window.dispatchEvent(new Event('alertlife_storage_update'));
               return null;
             }
           }
@@ -540,22 +550,34 @@ export const api = {
       status: "matched",
       currentVolunteerId: backendSOS?.currentVolunteer || (assignedVol ? assignedVol.id : null),
       volunteerId: null,
-      volunteerName: assignedVol ? assignedVol.name : null,
-      volunteerPhone: assignedVol ? assignedVol.phone : null,
-      volunteerDistanceKm: assignedVol ? assignedVol.distanceKm : null,
-      ambulanceStatus: "Dispatched",
+      volunteerName: null,
+      volunteerPhone: null,
+      volunteerDistanceKm: assignedVol ? assignedVol.distanceKm : "1.2",
+      ambulanceStatus: sosData.ambulanceRequested !== false ? "requested" : "none",
       ambulanceEta: "6 mins",
       hospitalAlerted: true,
       nearestHospitals: nearestHospitalsList
     };
     db.activeSOS = newSOS;
     saveLocalDB(db);
+
+    // Instant cross-tab & cross-window broadcast
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+        bc.postMessage({ type: 'SOS_TRIGGERED', data: newSOS });
+        bc.close();
+      }
+    } catch {}
+    try {
+      localStorage.setItem('alertlife_broadcast_sos', JSON.stringify({ timestamp: Date.now(), data: newSOS }));
+    } catch {}
     window.dispatchEvent(new Event('alertlife_storage_update'));
 
-    // 🔔 Send Live Notification: Alert Citizen and Network
+    // 🔔 Send Live Push Notification to Citizen, Volunteer, and Hospital
     api.sendLivePushNotification({
-      title: '🚨 Citizen SOS Broadcasted!',
-      body: `Emergency alert dispatched for ${patientName}. Nearby volunteers & Hospital ER notified with live tracking.`,
+      title: '🚨 INCOMING CITIZEN SOS DISPATCH!',
+      body: `Urgent SOS triggered for ${patientName} at ${newSOS.address}. Volunteer & Hospital ER alerted!`,
       tag: 'sos-triggered-' + (newSOS.id || Date.now())
     });
 
@@ -599,6 +621,13 @@ export const api = {
         db.activeSOS.status = 'matched';
       }
       saveLocalDB(db);
+      try {
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+          bc.postMessage({ type: 'SOS_PASSED', data: db.activeSOS });
+          bc.close();
+        }
+      } catch {}
       window.dispatchEvent(new Event('alertlife_storage_update'));
 
       // 🔔 Send Live Notification: Emergency Cascaded to next volunteer
@@ -616,6 +645,13 @@ export const api = {
     if (db.activeSOS) {
       db.activeSOS = { ...db.activeSOS, ...updates };
       saveLocalDB(db);
+      try {
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+          bc.postMessage({ type: 'SOS_UPDATE', data: db.activeSOS });
+          bc.close();
+        }
+      } catch {}
       window.dispatchEvent(new Event('alertlife_storage_update'));
 
       if (db.activeSOS.id && !db.activeSOS.id.startsWith('sos-')) {
@@ -666,6 +702,13 @@ export const api = {
     }
     db.activeSOS = null;
     saveLocalDB(db);
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+        bc.postMessage({ type: 'SOS_CLOSED', data: null });
+        bc.close();
+      }
+    } catch {}
     window.dispatchEvent(new Event('alertlife_storage_update'));
     return true;
   },
@@ -1285,6 +1328,13 @@ export const api = {
         driverPhone: dispatchData.driverPhone || '+91 98450 11223'
       };
       saveLocalDB(db);
+      try {
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('alertlife_emergency_broadcast');
+          bc.postMessage({ type: 'AMBULANCE_DISPATCHED', data: db.activeSOS });
+          bc.close();
+        }
+      } catch {}
       window.dispatchEvent(new Event('alertlife_storage_update'));
 
       // 🔔 Send Live Notification: Ambulance Dispatched
