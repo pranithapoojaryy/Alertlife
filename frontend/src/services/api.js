@@ -137,7 +137,7 @@ export const api = {
   },
 
   // Auth & Session
-  login: async (identifier, password) => {
+  login: async (identifier, password, currentRole = 'citizen') => {
     try {
       const { data } = await client.post('/auth/login', { identifier, email: identifier, password });
       if (data.token) {
@@ -146,33 +146,68 @@ export const api = {
       
       // Proactively sync live GPS after login
       if (data.user) {
-        api.syncLiveLocation(data.user.role || 'volunteer').catch(() => {});
+        api.syncLiveLocation(data.user.role || currentRole).catch(() => {});
       }
       return data.user;
     } catch (err) {
-      // Check for local credentials fallback
-      const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
       const cleanInput = identifier.trim().toLowerCase();
       const digitsOnly = identifier.replace(/\D/g, '');
       const last10 = digitsOnly.slice(-10);
+      const isEmail = identifier.includes('@');
 
-      const localFound = registeredUsers.find(u => {
-        if (u.email && u.email.toLowerCase() === cleanInput) return true;
-        if (u.phone) {
-          const uDigits = u.phone.replace(/\D/g, '');
-          if (last10 && uDigits.slice(-10) === last10) return true;
-          if (u.phone === identifier) return true;
+      // If backend login failed (e.g. user not found in DB), attempt automatic registration on live backend
+      try {
+        const autoName = isEmail 
+          ? identifier.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) 
+          : 'Responder ' + (last10 || 'User');
+        const regRole = currentRole || (cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : cleanInput.includes('volunteer') ? 'volunteer' : 'citizen');
+        const regPayload = {
+          name: autoName,
+          email: isEmail ? cleanInput : `${last10 || '9876543210'}@alertlife.in`,
+          phone: digitsOnly.length === 10 ? digitsOnly : '9876543210',
+          password: password,
+          role: regRole,
+          certification: 'Certified First Responder',
+          bloodGroup: 'O+'
+        };
+        const { data: regData } = await client.post('/auth/register', regPayload);
+        if (regData.token) {
+          localStorage.setItem('alertlife_token', regData.token);
         }
-        return false;
-      });
-      
-      if (localFound) {
-        if (localFound.password === password) {
-          localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
-          api.syncLiveLocation(localFound.role || 'volunteer').catch(() => {});
-          return localFound;
-        } else {
-          throw new Error('Invalid password. Please check your credentials.');
+        if (regData.user) {
+          api.syncLiveLocation(regData.user.role || regRole).catch(() => {});
+          return regData.user;
+        }
+      } catch (autoRegErr) {
+        console.warn('Auto-registration on login info:', autoRegErr.message);
+      }
+
+      // Check for local credentials fallback
+      const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5', 'alertlife_registered_users'];
+      for (const k of storageKeys) {
+        try {
+          const regUsers = JSON.parse(localStorage.getItem(k) || '[]');
+          const localFound = regUsers.find(u => {
+            if (u.email && u.email.toLowerCase() === cleanInput) return true;
+            if (u.phone) {
+              const uDigits = u.phone.replace(/\D/g, '');
+              if (last10 && uDigits.slice(-10) === last10) return true;
+              if (u.phone === identifier) return true;
+            }
+            return false;
+          });
+          
+          if (localFound) {
+            if (localFound.password === password) {
+              localStorage.setItem('alertlife_token', 'local-token-' + Date.now());
+              api.syncLiveLocation(localFound.role || currentRole).catch(() => {});
+              return localFound;
+            } else {
+              throw new Error('Invalid password. Please check your credentials.');
+            }
+          }
+        } catch (e) {
+          if (e.message.includes('Invalid password')) throw e;
         }
       }
 
@@ -180,42 +215,51 @@ export const api = {
         throw new Error(err.response.data.message);
       }
       
-      // Fallback only if no local users registered yet
-      if (registeredUsers.length === 0) {
-        localStorage.setItem('alertlife_token', 'mock-token');
-        const db = getLocalDB();
-        const name = identifier.includes('@') ? identifier.split('@')[0] : 'User ' + last10;
-        const role = cleanInput.includes('volunteer') ? 'volunteer' : cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : 'citizen';
-        api.syncLiveLocation(role).catch(() => {});
-        return { email: identifier, name: db.profile.name || name, role };
-      }
-
-      throw new Error(err.response?.data?.message || 'Invalid email/phone or password. Please sign up if you do not have an account.');
+      // Fallback
+      localStorage.setItem('alertlife_token', 'mock-token-' + Date.now());
+      const db = getLocalDB();
+      const name = isEmail ? identifier.split('@')[0] : 'User ' + last10;
+      const role = currentRole || (cleanInput.includes('volunteer') ? 'volunteer' : cleanInput.includes('hospital') ? 'hospital' : cleanInput.includes('admin') ? 'admin' : 'citizen');
+      api.syncLiveLocation(role).catch(() => {});
+      return { 
+        email: isEmail ? cleanInput : `${last10 || '9876543210'}@alertlife.in`, 
+        phone: !isEmail ? identifier : '', 
+        name: db.volunteerProfile?.name || db.profile?.name || name, 
+        role,
+        isVerified: false
+      };
     }
   },
 
   register: async (formData) => {
     // Store in clean registered users pool for guaranteed credential check
-    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
-    const existing = registeredUsers.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
-    if (existing) {
-      throw new Error('This email is already registered. Please sign in.');
-    }
+    const storageKeys = ['alertlife_registered_users_v6', 'alertlife_registered_users_v5'];
+    storageKeys.forEach(k => {
+      try {
+        const registeredUsers = JSON.parse(localStorage.getItem(k) || '[]');
+        const existing = registeredUsers.find(u => u.email?.toLowerCase() === formData.email?.toLowerCase());
+        if (!existing) {
+          const newLocalUser = {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            password: formData.password,
+            role: formData.role || 'citizen',
+            bloodGroup: formData.bloodGroup || 'O+',
+            certification: formData.certification || 'Certified First Responder',
+            isVerified: false
+          };
+          registeredUsers.push(newLocalUser);
+          localStorage.setItem(k, JSON.stringify(registeredUsers));
+        }
+      } catch {}
+    });
 
     try {
       const { data } = await client.post('/auth/register', formData);
-      
-      const newLocalUser = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        role: formData.role || 'citizen',
-        bloodGroup: formData.bloodGroup || 'O+',
-        isVerified: false
-      };
-      registeredUsers.push(newLocalUser);
-      localStorage.setItem('alertlife_registered_users_v5', JSON.stringify(registeredUsers));
+      if (data.token) {
+        localStorage.setItem('alertlife_token', data.token);
+      }
 
       const db = getLocalDB();
       db.profile = {
@@ -236,43 +280,12 @@ export const api = {
         };
       }
       saveLocalDB(db);
-      return data.user || newLocalUser;
+      return data.user || { ...formData, isVerified: false };
     } catch (err) {
-      if (err.response?.data?.message) {
+      if (err.response?.data?.message && err.response.data.message !== 'Email already registered') {
         throw new Error(err.response.data.message);
       }
-
-      const newLocalUser = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        role: formData.role || 'citizen',
-        bloodGroup: formData.bloodGroup || 'O+',
-        isVerified: false
-      };
-      registeredUsers.push(newLocalUser);
-      localStorage.setItem('alertlife_registered_users_v5', JSON.stringify(registeredUsers));
-
-      const db = getLocalDB();
-      db.profile = {
-        ...db.profile,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        bloodGroup: formData.bloodGroup || 'O+'
-      };
-      if (formData.role === 'volunteer') {
-        db.volunteerProfile = {
-          ...db.volunteerProfile,
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          certification: formData.certification || 'Certified First Responder'
-        };
-      }
-      saveLocalDB(db);
-      return newLocalUser;
+      return { ...formData, isVerified: false };
     }
   },
 
@@ -619,6 +632,7 @@ export const api = {
         volData.volunteers.forEach(v => {
           const email = v.userId?.email || v.email || '';
           const key = email || v._id;
+          const isVer = v.isVerified === true || v.userId?.isVerified === true;
           membersMap.set(key, {
             id: v._id,
             name: v.userId?.name || v.name || 'Volunteer Responder',
@@ -627,8 +641,8 @@ export const api = {
             certification: v.certification || 'Certified First Responder',
             bloodGroup: v.bloodGroup || 'O+',
             role: 'Volunteer',
-            active: v.isVerified === true,
-            isVerified: v.isVerified === true
+            active: isVer,
+            isVerified: isVer
           });
         });
       }
@@ -670,8 +684,8 @@ export const api = {
 
     // 3. Check active volunteer session in localStorage
     try {
-      const volSession = JSON.parse(localStorage.getItem('user_session_volunteer') || 'null');
-      if (volSession && volSession.email) {
+      const volSession = JSON.parse(localStorage.getItem('user_session_volunteer') || localStorage.getItem('user_session') || 'null');
+      if (volSession && volSession.email && (volSession.role || '').toLowerCase() === 'volunteer') {
         const email = volSession.email.toLowerCase().trim();
         if (!membersMap.has(email)) {
           membersMap.set(email, {
@@ -711,19 +725,31 @@ export const api = {
   },
 
   getVolunteerProfile: async () => {
-    const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+    let session = {};
+    try {
+      session = JSON.parse(localStorage.getItem('user_session_volunteer') || localStorage.getItem('user_session') || '{}');
+    } catch {}
+
     try {
       const { data: allVols } = await client.get('/volunteers');
       if (allVols.success && Array.isArray(allVols.volunteers)) {
-        const found = allVols.volunteers.find(v => 
-          (v.userId?.email && session.email && v.userId.email.toLowerCase() === session.email.toLowerCase()) ||
-          (v.userId?.phone && session.phone && v.userId.phone === session.phone) ||
-          (v.userId?.name && session.name && v.userId.name.toLowerCase() === session.name.toLowerCase())
-        );
+        const found = allVols.volunteers.find(v => {
+          const volEmail = (v.userId?.email || v.email || '').toLowerCase().trim();
+          const volPhone = (v.userId?.phone || v.phone || '').replace(/\D/g, '');
+          const sessEmail = (session.email || '').toLowerCase().trim();
+          const sessPhone = (session.phone || '').replace(/\D/g, '');
+          
+          if (sessEmail && volEmail && sessEmail === volEmail) return true;
+          if (sessPhone && volPhone && (sessPhone === volPhone || sessPhone.slice(-10) === volPhone.slice(-10))) return true;
+          if (session.name && v.userId?.name && v.userId.name.toLowerCase() === session.name.toLowerCase()) return true;
+          return false;
+        });
+
         if (found) {
           const isVer = found.isVerified === true || found.userId?.isVerified === true;
           return {
-            name: found.userId?.name || session.name || 'Volunteer',
+            id: found._id,
+            name: found.userId?.name || session.name || 'Volunteer Responder',
             email: found.userId?.email || session.email || '',
             phone: found.userId?.phone || session.phone || '',
             certification: found.certification || 'Certified First Responder',
@@ -748,6 +774,7 @@ export const api = {
       if (data.success && data.profile) {
         const isVer = data.profile.isVerified === true || data.profile.userId?.isVerified === true;
         return {
+          id: data.profile._id,
           name: data.profile.userId?.name || session.name || '',
           email: data.profile.userId?.email || session.email || '',
           phone: data.profile.userId?.phone || session.phone || '',
@@ -768,9 +795,9 @@ export const api = {
     }
 
     const db = getLocalDB();
-    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v5') || '[]');
+    const registeredUsers = JSON.parse(localStorage.getItem('alertlife_registered_users_v6') || localStorage.getItem('alertlife_registered_users_v5') || '[]');
     const matchingUser = registeredUsers.find(u => u.email === session.email || u.phone === session.phone);
-    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? true;
+    const verifiedStatus = matchingUser?.isVerified ?? db.volunteerProfile?.isVerified ?? false;
 
     return {
       name: session.name || db.volunteerProfile?.name || db.profile?.name || "",
@@ -826,8 +853,8 @@ export const api = {
 
   verifyVolunteer: async (volId) => {
     try {
-      if (volId && !volId.startsWith('curr-') && !volId.startsWith('reg-') && !volId.startsWith('session-')) {
-        await client.put(`/volunteers/${volId}/verify`);
+      if (volId) {
+        await client.put(`/volunteers/${encodeURIComponent(volId)}/verify`);
       }
     } catch (err) {
       console.warn('Backend volunteer verify info:', err.message);
@@ -857,6 +884,11 @@ export const api = {
       if (volSession) {
         volSession.isVerified = true;
         localStorage.setItem('user_session_volunteer', JSON.stringify(volSession));
+      }
+      const genericSession = JSON.parse(localStorage.getItem('user_session') || 'null');
+      if (genericSession) {
+        genericSession.isVerified = true;
+        localStorage.setItem('user_session', JSON.stringify(genericSession));
       }
     } catch {}
 

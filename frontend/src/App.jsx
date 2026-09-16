@@ -125,15 +125,18 @@ function App() {
 
     try {
       const { api } = await import('./services/api');
-      const loggedUser = await api.login(trimmedInput, loginPassword);
+      const loggedUser = await api.login(trimmedInput, loginPassword, currentRole);
       
       const userData = {
+        id: loggedUser.id || loggedUser._id,
         email: loggedUser.email || (isEmail ? trimmedInput : `${trimmedInput.replace(/\D/g, '')}@alertlife.in`),
         phone: loggedUser.phone || (!isEmail ? trimmedInput : ''),
         name: loggedUser.name || trimmedInput.split('@')[0],
-        role: currentRole
+        role: currentRole,
+        isVerified: loggedUser.isVerified === true
       };
       localStorage.setItem(`user_session_${currentRole}`, JSON.stringify(userData));
+      localStorage.setItem('user_session', JSON.stringify(userData));
       setUser(userData);
       setError('');
     } catch (err) {

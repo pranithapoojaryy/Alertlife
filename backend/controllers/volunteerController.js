@@ -55,34 +55,63 @@ const getAllVolunteers = async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
+const mongoose = require('mongoose');
+
 const verifyVolunteer = async (req, res) => {
   try {
-    let vol = await Volunteer.findById(req.params.id);
-    if (!vol) {
-      vol = await Volunteer.findOne({ userId: req.params.id });
-    }
-    if (!vol) {
-      const user = await User.findById(req.params.id);
-      if (user && user.role === 'volunteer') {
-        user.isVerified = true;
-        await user.save();
-        vol = await Volunteer.findOneAndUpdate(
-          { userId: user._id },
-          { isVerified: true, availabilityStatus: 'available' },
-          { upsert: true, new: true }
-        );
-        return res.json({ success: true, message: 'Volunteer verified successfully', volunteer: vol });
+    const rawId = req.params.id;
+    let vol = null;
+    let user = null;
+
+    if (mongoose.Types.ObjectId.isValid(rawId)) {
+      vol = await Volunteer.findById(rawId);
+      if (!vol) {
+        vol = await Volunteer.findOne({ userId: rawId });
       }
+      if (!vol) {
+        user = await User.findById(rawId);
+      }
+    }
+
+    if (!vol && !user) {
+      user = await User.findOne({
+        $or: [
+          { email: rawId.toLowerCase() },
+          { phone: rawId }
+        ]
+      });
+      if (user) {
+        vol = await Volunteer.findOne({ userId: user._id });
+      }
+    }
+
+    if (!vol && !user) {
       return res.status(404).json({ success: false, message: 'Volunteer not found' });
     }
-    vol.isVerified = true;
-    vol.availabilityStatus = 'available';
-    await vol.save();
-    if (vol.userId) {
-      await User.findByIdAndUpdate(vol.userId, { isVerified: true });
+
+    if (user) {
+      user.isVerified = true;
+      await user.save();
     }
+
+    if (vol) {
+      vol.isVerified = true;
+      vol.availabilityStatus = 'available';
+      await vol.save();
+      if (vol.userId && !user) {
+        await User.findByIdAndUpdate(vol.userId, { isVerified: true });
+      }
+    } else if (user) {
+      vol = await Volunteer.findOneAndUpdate(
+        { userId: user._id },
+        { isVerified: true, availabilityStatus: 'available' },
+        { upsert: true, new: true }
+      );
+    }
+
     res.json({ success: true, message: 'Volunteer verified successfully', volunteer: vol });
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
 module.exports = { getVolunteerProfile, updateVolunteerProfile, updateAvailability, getAllVolunteers, verifyVolunteer };
+
