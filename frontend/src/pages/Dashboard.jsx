@@ -2581,10 +2581,11 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                         </button>
                         <button 
                           className="btn btn-outline" 
-                          style={{ flex: 1, padding: '0.85rem' }} 
-                          onClick={handlePassSOS}
+                          style={{ flex: 1, padding: '0.85rem', borderColor: 'var(--amber)', color: 'var(--amber-dark, #b45309)', fontWeight: 700, fontSize: '0.82rem' }} 
+                          onClick={() => handlePassSOS(false)}
+                          title="Pass to the next closest registered volunteer in your locality"
                         >
-                          Pass
+                          ⏩ Pass / Not Available
                         </button>
                       </div>
                     </div>
