@@ -208,8 +208,17 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
     });
   };
 
-  // Proactive Live GPS capture on Dashboard initialization
+  // Proactive Live GPS capture & Notification permission on Dashboard initialization
   useEffect(() => {
+    // 🔔 Request Live System & Push Notification Permission
+    if (api.requestNotificationPermission) {
+      api.requestNotificationPermission().then(permission => {
+        if (permission === 'granted') {
+          console.log('✓ Live OS-level notification permissions granted');
+        }
+      });
+    }
+
     if (api.syncLiveLocation) {
       api.syncLiveLocation(currentRole).then(coords => {
         if (coords && currentRole === 'volunteer') {
@@ -343,6 +352,23 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
 
       setSosState(prev => {
+        // If a new emergency just appeared and volunteer was not notified
+        if (liveSos && (!prev || prev.id !== liveSos.id)) {
+          if (currentRole === 'volunteer' && isUnaccepted) {
+            api.sendLivePushNotification({
+              title: '🚨 INCOMING CITIZEN SOS!',
+              body: `Emergency at ${liveSos.address || 'nearby location'}. Tap to review and respond immediately!`,
+              tag: 'vol-alert-' + liveSos.id
+            });
+          } else if (currentRole === 'hospital') {
+            api.sendLivePushNotification({
+              title: '🚨 Hospital ER: New Emergency Alert',
+              body: `New emergency logged for patient ${liveSos.patientName || 'Citizen'}. Review live GPS radar.`,
+              tag: 'hosp-alert-' + liveSos.id
+            });
+          }
+        }
+
         // If status just became accepted, trigger chime
         if (liveSos && (liveSos.status === 'accepted' || liveSos.status === 'assigned') && (!prev || (prev.status !== 'accepted' && prev.status !== 'assigned'))) {
           playAcceptedChime();

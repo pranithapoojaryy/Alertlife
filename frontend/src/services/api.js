@@ -136,6 +136,55 @@ export const api = {
     }
   },
 
+  // 🔔 Live System / Push Notification Requester & Dispatcher (works even if app is backgrounded/minimized)
+  requestNotificationPermission: async () => {
+    if (!('Notification' in window)) return 'unsupported';
+    try {
+      let permission = Notification.permission;
+      if (permission === 'default') {
+        permission = await Notification.requestPermission();
+      }
+      return permission;
+    } catch {
+      return 'denied';
+    }
+  },
+
+  sendLivePushNotification: async ({ title, body, icon, tag, data }) => {
+    try {
+      if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+      }
+
+      // Check for Active ServiceWorker Registration for persistent OS-level push notifications
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration && registration.showNotification) {
+          registration.showNotification(title || '🚨 Alert Life System', {
+            body: body || 'Emergency action taken.',
+            icon: icon || '/favicon.svg',
+            badge: '/favicon.svg',
+            tag: tag || 'alertlife-live-' + Date.now(),
+            renotify: true,
+            requireInteraction: true,
+            vibrate: [350, 150, 350, 250, 500],
+            data: data || { url: window.location.href }
+          });
+          return;
+        }
+      }
+
+      // Fallback to Native Notification constructor
+      new Notification(title || '🚨 Alert Life System', {
+        body: body || 'Emergency action taken.',
+        icon: icon || '/favicon.svg',
+        tag: tag || 'alertlife-live-' + Date.now()
+      });
+    } catch (e) {
+      console.warn('Notification trigger info:', e.message);
+    }
+  },
+
   // Auth & Session
   login: async (identifier, password, currentRole = 'citizen') => {
     try {
@@ -477,6 +526,14 @@ export const api = {
     db.activeSOS = newSOS;
     saveLocalDB(db);
     window.dispatchEvent(new Event('alertlife_storage_update'));
+
+    // 🔔 Send Live Notification: Alert Citizen and Network
+    api.sendLivePushNotification({
+      title: '🚨 Citizen SOS Broadcasted!',
+      body: `Emergency alert dispatched for ${patientName}. Nearby volunteers & Hospital ER notified with live tracking.`,
+      tag: 'sos-triggered-' + (newSOS.id || Date.now())
+    });
+
     return newSOS;
   },
 
@@ -518,6 +575,13 @@ export const api = {
       }
       saveLocalDB(db);
       window.dispatchEvent(new Event('alertlife_storage_update'));
+
+      // 🔔 Send Live Notification: Emergency Cascaded to next volunteer
+      api.sendLivePushNotification({
+        title: '⚠️ SOS Request Passed to Next Responder',
+        body: `Emergency passed: Next nearest volunteer (${db.activeSOS.volunteerName}) has been alerted.`,
+        tag: 'sos-passed-' + (db.activeSOS.id || Date.now())
+      });
     }
     return result || { success: true, nextVolunteer: db.activeSOS };
   },
@@ -543,6 +607,21 @@ export const api = {
         } catch (e) {
           console.warn('Backend status update note:', e.message);
         }
+      }
+
+      // 🔔 Send Live Notification based on status update
+      if (updates.status === 'accepted') {
+        api.sendLivePushNotification({
+          title: '✅ SOS Request Accepted!',
+          body: `First Responder ${updates.volunteerName || 'Volunteer'} is on the way to the citizen location.`,
+          tag: 'sos-accepted-' + (db.activeSOS.id || Date.now())
+        });
+      } else if (updates.status === 'arrived') {
+        api.sendLivePushNotification({
+          title: '📍 First Responder Arrived On Scene',
+          body: `${db.activeSOS.volunteerName || 'Volunteer'} has reached the patient. First aid in progress.`,
+          tag: 'sos-arrived-' + (db.activeSOS.id || Date.now())
+        });
       }
     }
     return db.activeSOS;
@@ -920,6 +999,14 @@ export const api = {
 
     saveLocalDB(db);
     window.dispatchEvent(new Event('alertlife_storage_update'));
+
+    // 🔔 Send Live Notification: Volunteer Account Approved
+    api.sendLivePushNotification({
+      title: '🎉 Volunteer Credentials Approved!',
+      body: 'Your responder profile has been verified by Administration. You are now ON DUTY and ready for emergency dispatches.',
+      tag: 'vol-approved-' + (volId || Date.now())
+    });
+
     return true;
   },
 
@@ -1145,6 +1232,13 @@ export const api = {
       };
       saveLocalDB(db);
       window.dispatchEvent(new Event('alertlife_storage_update'));
+
+      // 🔔 Send Live Notification: Ambulance Dispatched
+      api.sendLivePushNotification({
+        title: '🚑 Ambulance Unit Dispatched!',
+        body: `Unit ${dispatchData.vehicleNumber || 'ER Ambulance'} (${dispatchData.driverName || 'Lead EMT'}) dispatched with ETA ${dispatchData.eta || '6 mins'}.`,
+        tag: 'ambulance-dispatched-' + (db.activeSOS.id || Date.now())
+      });
     }
     return true;
   },
