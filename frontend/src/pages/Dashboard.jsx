@@ -105,6 +105,8 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
   // Awareness Publishing for Volunteers & Admins
   const [awarenessMediaFilter, setAwarenessMediaFilter] = useState('all');
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [newWebinar, setNewWebinar] = useState({ title: '', speaker: '', date: '' });
+  const [newArticle, setNewArticle] = useState({ title: '', content: '' });
   const [newPublish, setNewPublish] = useState({
     title: '',
     category: 'Camp Awareness',
