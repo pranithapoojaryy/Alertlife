@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://alertlife-nw5j.onrender.com/api';
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE_URL = isLocalhost 
+  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5005/api')
+  : (import.meta.env.VITE_PROD_API_BASE_URL || 'https://alertlife-nw5j.onrender.com/api');
 
 const client = axios.create({
   baseURL: API_BASE_URL,
