@@ -2,38 +2,44 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 
 function App() {
-  // Helper to read the current role from environment variables, URL pathname, or query params
+  // Helper to read the current role from environment variables, hostname, URL pathname, or query params
   const getPortalRole = () => {
     // 1. Check Vite Environment Variable (for separate Vercel project deployments)
     if (import.meta.env.VITE_PORTAL) {
       const envRole = import.meta.env.VITE_PORTAL.toLowerCase();
-      if (envRole === 'volunteer' || envRole === 'hospital' || envRole === 'admin' || envRole === 'citizen') {
+      if (['volunteer', 'hospital', 'admin', 'citizen'].includes(envRole)) {
         return envRole;
       }
     }
-    // 2. Check URL pathname (e.g. /volunteer, /hospital or /admin)
+    // 2. Check Hostname (e.g. alertlife-volunteer.vercel.app, alertlife-hospital.vercel.app, alertlife-admin.vercel.app)
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname.includes('volunteer')) return 'volunteer';
+    if (hostname.includes('hospital')) return 'hospital';
+    if (hostname.includes('admin')) return 'admin';
+
+    // 3. Check URL pathname (e.g. /volunteer, /hospital or /admin)
     const pathname = window.location.pathname.toLowerCase();
     if (pathname.includes('volunteer')) return 'volunteer';
     if (pathname.includes('hospital')) return 'hospital';
     if (pathname.includes('admin')) return 'admin';
-    // 3. Fallback to URL search query (?portal=volunteer, ?portal=hospital, ?portal=admin)
+
+    // 4. Fallback to URL search query (?portal=volunteer, ?portal=hospital, ?portal=admin)
     const params = new URLSearchParams(window.location.search);
-    const portal = params.get('portal') || '';
-    if (portal.toLowerCase() === 'volunteer') return 'volunteer';
-    if (portal.toLowerCase() === 'hospital') return 'hospital';
-    if (portal.toLowerCase() === 'admin') return 'admin';
+    const portal = (params.get('portal') || '').toLowerCase();
+    if (['volunteer', 'hospital', 'admin', 'citizen'].includes(portal)) return portal;
+
     return 'citizen'; // Default portal
   };
 
-  const currentRole = getPortalRole();
-
+  const [selectedRole, setSelectedRole] = useState(getPortalRole);
   const [user, setUser] = useState(() => {
+    const activeRole = getPortalRole();
     const saved = localStorage.getItem('user_session');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email) {
-          return { ...parsed, role: parsed.role || currentRole };
+          return { ...parsed, role: activeRole || parsed.role || 'citizen' };
         }
       } catch {
         localStorage.removeItem('user_session');
@@ -42,10 +48,13 @@ function App() {
     return null; // Require login/signup before opening Dashboard
   });
 
+  const currentRole = user?.role || selectedRole;
+
   // Listen to browser navigation and popstate to instantly sync portal
   useEffect(() => {
     const handleLocationChange = () => {
       const activeRole = getPortalRole();
+      setSelectedRole(activeRole);
       setUser(prev => {
         if (!prev) return null;
         return { ...prev, role: activeRole };
@@ -57,13 +66,20 @@ function App() {
 
   // Dynamically update Tab Icon, Apple Touch Icon, and Title in React DOM
   useEffect(() => {
-    const isVol = user?.role === 'volunteer';
-    const isHosp = user?.role === 'hospital';
-    const iconHref = isVol ? '/volunteer-icon.svg' : isHosp ? '/favicon.svg' : '/favicon.svg';
+    const isVol = currentRole === 'volunteer';
+    const isHosp = currentRole === 'hospital';
+    const isAdmin = currentRole === 'admin';
+    const iconHref = isVol ? '/volunteer-icon.svg' : '/favicon.svg';
     const manifestHref = isVol ? '/manifest-volunteer.json' : '/manifest.json';
-    const themeColor = isVol ? '#10b981' : isHosp ? '#ef4444' : '#6366f1';
+    const themeColor = isVol ? '#10b981' : isHosp ? '#ef4444' : isAdmin ? '#8b5cf6' : '#6366f1';
     
-    document.title = isVol ? 'Alert Responder - Volunteer First Responder' : isHosp ? 'Alert ER - Hospital & Ambulance Dispatch Console' : 'Alert Life - Emergency SOS';
+    document.title = isVol 
+      ? 'Alert Responder - Volunteer First Responder' 
+      : isHosp 
+      ? 'Alert ER - Hospital & Ambulance Dispatch Console' 
+      : isAdmin 
+      ? 'Alert Command - Emergency Admin Console' 
+      : 'Alert Life - Emergency SOS';
 
     const favicons = document.querySelectorAll("link[rel*='icon']");
     favicons.forEach(el => el.setAttribute('href', iconHref));
@@ -73,7 +89,7 @@ function App() {
 
     const metaTheme = document.querySelector("meta[name='theme-color']");
     if (metaTheme) metaTheme.setAttribute('content', themeColor);
-  }, [user?.role]);
+  }, [currentRole]);
 
   const [authView, setAuthView] = useState('login'); // login or register
   const [loginEmail, setLoginEmail] = useState('');
@@ -91,13 +107,15 @@ function App() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const switchPortal = (newRole) => {
-    const newUserData = {
-      name: newRole === 'volunteer' ? 'David Miller' : newRole === 'hospital' ? 'City Care Medical Center' : newRole === 'admin' ? 'Dr. Sarah Desk' : 'Jane Citizen',
-      email: newRole === 'volunteer' ? 'david@alertlife.org' : newRole === 'hospital' ? 'er@citycare.org' : newRole === 'admin' ? 'admin@alertlife.org' : 'jane@alertlife.com',
-      role: newRole
-    };
-    localStorage.setItem('user_session', JSON.stringify(newUserData));
-    setUser(newUserData);
+    setSelectedRole(newRole);
+    setError('');
+    setSuccessMsg('');
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, role: newRole };
+      localStorage.setItem('user_session', JSON.stringify(updated));
+      return updated;
+    });
     const url = new URL(window.location);
     url.searchParams.set('portal', newRole);
     window.history.pushState({}, '', url);
@@ -213,16 +231,16 @@ function App() {
 
   // Helper for text headers based on the active portal URL
   const getPortalInfo = () => {
-    if (user?.role === 'volunteer' || currentRole === 'volunteer') {
-      return { title: 'Volunteer Network', subtitle: 'First Responder Dispatch App' };
+    if (currentRole === 'volunteer') {
+      return { title: 'Volunteer Network', subtitle: 'First Responder Dispatch App', icon: '🟢', badge: 'Certified First Responder' };
     }
-    if (user?.role === 'hospital' || currentRole === 'hospital') {
-      return { title: 'Hospital ER Desk', subtitle: 'Ambulance & Emergency Response Dispatch Portal' };
+    if (currentRole === 'hospital') {
+      return { title: 'Hospital ER Desk', subtitle: 'Ambulance & Emergency Response Dispatch Portal', icon: '🏥', badge: 'Emergency Department' };
     }
-    if (user?.role === 'admin' || currentRole === 'admin') {
-      return { title: 'Admin Console', subtitle: 'Emergency Response Management Site' };
+    if (currentRole === 'admin') {
+      return { title: 'Admin Console', subtitle: 'Emergency Response Management Site', icon: '🛡️', badge: 'System Administration' };
     }
-    return { title: 'Alert Life', subtitle: 'Citizen Emergency SOS PWA' };
+    return { title: 'Alert Life', subtitle: 'Citizen Emergency SOS PWA', icon: '🚨', badge: 'Public Safety' };
   };
 
   const portalInfo = getPortalInfo();
@@ -231,8 +249,89 @@ function App() {
     return (
       <div className="mobile-auth-container">
         <div className="mobile-auth-card">
+          {/* Portal Selector Tabs */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(4, 1fr)', 
+            gap: '0.35rem', 
+            marginBottom: '1.25rem', 
+            background: 'rgba(255, 255, 255, 0.05)', 
+            padding: '4px', 
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+            <button 
+              type="button" 
+              onClick={() => switchPortal('citizen')}
+              style={{
+                padding: '0.5rem 0.2rem',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: currentRole === 'citizen' ? 'var(--primary, #6366f1)' : 'transparent',
+                color: currentRole === 'citizen' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                transition: 'all 0.2s'
+              }}
+            >
+              🚨 Citizen
+            </button>
+            <button 
+              type="button" 
+              onClick={() => switchPortal('volunteer')}
+              style={{
+                padding: '0.5rem 0.2rem',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: currentRole === 'volunteer' ? 'var(--emerald, #10b981)' : 'transparent',
+                color: currentRole === 'volunteer' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                transition: 'all 0.2s'
+              }}
+            >
+              🟢 Volunteer
+            </button>
+            <button 
+              type="button" 
+              onClick={() => switchPortal('hospital')}
+              style={{
+                padding: '0.5rem 0.2rem',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: currentRole === 'hospital' ? 'var(--red, #ef4444)' : 'transparent',
+                color: currentRole === 'hospital' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                transition: 'all 0.2s'
+              }}
+            >
+              🏥 Hospital
+            </button>
+            <button 
+              type="button" 
+              onClick={() => switchPortal('admin')}
+              style={{
+                padding: '0.5rem 0.2rem',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: currentRole === 'admin' ? '#8b5cf6' : 'transparent',
+                color: currentRole === 'admin' ? '#fff' : 'var(--text-secondary, #94a3b8)',
+                transition: 'all 0.2s'
+              }}
+            >
+              🛡️ Admin
+            </button>
+          </div>
+
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <span style={{ fontSize: '3rem' }}>🚨</span>
+            <span style={{ fontSize: '3rem' }}>{portalInfo.icon}</span>
             <h2 style={{ fontSize: '1.75rem', marginTop: '0.5rem' }}>{portalInfo.title}</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{portalInfo.subtitle}</p>
           </div>

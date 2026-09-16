@@ -10,8 +10,15 @@
     <title>Alert Life - Emergency SOS</title>
     <script>
       try {
+        var hostname = window.location.hostname.toLowerCase();
         var params = new URLSearchParams(window.location.search);
-        var isVolunteer = params.get('portal') === 'volunteer' || window.location.pathname.indexOf('volunteer') !== -1;
+        var pathname = window.location.pathname.toLowerCase();
+        var portal = (params.get('portal') || '').toLowerCase();
+
+        var isVolunteer = hostname.indexOf('volunteer') !== -1 || pathname.indexOf('volunteer') !== -1 || portal === 'volunteer';
+        var isHospital = hostname.indexOf('hospital') !== -1 || pathname.indexOf('hospital') !== -1 || portal === 'hospital';
+        var isAdmin = hostname.indexOf('admin') !== -1 || pathname.indexOf('admin') !== -1 || portal === 'admin';
+
         if (isVolunteer) {
           document.title = 'Alert Responder - Volunteer First Responder';
           var favicon = document.getElementById('app-favicon') || document.querySelector("link[rel~='icon']");
@@ -20,6 +27,14 @@
           if (manifest) manifest.href = '/manifest-volunteer.json';
           var themeColor = document.getElementById('app-theme-color') || document.querySelector("meta[name='theme-color']");
           if (themeColor) themeColor.setAttribute('content', '#10b981');
+        } else if (isHospital) {
+          document.title = 'Alert ER - Hospital & Ambulance Dispatch';
+          var themeColor = document.getElementById('app-theme-color') || document.querySelector("meta[name='theme-color']");
+          if (themeColor) themeColor.setAttribute('content', '#ef4444');
+        } else if (isAdmin) {
+          document.title = 'Alert Command - Emergency Admin Console';
+          var themeColor = document.getElementById('app-theme-color') || document.querySelector("meta[name='theme-color']");
+          if (themeColor) themeColor.setAttribute('content', '#8b5cf6');
         }
       } catch(e) {
         console.warn('Portal initialization script safe pass:', e);
