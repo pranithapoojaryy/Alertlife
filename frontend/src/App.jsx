@@ -31,38 +31,23 @@ function App() {
     return 'citizen'; // Default portal
   };
 
-  const [selectedRole, setSelectedRole] = useState(getPortalRole);
+  const currentRole = getPortalRole();
+
   const [user, setUser] = useState(() => {
-    const activeRole = getPortalRole();
-    const saved = localStorage.getItem('user_session');
+    const sessionKey = `user_session_${currentRole}`;
+    const saved = localStorage.getItem(sessionKey) || localStorage.getItem('user_session');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email) {
-          return { ...parsed, role: activeRole || parsed.role || 'citizen' };
+          return { ...parsed, role: currentRole };
         }
       } catch {
-        localStorage.removeItem('user_session');
+        localStorage.removeItem(sessionKey);
       }
     }
     return null; // Require login/signup before opening Dashboard
   });
-
-  const currentRole = user?.role || selectedRole;
-
-  // Listen to browser navigation and popstate to instantly sync portal
-  useEffect(() => {
-    const handleLocationChange = () => {
-      const activeRole = getPortalRole();
-      setSelectedRole(activeRole);
-      setUser(prev => {
-        if (!prev) return null;
-        return { ...prev, role: activeRole };
-      });
-    };
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
 
   // Dynamically update Tab Icon, Apple Touch Icon, and Title in React DOM
   useEffect(() => {
@@ -106,21 +91,6 @@ function App() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const switchPortal = (newRole) => {
-    setSelectedRole(newRole);
-    setError('');
-    setSuccessMsg('');
-    setUser(prev => {
-      if (!prev) return null;
-      const updated = { ...prev, role: newRole };
-      localStorage.setItem('user_session', JSON.stringify(updated));
-      return updated;
-    });
-    const url = new URL(window.location);
-    url.searchParams.set('portal', newRole);
-    window.history.pushState({}, '', url);
-  };
-
   // Strictly Validate Exactly 10-Digit Mobile Number (starting with 6, 7, 8, 9)
   const isValidTenDigitPhone = (input) => {
     if (!input) return false;
@@ -159,9 +129,9 @@ function App() {
         email: loggedUser.email || (isEmail ? trimmedInput : `${trimmedInput.replace(/\D/g, '')}@alertlife.in`),
         phone: loggedUser.phone || (!isEmail ? trimmedInput : ''),
         name: loggedUser.name || trimmedInput.split('@')[0],
-        role: loggedUser.role || currentRole
+        role: currentRole
       };
-      localStorage.setItem('user_session', JSON.stringify(userData));
+      localStorage.setItem(`user_session_${currentRole}`, JSON.stringify(userData));
       setUser(userData);
       setError('');
     } catch (err) {
@@ -223,6 +193,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem(`user_session_${currentRole}`);
     localStorage.removeItem('user_session');
     setUser(null);
     setSuccessMsg('');
@@ -249,87 +220,6 @@ function App() {
     return (
       <div className="mobile-auth-container">
         <div className="mobile-auth-card">
-          {/* Portal Selector Tabs */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: '0.35rem', 
-            marginBottom: '1.25rem', 
-            background: 'rgba(255, 255, 255, 0.05)', 
-            padding: '4px', 
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <button 
-              type="button" 
-              onClick={() => switchPortal('citizen')}
-              style={{
-                padding: '0.5rem 0.2rem',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: currentRole === 'citizen' ? 'var(--primary, #6366f1)' : 'transparent',
-                color: currentRole === 'citizen' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-                transition: 'all 0.2s'
-              }}
-            >
-              🚨 Citizen
-            </button>
-            <button 
-              type="button" 
-              onClick={() => switchPortal('volunteer')}
-              style={{
-                padding: '0.5rem 0.2rem',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: currentRole === 'volunteer' ? 'var(--emerald, #10b981)' : 'transparent',
-                color: currentRole === 'volunteer' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-                transition: 'all 0.2s'
-              }}
-            >
-              🟢 Volunteer
-            </button>
-            <button 
-              type="button" 
-              onClick={() => switchPortal('hospital')}
-              style={{
-                padding: '0.5rem 0.2rem',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: currentRole === 'hospital' ? 'var(--red, #ef4444)' : 'transparent',
-                color: currentRole === 'hospital' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-                transition: 'all 0.2s'
-              }}
-            >
-              🏥 Hospital
-            </button>
-            <button 
-              type="button" 
-              onClick={() => switchPortal('admin')}
-              style={{
-                padding: '0.5rem 0.2rem',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: currentRole === 'admin' ? '#8b5cf6' : 'transparent',
-                color: currentRole === 'admin' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-                transition: 'all 0.2s'
-              }}
-            >
-              🛡️ Admin
-            </button>
-          </div>
-
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <span style={{ fontSize: '3rem' }}>{portalInfo.icon}</span>
             <h2 style={{ fontSize: '1.75rem', marginTop: '0.5rem' }}>{portalInfo.title}</h2>
