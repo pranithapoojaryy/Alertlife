@@ -53,7 +53,7 @@ const defaultState = {
   radius: 5.0
 };
 
-const DB_KEY = 'alertlife_db_v5';
+const DB_KEY = 'alertlife_db_v6';
 
 const getLocalDB = () => {
   const data = localStorage.getItem(DB_KEY);
