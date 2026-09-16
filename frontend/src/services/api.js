@@ -178,13 +178,44 @@ export const api = {
       }
 
       // Fallback to Native Notification constructor
-      new Notification(title || '🚨 Alert Life System', {
+      const notifInstance = new Notification(title || '🚨 Alert Life System', {
         body: body || 'Emergency action taken.',
         icon: icon || '/favicon.svg',
         tag: tag || 'alertlife-live-' + Date.now()
       });
+      if (typeof window !== 'undefined') {
+        if (!window.__alertlife_active_notifs) window.__alertlife_active_notifs = [];
+        window.__alertlife_active_notifs.push(notifInstance);
+      }
     } catch (e) {
       console.warn('Notification trigger info:', e.message);
+    }
+  },
+
+  dismissLivePushNotification: async (tagPrefix = 'cert-awarded') => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration && registration.getNotifications) {
+          const notifications = await registration.getNotifications();
+          notifications.forEach(n => {
+            if (!tagPrefix || (n.tag && n.tag.includes(tagPrefix))) {
+              n.close();
+            }
+          });
+        }
+      }
+      if (typeof window !== 'undefined' && window.__alertlife_active_notifs) {
+        window.__alertlife_active_notifs.forEach(n => {
+          try {
+            if (!tagPrefix || (n.tag && n.tag.includes(tagPrefix))) {
+              n.close();
+            }
+          } catch {}
+        });
+      }
+    } catch (err) {
+      console.warn('Error dismissing notification:', err);
     }
   },
 
