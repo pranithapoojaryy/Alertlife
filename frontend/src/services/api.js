@@ -1377,7 +1377,33 @@ export const api = {
   // 🎓 Volunteer Certificate Management (Per-Rescue and Overall Milestone Certificates)
   getVolunteerCertificates: () => {
     const db = getLocalDB();
-    return db.certificates || [];
+    let certs = db.certificates || [];
+    try {
+      const pool = JSON.parse(localStorage.getItem('alertlife_certificates_pool') || '[]');
+      if (Array.isArray(pool) && pool.length > 0) {
+        const map = new Map();
+        [...certs, ...pool].forEach(c => map.set(c.id, c));
+        certs = Array.from(map.values());
+      }
+    } catch {}
+
+    // If verified or active volunteer and no cert in storage, generate default First Responder Credential
+    if (certs.length === 0) {
+      const volName = db.volunteerProfile?.name || 'Rahul Sharma';
+      const initialCert = {
+        id: 'cert-init-01',
+        certType: 'milestone_bronze',
+        recipientName: volName,
+        title: '🎖️ Certified Emergency First Responder',
+        citation: 'Awarded in recognition of official registration, verified clinical training, and exemplary readiness in the Alert Life First Responder Network.',
+        issuedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        signedBy: 'Dr. S. Kulkarni (Chief Medical Director, Alert Life Network)'
+      };
+      certs = [initialCert];
+      db.certificates = certs;
+      saveLocalDB(db);
+    }
+    return certs;
   },
 
   issueCertificate: (certData) => {
@@ -1388,12 +1414,15 @@ export const api = {
       id: 'cert-' + Date.now(),
       issuedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       issuedTimestamp: new Date().toISOString(),
+      signedBy: 'Dr. S. Kulkarni (Chief Medical Director, Alert Life Network)',
       ...certData
     };
 
-    // Replace if same type & target exists or prepend
     db.certificates = [newCert, ...(db.certificates.filter(c => c.id !== newCert.id))];
     saveLocalDB(db);
+    try {
+      localStorage.setItem('alertlife_certificates_pool', JSON.stringify(db.certificates));
+    } catch {}
     window.dispatchEvent(new Event('alertlife_storage_update'));
 
     // 🔔 Send Live Notification: Certificate Awarded

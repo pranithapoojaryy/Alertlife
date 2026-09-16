@@ -482,6 +482,11 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
         if (data) setWebinars(data);
       });
 
+      // Continuous certificate sync
+      if (api.getVolunteerCertificates) {
+        setCertificates(api.getVolunteerCertificates() || []);
+      }
+
       // Sync members list for Admin
       if (currentRole === 'admin' || currentRole === 'hospital') {
         api.getMembers().then(data => setMembers(data || []));
