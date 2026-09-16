@@ -250,21 +250,29 @@ const updateEmergencyStatus = async (req, res) => {
 
 const acceptEmergency = async (req, res) => {
   try {
-    const { volunteerName, volunteerPhone, volunteerCert } = req.body;
+    const { volunteerName, volunteerPhone, volunteerCert, latitude, longitude } = req.body;
     const volunteerId = req.user ? req.user._id : (req.body.volunteerId || null);
+
+    const updateFields = {
+      status: 'assigned',
+      currentVolunteer: volunteerId,
+      volunteerDetails: {
+        name: volunteerName || 'Volunteer Responder',
+        phone: volunteerPhone || '',
+        certification: volunteerCert || 'Certified First Responder',
+        currentLocation: { latitude: latitude || 12.9352, longitude: longitude || 77.6245 }
+      },
+      $push: {
+        notes: {
+          author: volunteerName || 'Volunteer',
+          content: `Accepted by ${volunteerName || 'Volunteer Responder'}`
+        }
+      }
+    };
 
     const emergency = await EmergencyRequest.findByIdAndUpdate(
       req.params.id,
-      {
-        status: 'assigned',
-        currentVolunteer: volunteerId,
-        $push: {
-          notes: {
-            author: volunteerName || 'Volunteer',
-            content: `Accepted by ${volunteerName || 'Volunteer Responder'}`
-          }
-        }
-      },
+      updateFields,
       { new: true }
     );
 

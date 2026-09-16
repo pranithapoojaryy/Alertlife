@@ -269,6 +269,37 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
     };
 
+    // Melodic Accepted Chime: plays when volunteer accepts or citizen gets accepted confirmation
+    const playAcceptedChime = () => {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const now = audioCtx.currentTime;
+        // 3-note ascending cheerful chime (C5 = 523.25Hz, E5 = 659.25Hz, G5 = 783.99Hz, C6 = 1046.5Hz)
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+
+          gain.gain.setValueAtTime(0, now + idx * 0.12);
+          gain.gain.linearRampToValueAtTime(0.4, now + idx * 0.12 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(now + idx * 0.12);
+          osc.stop(now + idx * 0.12 + 0.36);
+        });
+      } catch {
+        // audio handling
+      }
+    };
+
     const startContinuousAlarm = () => {
       if (!window._alertlife_siren_interval) {
         playAmbulanceSiren();
@@ -312,6 +343,10 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
       }
 
       setSosState(prev => {
+        // If status just became accepted, trigger chime
+        if (liveSos && (liveSos.status === 'accepted' || liveSos.status === 'assigned') && (!prev || (prev.status !== 'accepted' && prev.status !== 'assigned'))) {
+          playAcceptedChime();
+        }
         if (JSON.stringify(prev) === JSON.stringify(liveSos)) {
           return prev;
         }
@@ -2251,6 +2286,51 @@ export default function Dashboard({ user = { name: '', email: '', role: 'citizen
                           </button>
                         </div>
                       </div>
+
+                      {/* Hospital ER Dispatched Ambulance Details & Live Sync for Volunteer */}
+                      {(sosState.ambulanceStatus === 'Dispatched' || sosState.ambulanceStatus === 'dispatched' || sosState.ambulanceDetails) && (
+                        <div className="card" style={{ border: '2px solid rgba(225, 29, 72, 0.4)', background: 'linear-gradient(180deg, rgba(244, 63, 94, 0.05) 0%, rgba(255,255,255,0.95) 100%)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.25rem' }}>🚑</span>
+                              <h3 className="card-title" style={{ margin: 0, color: 'var(--red-dark)' }}>Hospital Ambulance Unit Dispatched</h3>
+                            </div>
+                            <span className="badge badge-emerald" style={{ fontSize: '0.72rem', animation: 'pulse-avatar 1.5s infinite' }}>
+                              🟢 En Route to Scene
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', background: '#fff', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Vehicle Number:</span>
+                              <strong>{sosState.ambulanceDetails?.vehicleNumber || 'KA-01-ER-1088'}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Paramedic / Driver:</span>
+                              <strong>{sosState.ambulanceDetails?.driverName || 'Sunil Gowda (EMT-P)'}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Driver Contact:</span>
+                              <a href={`tel:${sosState.ambulanceDetails?.driverPhone || '+91 98450 11223'}`} style={{ color: 'var(--blue)', fontWeight: 700, textDecoration: 'none' }}>
+                                📞 {sosState.ambulanceDetails?.driverPhone || '+91 98450 11223'}
+                              </a>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem' }}>Estimated Arrival:</span>
+                              <strong style={{ color: 'var(--red)' }}>⏱️ {sosState.ambulanceDetails?.eta || sosState.ambulanceEta || '6 mins'}</strong>
+                            </div>
+                          </div>
+
+                          {/* Progress bar of ambulance */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
+                            <span>Ambulance Transit: <strong>{ambulanceNavProgress}%</strong></span>
+                            <span style={{ color: 'var(--text-secondary)' }}>Hospital ER Team synchronized</span>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${ambulanceNavProgress}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b, #e11d48)', transition: 'width 0.4s ease' }} />
+                          </div>
+                        </div>
+                      )}
 
                       {/* CPR Metronome & First Aid Rhythm Assistant */}
                       <div className="card" style={{ background: isCprActive ? 'rgba(244, 63, 94, 0.08)' : 'var(--bg-glass)' }}>

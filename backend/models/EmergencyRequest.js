@@ -19,15 +19,29 @@ const emergencyRequestSchema = new mongoose.Schema({
     default: 'other',
   },
   description: { type: String },
-  severity: { type: String, enum: ['critical', 'high', 'medium', 'low'], default: 'high' },
+  severity: { type: String, default: 'high' },
   status: {
     type: String,
-    enum: ['pending', 'assigned', 'in_progress', 'resolved', 'cancelled'],
+    enum: ['pending', 'assigned', 'in_progress', 'arrived', 'resolved', 'cancelled', 'closed'],
     default: 'pending',
   },
   currentVolunteer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  volunteerDetails: {
+    name: { type: String },
+    phone: { type: String },
+    certification: { type: String },
+    currentLocation: { latitude: Number, longitude: Number }
+  },
   declinedVolunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   assignedVolunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'VolunteerAssignment' }],
+  ambulanceStatus: { type: String, default: 'requested' },
+  ambulanceEta: { type: String, default: '6 mins' },
+  ambulanceDetails: {
+    vehicleNumber: { type: String },
+    driverName: { type: String },
+    driverPhone: { type: String },
+    hospitalName: { type: String }
+  },
   ambulanceRequest: { type: mongoose.Schema.Types.ObjectId, ref: 'AmbulanceRequest' },
   doctorConsultation: { type: mongoose.Schema.Types.ObjectId, ref: 'DoctorConsultation' },
   resolvedAt: { type: Date },
@@ -35,3 +49,4 @@ const emergencyRequestSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('EmergencyRequest', emergencyRequestSchema);
+
